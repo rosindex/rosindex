@@ -11,6 +11,16 @@ def make_remote_name(type, ns, repo)
   return [type, ns, repo].join("/")
 end
 
+class PackageVariant
+  def initialize
+    @repo = nil
+    @branch = nil
+    @distro = nil
+    @readme = nil
+    @manifest = nil
+  end
+end
+
 class GitScraper < Jekyll::Generator
   def generate(site)
     print("cwd: " + Dir.getwd + "\n")
@@ -19,14 +29,12 @@ class GitScraper < Jekyll::Generator
 
     # get the collection of repos
     repos = site.collections['repos']
-    #print("repos: " + repos.inspect + "\n")
 
-    # clone or update each repo
+    # update and extract data from each repo
     repos.docs.each do |repo|
-      # check if the repo is already cloned
-      local_path = File.join(checkout_path, repo.data['name'])
-
+      # create or open the repo
       g = nil
+      local_path = File.join(checkout_path, repo.data['name'])
       unless File.exist?(local_path)
         # initialize a new local repo
         print("initializing local repo: " + repo.data['name']+"\n")
@@ -69,30 +77,52 @@ class GitScraper < Jekyll::Generator
         branch_tail = branch.to_s.split('/')[-1]
         print(" - branch: " + branch.inspect + " "+branch_tail+"\n")
 
+        # get all branches for this distro (which aren't detached branches)
+        # TODO: handle detached branches more cleanly
         site.config['distro_tokens'].each do |distro|
-          if branch_tail.include? distro
+          if branch_tail.include? distro and not branch.to_s.include? 'detached'
             distro_branches[distro] << branch
           end
         end
       end
-      
-      # get README.md files from all branches
-
       print("distro branches: " + distro_branches.inspect + "\n")
-      
 
-      #site.pages << RepoPage.new(...)
+      # get README.md files from each distro (and forks)
+      readmes = Hash.new()
+      site.config['distro_tokens'].each do |distro|
+        branches = distro_branches[distro]
+        branches.each do |branch|
+          print("checking out "+branch.name+"\n")
+          g.checkout(branch)
+          readme_path = File.join(local_path,'README.md')
+
+          if File.exist?(readme_path)
+            print("distro "+distro+" has readme\n")
+          end
+        end
+      end
+
+      variants = Hash.new()
+
+      site.pages << RepoPage.new( site, site.source, File.join('r', repo.data['name']), variants)
     end
   end
 end
 
 class RepoPage < Jekyll::Page
-  def initialize(site, base, dir, name)
-    super(site, base, dir, name)
+  def initialize(site, base, dir, variants)
+    @site = site
+    @base = base
+    @dir = dir
+    @name = 'index.html'
+
+    self.process(@name)
+    self.read_yaml(File.join(base, '_layouts'),'repo.html')
     # clone (or update) git repo
     # for each ROSDISTRO-devel branch
     # list all ROS packages in the repo
     #site.pages << PackagePage.new(...)
+    self.data['variants'] = variants
   end
 end
 
