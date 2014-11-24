@@ -1,8 +1,10 @@
 ---
 layout: repo
-title: conman
+name: conman
+description: Orocos-Based Controller Manager
 permalink: repos/conman
 tags: [control, orocos, realtime, controller]
 instances:
-- {type: 'github', org: 'jbohren', repo: 'conman'}
+- {type: 'github', ns: 'jbohren', name: 'conman'}
+- {type: 'github', ns: 'RCPRG-ros-pkg', name: 'conman'}
 ---

@@ -10,6 +10,8 @@ forks.
 
 Repositories are described in YAML-annotated markdown files in the `_repos`
 directory. Each repo file describes one or more version-control repositories.
+Multiple repositories with different versionf of the code can be listed under
+`instances`.
 
 ```yaml
 layout: repo

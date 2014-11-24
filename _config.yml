@@ -12,3 +12,6 @@ github_username:  rosindex
 
 # Build settings
 markdown: kramdown
+checkout_path: _checkout
+collections:
+- repos
