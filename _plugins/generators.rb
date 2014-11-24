@@ -23,47 +23,63 @@ class GitScraper < Jekyll::Generator
 
     # clone or update each repo
     repos.docs.each do |repo|
-      # iterate over instances
+      # check if the repo is already cloned
+      local_path = File.join(checkout_path, repo.data['name'])
+
+      g = nil
+      unless File.exist?(local_path)
+        # initialize a new local repo
+        print("initializing local repo: " + repo.data['name']+"\n")
+        g = Git.init(local_path)
+      else
+        print("opening existing local repo: " + repo.data['name']+"\n")
+        # open existing local repo
+        g = Git.open(local_path)
+      end
+
+      # fetch all the instances
       repo.data['instances'].each do |instance|
         # create page for this repo
+        # TODO: deal with non-github types
         uri = github_uri(instance['ns'], instance['name'])
 
-        # check if the repo is already cloned
-        local_path = File.join(checkout_path, repo.data['name'])
-
-        g = nil
-        unless File.exist?(local_path)
-          # clone a new repo
-          print("initializing repo: " + repo.data['name']+"...\n")
-          g = Git.init(local_path)
-        else
-          g = Git.open(local_path)
-        end
-
-        # check if this remote exists
-        print("remotes: " + g.remotes.inspect + "\n")
-        remote_found = false
-        g.remotes.each do |remote|
-          print("remote: "+ (remote.to_s) +"\n")
-          if remote.url == uri
-            # if this remote exists, fetch it
-            print("fetching remote "+remote.inspect+" from: " + remote.url + "\n")
-            g.fetch(remote)
-            remote_found = true
+        # find the remote if it already exists
+        remote = nil
+        g.remotes.each do |r|
+          if r.url == uri
+            remote = r
           end
         end
 
         # add the remote if it isn't found
-        unless remote_found
-          new_remote_name = make_remote_name(instance['type'], instance['ns'], instance['name'])
-          print("adding remote "+new_remote_name+" from: " + uri + "\n")
-          remote = g.add_remote(new_remote_name, uri)
-          print("fetching remote "+remote.inspect+" from: " + remote.url + "\n")
-          g.fetch(remote)
+        if remote.nil?
+          remote_name = make_remote_name(instance['type'], instance['ns'], instance['name'])
+          print("adding remote "+remote_name+" from: " + uri + "\n")
+          remote = g.add_remote(remote_name, uri)
         end
 
+        # fetch the remote
+        print("fetching remote "+remote.inspect+" from: " + remote.url + "\n")
+        g.fetch(remote)
       end
 
+      # get branches corresponding to ros distros
+      distro_branches = Hash.new {|h,k| h[k]=[]}
+      g.branches.each do |branch|
+        branch_tail = branch.to_s.split('/')[-1]
+        print(" - branch: " + branch.inspect + " "+branch_tail+"\n")
+
+        site.config['distro_tokens'].each do |distro|
+          if branch_tail.include? distro
+            distro_branches[distro] << branch
+          end
+        end
+      end
+      
+      # get README.md files from all branches
+
+      print("distro branches: " + distro_branches.inspect + "\n")
+      
 
       #site.pages << RepoPage.new(...)
     end

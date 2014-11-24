@@ -15,3 +15,11 @@ markdown: kramdown
 checkout_path: _checkout
 collections:
 - repos
+
+# ROS distros to look for
+distro_tokens:
+  - 'fuerte'
+  - 'groovy'
+  - 'hydro'
+  - 'indigo'
+
