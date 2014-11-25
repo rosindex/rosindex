@@ -141,13 +141,13 @@ class GitScraper < Jekyll::Generator
         end
       end
 
-      site.pages << RepoPage.new( site, site.source, File.join('r', repo.data['name']), distro_variants)
+      site.pages << RepoPage.new( site, site.source, File.join('r', repo.data['name']), repo, distro_variants)
     end
   end
 end
 
 class RepoPage < Jekyll::Page
-  def initialize(site, base, dir, distro_variants)
+  def initialize(site, base, dir, repo, distro_variants)
     @site = site
     @base = base
     @dir = dir
@@ -159,6 +159,7 @@ class RepoPage < Jekyll::Page
     # for each ROSDISTRO-devel branch
     # list all ROS packages in the repo
     #site.pages << PackagePage.new(...)
+    self.data['repo'] =   repo
     self.data['distro_variants'] = distro_variants
   end
 end

@@ -4,10 +4,15 @@ layout: default
 
 <div class="container-fluid" style="margin:20px">
   <div class="row">
-    {% include distro_switch.html %}
+    <ol class="breadcrumb">
+      <li><a href="/">Home</a></li>
+      <li><a href="/repos">Repos</a></li>
+      <li class="active">{{ page.repo.name }}</li>
+    </ol>
   </div>
+
   <div class="row">
-    &nbsp;
+    {% include distro_switch.html %}
   </div>
   <div class="row">
     {% include repo_switch.html %}
@@ -19,6 +24,15 @@ layout: default
     <ul class="nav nav-tabs" id="contents">
       <!-- Current distros -->
       <li role="presentation" class="active"><a href="#readme">README</a></li>
+      <li role="presentation" class="disabled"><a href="#packages">
+        Packages
+      </a></li>
+      <li role="presentation" class="disabled"><a href="#repo-info">
+        Repository Info
+      </a></li>
+      <li role="presentation" class="disabled"><a href="#repo-info">
+        Related
+      </a></li>
     </ul>
   </div>
   <div class="row" style="margin: 20px">
