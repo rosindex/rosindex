@@ -2,4 +2,33 @@
 layout: default
 ---
 
-I'm a repo.
+<div class="container-fluid" style="margin:20px">
+  <div class="row">
+    {% include distro_switch.html %}
+  </div>
+  <div class="row">
+    &nbsp;
+  </div>
+  <div class="row">
+    <ul class="nav nav-tabs" id="contents">
+      <!-- Current distros -->
+      <li role="presentation" class="active"><a href="#readme">README</a></li>
+    </ul>
+  </div>
+  <div class="row" style="margin: 20px">
+    <div id="distro-switch-content" class="tab-content">
+    {% for variants in page.distro_variants %}
+      <div id="{{ variants[0] }}" class="tab-pane fade out">
+        {% for v in variants[1] %}
+          {{ v.readme_rendered }}
+        {% endfor %}
+        {% if variants[1].size == 0 %}
+          <p><em>No known version for {{variants[0]}}.</em></p>
+        {% endif %}
+      </div>
+    {% endfor %}
+  </div>
+  <div class="row">
+    &nbsp;
+  </div>
+</div>

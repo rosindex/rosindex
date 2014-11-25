@@ -1,0 +1,74 @@
+
+
+<div id="distro-switch" class="btn-group btn-group-justified" data-toggle="buttons">
+  {% for distro in site.distros %}
+    <label id="{{ distro }}-option" class="distro-button btn btn-xs btn-primary" href="#{{ distro }}" data="{{ distro }}">
+      <input type="radio" name="options" id="{{ distro }}-radio" autocomplete="off"> {{ distro }}
+    </label>
+  {% endfor %}
+
+  <!-- Older distros -->
+  <div class="btn-group dropdown">
+  <label type="button" class="btn btn-xs btn-primary dropdown-toggle" data-toggle="dropdown" id="older-distro-button">
+    <input type="radio" name="options" autocomplete="off">
+    <span id="older-label">Older</span>
+    <span class="caret"></span>
+  </label>
+  <ul class="dropdown-menu" role="menu">
+    {% for distro in site.old_distros %}
+      <li data="{{ distro }}" id="{{ distro }}-option" class="older-distro-option"  href="#{{ distro }}">
+      <a data="{{ distro }}" id="{{ distro }}-button">{{ distro }}</a>
+      </li>
+    {% endfor %}
+  </ul>
+</div>
+</div>
+
+<script>
+
+$(document).ready(function(){ 
+  $('#distro-switch label').click(function (e) {
+    console.log(e.target)
+    // get the distro and set the cookie
+    var distro = $('#'+e.target.id).attr('data');
+    console.log(distro);
+
+    if(distro) {
+      $(this).tab('show');
+      //$('.older-distro-button').removeClass('btn-primary');
+      console.log(this);
+      $('#older-distro-button').removeClass("active");
+      $('.older-distro-option').removeClass("active");
+      $('#older-label').text('Older');
+
+      $.cookie('rosdistro',distro);
+    }
+  })
+
+  $('#distro-switch a').click(function (e) {
+    // get the distro and set the cookie
+    var distro = $('#'+e.target.id).attr('data');
+    $.cookie('rosdistro',distro);
+    console.log(e.target)
+
+    $('#'+distro+'-option').tab('show');
+
+    console.log('#'+distro+'-option');
+    $('.distro-button').removeClass("active");
+    console.log($('.older-distro-option').not('#'+distro+'-option'))
+    $('.older-distro-option').not('#'+distro+'-option').removeClass("active");
+    $('#older-distro-button').addClass("active");
+    $('#'+distro+'-option').addClass('active');
+
+    $('#older-label').text(distro);
+  })
+
+  // set the distro based on cookie
+  var distro = $.cookie('rosdistro')
+  console.log("preferring "+distro+" distro");
+  $('#'+distro+'-option').tab('show');
+  $('#'+distro+'-option').addClass('active');
+  $('#'+distro+'-button').trigger("click");
+});
+
+</script>
