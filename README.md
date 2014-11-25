@@ -37,3 +37,20 @@ list. This sets a client-side cookie which will persist.
 ```
 jekyll build
 ```
+
+## Deployment
+
+Since this needs to do a lot of heavy lifting to generate the site, it needs to
+be deployed from a fully-equipped environment.
+
+```
+git checkout source
+jekyll build
+git branch -D master
+git checkout -b master
+git add -f _site
+git filter-branch --subdirectory-filter _site/ -f
+git checkout source
+git push -f --all origin
+```
+
