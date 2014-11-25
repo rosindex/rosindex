@@ -1,12 +1,13 @@
 ROS Index
 =========
 
-A simple index for known ROS packages on GitHub. It builds in jekyll
-with a plugin to pull down information from github, and uses client-side
-javascript to fetch additional information from GitHub like open tickets and
-forks.
+A simple index for known ROS packages on GitHub. It builds in jekyll with a
+plugin to pull down information from github, and uses client-side javascript to
+fetch additional information from GitHub like open tickets and forks.
 
-## Repositories
+## Contributing
+
+### Repositories
 
 Repositories are described in YAML-annotated markdown files in the `_repos`
 directory. Each repo file describes one or more version-control repositories.
@@ -22,11 +23,17 @@ instances:
 - {type: 'github', org: 'jbohren', repo: 'conman', tut:'doc/tutorials' }
 ```
 
-## Versioning
+## Presentation
+
+### Versioning
 
 The user selects the rosdistro they're interested in from a global drop-down
 list. This sets a client-side cookie which will persist.
 
-## Tutorials
+### Tutorials
 
+## Building
 
+```
+jekyll build
+```

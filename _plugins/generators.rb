@@ -76,6 +76,9 @@ class GitScraper < Jekyll::Generator
         # open existing local repo
         g = Git.open(local_path)
       end
+      
+      # get branches corresponding to ros distros
+      distro_variants = Hash.new {|h,k| h[k]=[]}
 
       # fetch all the instances
       repo.data['instances'].each do |instance|
@@ -102,9 +105,6 @@ class GitScraper < Jekyll::Generator
         print("fetching remote "+remote.inspect+" from: " + remote.url + "\n")
         g.fetch(remote)
       end
-
-      # get branches corresponding to ros distros
-      distro_variants = Hash.new {|h,k| h[k]=[]}
 
       g.branches.each do |branch|
         branch_tail = branch.to_s.split('/')[-1]
