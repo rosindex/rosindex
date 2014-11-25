@@ -41,14 +41,14 @@ $(document).ready(function(){
       $('.older-distro-option').removeClass("active");
       $('#older-label').text('Older');
 
-      $.cookie('rosdistro',distro);
+      $.cookie('rosdistro',distro, {path: '/'});
     }
   })
 
   $('#distro-switch a').click(function (e) {
     // get the distro and set the cookie
     var distro = $('#'+e.target.id).attr('data');
-    $.cookie('rosdistro',distro);
+    $.cookie('rosdistro',distro, {path: '/'});
     console.log(e.target)
 
     $('#'+distro+'-option').tab('show');
