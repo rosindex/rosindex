@@ -1,0 +1,25 @@
+<div class="well well-sm">
+  <table class="table-condensed">
+    <tbody>
+      <tr>
+        <!--<td><span class="pull-right">description</span></td>-->
+        <td>
+          <h4>{{ page.repo.name }} <small>{{ page.repo.description }}</small></h4>
+          {% for tag in page.repo.tags %}<span class="label label-default">{{ tag }}</span> {% endfor %}
+        </td>
+      </tr>
+      {% if page.instance %}
+        <tr>
+          <td>{% include instance_switch.html %}</td>
+        </tr>
+      {% endif %}
+      {% if page.available_distros %}
+        <tr>
+          <td>
+            {% include distro_switch.html %}
+          </td>
+        </tr>
+      {% endif %}
+    </tbody>
+  </table>
+</div>

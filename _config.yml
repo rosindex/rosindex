@@ -9,7 +9,7 @@ url: "http://yourdomain.com" # the base hostname & protocol for your site
 github_username:  rosindex
 
 # Build settings
-markdown: kramdown
+markdown: redcarpet
 checkout_path: /tmp/rosindex/checkout
 collections:
 - repos

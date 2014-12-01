@@ -10,13 +10,16 @@ layout: default
     </ol>
   </div>
   <div class="row">
-    <h1>{{ page.title }}</h1>
-    <p>
-    <ul>
-      {% for repo in site.collections.repos.docs %}
-        <li><a href="/r/{{repo.name}}">{{ repo.name }}</a> -- {{ repo.description }}</li>
-      {% endfor %}
-    </ul>
-    </p>
+    <div class="panel panel-default">
+      <div class="panel-heading"><h3 class="panel-title">Repositories</h3></div>
+        <table class="table table-condensed table-striped table-hover">
+          {% for repo in site.collections.repos.docs %}
+            <tr>
+              <td><a href="/r/{{repo.name}}">{{ repo.name }}</a></td>
+              <td>{{ repo.description }}</td>
+            </tr>
+          {% endfor %}
+        </table>
+    </div>
   </div>
 </div>

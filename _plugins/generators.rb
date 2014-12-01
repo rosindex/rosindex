@@ -6,6 +6,7 @@ require 'fileutils'
 require 'find'
 require 'rexml/document'
 require 'rexml/xpath'
+require 'nokogiri'         
 
 def render_md(site, readme)
   mkconverter = site.getConverterImpl(Jekyll::Converters::Markdown)
@@ -22,7 +23,7 @@ end
 
 class GitScraper < Jekyll::Generator
   def generate(site)
-    print("site: "+site.inspect+"\n")
+    #print("site: "+site.inspect+"\n")
     print("cwd: " + Dir.getwd + "\n")
     checkout_path = site.config['checkout_path']
     print("checkout path: " + checkout_path + "\n")
@@ -51,8 +52,7 @@ class GitScraper < Jekyll::Generator
       end
 
       # get branches corresponding to ros distros
-      distro_variants = Hash.new {|h,k| h[k]=[]}
-      repo_variants = Hash.new {|h,k| h[k]=[]}
+      instances = Hash.new {|h,k| h[k]=[]}
 
       # fetch all the instances
       repo.data['instances'].each do |instance_name, instance|
@@ -78,9 +78,10 @@ class GitScraper < Jekyll::Generator
         print(" - fetching remote "+instance_name+" from: " + remote.url + "\n")
         g.fetch(remote)
 
-        # add this remote to the repo variants dict
-        repo_variants[instance_name] = {
+        # add this remote to the repo instances dict
+        instances[instance_name] = {
           'repo' => repo,
+          'name' => instance_name,
           'uri' => uri,
           'distros' => {}
         }
@@ -95,29 +96,30 @@ class GitScraper < Jekyll::Generator
           next
         end
 
-        branch_remote_name = branch.to_s.split('/')[1]
-        branch_short_name = branch.to_s.split('/')[-1]
+        instance_name = branch.to_s.split('/')[1]
+        branch_name = branch.to_s.split('/')[-1]
 
-        instance = repo.data['instances'][branch_remote_name]
+        instance = repo.data['instances'][instance_name]
         #print('branch: '+branch.to_s+' instance: '+instance.inspect)
 
-        #print(' - remote name: '+branch_remote_name+"\n")
-        #print(' - short name: '+branch_short_name+"\n")
+        #print(' - remote name: '+instance_name+"\n")
+        #print(' - short name: '+branch_name+"\n")
 
+        # initialize branch info struct
         branch_info = {
-          'name' => branch_short_name,
+          'name' => branch_name,
           'packages' => {}}
 
-        # determine which variant to add it to
+        # determine which instance to add it to
         all_distros.each do |distro|
 
           custom_branch = false
-          if instance.has_key?('distro_branches') and instance['distro_branches'].has_key?(distro) and instance['distro_branches'][distro] == branch_short_name
+          if instance.has_key?('distro_branches') and instance['distro_branches'].has_key?(distro) and instance['distro_branches'][distro] == branch_name
             print('custom branch for '+distro+': '+branch.to_s)
             custom_branch = true
           end
 
-          if branch_short_name.include? distro or custom_branch
+          if branch_name.include? distro or custom_branch
 
             # get README.md files from each distro (and forks)
             print(" - checking out "+branch.to_s+"\n")
@@ -128,7 +130,19 @@ class GitScraper < Jekyll::Generator
             if File.exist?(readme_path)
               print(" - distro "+distro+" has readme\n")
               readme = IO.read(readme_path)
-              branch_info['readme_rendered'] = render_md(site, readme)
+              readme_html = render_md(site, readme)
+              readme_html = '<div class="rendered-markdown">'+readme_html+"</div>"
+
+              # fix image links
+              readme_doc = Nokogiri::HTML(readme_html)
+              readme_doc.xpath("//img[@src]").each() do |el|
+                print('img: '+el['src'].to_s)
+                unless el['src'].start_with?('http')
+                  el['src'] = ('https://raw.githubusercontent.com/%s/%s/%s/' % [instance['ns'], instance['name'], branch_name])+el['src']
+                end
+              end
+
+              branch_info['readme_rendered'] = readme_doc.to_s
             else
               branch_info['readme_rendered'] = render_md(
                 site,
@@ -151,10 +165,10 @@ class GitScraper < Jekyll::Generator
                   package_xml = IO.read(path)
                   package_doc = REXML::Document.new(package_xml)
                   package_info = {
-                    'name' => REXML::XPath.first(package_doc, "/package/name/text()"),
-                    'version' => REXML::XPath.first(package_doc, "/package/version/text()"),
-                    'license' => REXML::XPath.first(package_doc, "/package/license/text()"),
-                    'description' => REXML::XPath.first(package_doc, "/package/description/text()")
+                    'name' => REXML::XPath.first(package_doc, "/package/name/text()").to_s,
+                    'version' => REXML::XPath.first(package_doc, "/package/version/text()").to_s,
+                    'license' => REXML::XPath.first(package_doc, "/package/license/text()").to_s,
+                    'description' => REXML::XPath.first(package_doc, "/package/description/text()").to_s
                   }
                   #print(package_info.to_s+"\n\n")
 
@@ -164,24 +178,47 @@ class GitScraper < Jekyll::Generator
             end
 
             # store this branch info
-            repo_variants[branch_remote_name]['distros'][distro] = branch_info
+            instances[instance_name]['distros'][distro] = branch_info
           end
         end
       end
 
-      # create the actual page
+      # create the actual pages
+      print("creating pages...\n")
+
       site.pages << RepoPage.new(
         site,
         site.source,
         File.join('r', repo.data['name']),
         repo,
-        repo_variants)
+        instances)
+
+      instances.each do |instance_name, instance|
+
+        site.pages << RepoInstancePage.new(
+          site,
+          site.source,
+          File.join('r', repo.data['name'], instance_name),
+          repo,
+          instances,
+          instance)
+
+
+        #all_distros.each do |distro|
+          #site.pages << RepoInstanceDistroPage.new(
+            #site,
+            #site.source,
+            #File.join('r', repo.data['name'], instance_name, distro),
+            #repo,
+            #if instance['distros'].has_key?(distro) then instance['distros'][distro] else nil end)
+        #end
+      end
     end
   end
 end
 
 class RepoPage < Jekyll::Page
-  def initialize(site, base, dir, repo, repo_variants)
+  def initialize(site, base, dir, repo, instances)
     @site = site
     @base = base
     @dir = dir
@@ -189,12 +226,44 @@ class RepoPage < Jekyll::Page
 
     self.process(@name)
     self.read_yaml(File.join(base, '_layouts'),'repo.html')
+    self.data['repo'] = repo
+    self.data['instances'] = instances
+  end
+end
+
+class RepoInstancePage < Jekyll::Page
+  def initialize(site, base, dir, repo, instances, instance)
+    @site = site
+    @base = base
+    @dir = dir
+    @name = 'index.html'
+
+    self.process(@name)
+    self.read_yaml(File.join(base, '_layouts'),'repo_instance.html')
     # clone (or update) git repo
     # for each ROSDISTRO-devel branch
     # list all ROS packages in the repo
     #site.pages << PackagePage.new(...)
     self.data['repo'] =   repo
-    self.data['repo_variants'] = repo_variants
+    self.data['instances'] = instances
+    self.data['instance'] = instance
+
+    # create easy-to-process lists of available distros for the switcher
+    self.data['available_distros'] = {}
+    self.data['available_older_distros'] = {}
+
+    site.config['distros'].each do |distro|
+      self.data['available_distros'][distro] = instance['distros'].has_key?(distro)
+    end
+    site.config['old_distros'].each do |distro|
+      if instance['distros'].has_key?(distro)
+        self.data['available_older_distros'][distro] = true
+      end
+    end
+    self.data['n_available_older_distros'] = self.data['available_older_distros'].length
+
+    print('old distros: '+self.data['available_older_distros'].inspect+"\n")
+
     self.data['all_distros'] = site.config['distros'] + site.config['old_distros']
   end
 end
