@@ -1,27 +1,24 @@
 
-<div class="btn-group btn-group-justified" role="group">
+<div id="repo-switch" class="btn-group btn-group-justified" role="group">
   <div class="btn-group" role="group">
     <div class="dropdown">
       <! -- TODO: add disabled when only 1 version is known -->
       <button class="btn btn-xs btn-default dropdown-toggle" type="button" id="dropdownMenu1" data-toggle="dropdown">
         <span class="pull-left">
-          <span class="badge">17</span>
-          Alternate Version(s)
+          <span class="badge">{{ page.repo_variants | size }}</span>
+          Version: {{ page.default_variant }}
         </span>
         <span class="pull-right"><span class="caret"></span></span>
       </button>
       <ul class="dropdown-menu" role="menu">
-
-        <li role="presentation"><a role="menuitem" tabindex="-1" href="#">
-          repo1
-          <span class="pull-right"><span class="label label-default">released</span></span>
-        </a></li>
-        <li role="presentation"><a role="menuitem" tabindex="-1" href="#">repo2</a></li>
-        <li role="presentation"><a role="menuitem" tabindex="-1" href="#">
-          repo3
-          <span class="pull-right"><span class="label label-primary">open pulls</span></span>
-        </a></li>
-        <li role="presentation"><a role="menuitem" tabindex="-1" href="#">repo4</a></li>
+        {% for variant in page.repo_variants %}
+          <li role="presentation"><a id="{{variant[0]}}" role="menuitem" tabindex="-1" href="#" data="{{variant[0]}}">
+            {{variant[1].uri}}
+            <!--<span class="pull-right">-->
+              <!--<span class="label label-default">released</span>-->
+            <!--</span>-->
+          </a></li>
+        {% endfor %}
       </ul>
     </div>
   </div>

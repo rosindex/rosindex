@@ -10,45 +10,88 @@ layout: default
       <li class="active">{{ page.repo.name }}</li>
     </ol>
   </div>
-
   <div class="row">
-    {% include distro_switch.html %}
+    name: <b>{{ page.repo.name }}</b>
+    <br>
+    description: <em>{{ page.repo.description }}</em>
+    <br>
+    tags: {% for tag in page.repo.tags %}<span class="label label-default">{{ tag }}</span> {% endfor %}
+  </div>
+  <div class="row">
+    &nbsp;
   </div>
   <div class="row">
     {% include repo_switch.html %}
   </div>
   <div class="row">
+    {% include distro_switch.html %}
+  </div>
+  <div class="row">
     &nbsp;
   </div>
   <div class="row">
-    <ul class="nav nav-tabs" id="contents">
+    <ul class="nav nav-tabs" id="content-tabs">
       <!-- Current distros -->
-      <li role="presentation" class="active"><a href="#readme">README</a></li>
-      <li role="presentation" class="disabled"><a href="#packages">
+      <li role="presentation" class="active"><a href="#readme">
+        README
+      </a></li>
+      <li role="presentation" class=""><a href="#packages">
         Packages
       </a></li>
       <li role="presentation" class="disabled"><a href="#repo-info">
         Repository Info
       </a></li>
-      <li role="presentation" class="disabled"><a href="#repo-info">
+      <li role="presentation" class="disabled"><a href="#related">
         Related
       </a></li>
     </ul>
+
   </div>
-  <div class="row" style="margin: 20px">
-    <div id="distro-switch-content" class="tab-content">
-    {% for variants in page.distro_variants %}
-      <div id="{{ variants[0] }}" class="tab-pane fade out">
-        {% for v in variants[1] %}
-          {{ v.readme_rendered }}
+  <div id="distro-switch-content" class="tab-content">
+    {% for variant in page.repo_variants %}
+      <div id="{{variant[0]}}-tab" class="variant variant-{{ variant[0] }}">
+
+        {% for distro in page.all_distros %}
+          <div id="{{ prefix }}tab" class="distro distro-{{distro}}">
+            {% if variant[1].distros contains distro %}
+
+              <div class="tab-content" style="margin: 20px">
+                <div class="readme">
+                  {{ variant[1].distros[distro].readme_rendered }}
+                </div>
+                <div class="packages">
+                  <ul>
+                    {% for p in variant[1].distros[distro].packages %}
+                      <li>{{ p.name }} -- {{p.version}}</li>
+                    {% endfor %}
+                  </ul>
+                </div>
+              </div>
+
+
+            {% else %}
+              <p><em>No known branch for <b>{{distro}}</b>.</em></p>
+            {% endif %}
+          </div>
         {% endfor %}
-        {% if variants[1].size == 0 %}
-          <p><em>No known version for {{variants[0]}}.</em></p>
-        {% endif %}
       </div>
     {% endfor %}
-  </div>
   <div class="row">
     &nbsp;
   </div>
 </div>
+
+<script src="/js/distro_switch.js"></script>
+<script src="/js/repo_switch.js"></script>
+
+<script>
+$(document).ready(function(){
+                  $('#content-tabs a').click(
+                      function (e) {
+                      //e.preventDefault();
+                      $(this).tab('show');
+                      console.log(this)
+                      });
+                  });
+</script>
+

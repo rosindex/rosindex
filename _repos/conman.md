@@ -2,7 +2,8 @@
 name: conman
 description: Orocos-Based Controller Manager
 tags: [control, orocos, realtime, controller]
+default: jbohren
 instances:
-- {type: 'github', ns: 'jbohren', name: 'conman', released: [], distro_map: {hydro: master}}
-- {type: 'github', ns: 'RCPRG-ros-pkg', name: 'conman', released: []}
+  jbohren: {type: 'github', ns: 'jbohren', name: 'conman', distro_branches: {hydro: master}}
+  RCPRG-ros-pkg: {type: 'github', ns: 'RCPRG-ros-pkg', name: 'conman', distro_branches: {hydro: master}}
 ---

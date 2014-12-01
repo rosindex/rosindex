@@ -1,20 +1,22 @@
 ---
 layout: default
 ---
-<div class="post">
 
 <div class="container-fluid" style="margin:20px">
   <div class="row">
-    <header class="post-header">
-      <h1 class="post-title">{{ page.title }}</h1>
-    </header>
-
+    <ol class="breadcrumb">
+      <li><a href="/">Home</a></li>
+      <li class="active">Repos</li>
+    </ol>
+  </div>
+  <div class="row">
+    <h1>{{ page.title }}</h1>
+    <p>
     <ul>
       {% for repo in site.collections.repos.docs %}
-      <li><a href="/r/{{repo.name}}">{{ repo.name }}</a> -- {{ repo.description }}</li>
+        <li><a href="/r/{{repo.name}}">{{ repo.name }}</a> -- {{ repo.description }}</li>
       {% endfor %}
     </ul>
+    </p>
   </div>
-</div>
-
 </div>

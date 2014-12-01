@@ -2,6 +2,7 @@
 name: xdot
 description: A ros-integrated graphviz dotcode visualizer
 tags: [graphviz, graph, visualization]
+default: jbohren
 instances:
-- {type: 'github', ns: 'jbohren', name: 'xdot', released: ['fuerte','groovy','hydro','indigo']}
+  jbohren: {type: 'github', ns: 'jbohren', name: 'xdot'}
 ---
