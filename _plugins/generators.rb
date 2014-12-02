@@ -1,6 +1,6 @@
 
-# http://www.rubydoc.info/github/mojombo/jekyll/Jekyll
-#
+# NOTE: This whole file is one big hack. Don't judge.
+
 require 'git'
 require 'fileutils'
 require 'find'
@@ -162,7 +162,7 @@ class GitScraper < Jekyll::Generator
             # find packages in this branch
             Find.find(local_path) do |path|
               if FileTest.directory?(path)
-                if File.basename(path)[0] == ?.
+                if File.basename(path)[0] == ?. or File.exist?(File.join(path,'CATKIN_IGNORE'))
                   Find.prune
                 else
                   next
@@ -171,6 +171,7 @@ class GitScraper < Jekyll::Generator
                 path_split = path.split(File::SEPARATOR)
                 tail = path_split[-1]
                 pkg_dir = path_split[0...-1]
+
                 #print("::"+path+": "+tail+"\n")
                 if tail == 'package.xml'
                   # extract package manifest info
@@ -181,6 +182,7 @@ class GitScraper < Jekyll::Generator
                     'version' => REXML::XPath.first(package_doc, "/package/version/text()").to_s,
                     'license' => REXML::XPath.first(package_doc, "/package/license/text()").to_s,
                     'description' => REXML::XPath.first(package_doc, "/package/description/text()").to_s,
+                    'maintainers' => REXML::XPath.each(package_doc, "/package/maintainer/text()").to_s,
                     'readme_rendered' => "no readme yet."
                   }
                   #print(package_info.to_s+"\n\n")
@@ -190,7 +192,7 @@ class GitScraper < Jekyll::Generator
                   # TODO: check for readme in same directory as package.xml
                   readme_path = File.join(pkg_dir,'README.md')
                   if File.exist?(readme_path)
-                    print(' - found readme for '+package_name+" at "+readme_path+"\n")
+                    print(' - found readme for '+package_name+"\n")
                     readme = IO.read(readme_path)
                     readme_html = render_md(site, readme)
                     readme_html = '<div class="rendered-markdown">'+readme_html+"</div>"
@@ -203,7 +205,7 @@ class GitScraper < Jekyll::Generator
                                       instance['name'], branch_name,
                                       relpath.to_s)
                   else
-                    print(' - did not find readme for '+package_name+" at "+readme_path+"\n")
+                    #print(' - did not find readme for '+package_name+" at "+readme_path+"\n")
                   end
 
                   unless all_packages.has_key?(package_name)
@@ -315,8 +317,6 @@ class GitScraper < Jekyll::Generator
       p_end = [all_packages.length, p_start+packages_per_page].min
       list_alpha = packages_alpha.slice(p_start, packages_per_page)
 
-      print('from '+p_start.to_s+' to '+p_end.to_s+"\n")
-
       site.pages << PackageListPage.new(
         site,
         n_package_list_pages + 1,
@@ -394,8 +394,6 @@ class RepoInstancePage < Jekyll::Page
     self.data['instance_base'] = instance_base
 
     self.data['available_distros'], self.data['available_older_distros'], self.data['n_available_older_distros'] = get_available_distros(site, instances[instance_name])
-
-    print('old distros: '+self.data['available_older_distros'].inspect+"\n")
 
     self.data['all_distros'] = site.config['distros'] + site.config['old_distros']
   end
