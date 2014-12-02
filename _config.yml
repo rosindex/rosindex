@@ -10,6 +10,15 @@ github_username:  rosindex
 
 # Build settings
 markdown: redcarpet
+kramdown:
+  # use Github Flavored Markdown
+  input: GFM
+  # do not replace newlines by <br>s
+  hard_wrap: false
+
+redcarpet:
+  input: GFM
+
 checkout_path: /tmp/rosindex/checkout
 collections:
 - repos

@@ -1,0 +1,47 @@
+---
+layout: default
+---
+
+<div class="container-fluid" style="margin:20px">
+  <div class="row">
+    <ol class="breadcrumb">
+      <li><a href="/">Home</a></li>
+      <li><a href="/packages">Packages</a></li>
+      <li class="active">{{ page.package_name }}</li>
+    </ol>
+  </div>
+  <div class="row">
+    <div class="panel panel-default">
+      <div class="panel-heading"><h3 class="panel-title">Instances 
+          <span class="pull-right">
+            <a href="https://github.com/rosindex/rosindex.github.io/edit/source/_repos/{{ page.repo.name }}.md">
+              <button type="button" class="btn btn-xs btn-success">
+                <span class="glyphicon glyphicon-plus"></span> Submit New Instance
+              </button>
+            </a>
+          </span>
+      </h3></div>
+      <div class="table-responsive">
+        <table class="table table-condensed">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th><span class="pull-right">URI</span></th>
+            </tr>
+          </thead>
+          <tbody>
+          {% for instance in page.package_instances %}
+            <tr>
+              <td><a href="/p/{{instance[1].repo.name}}/{{instance[0]}}">{{ instance[0] }}</a></td>
+              <td class="filterable-cell"><span class="label label-primary pull-right">{{ instance[1].uri }}</span></td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <div class="row">
+  </div>
+</div>
+

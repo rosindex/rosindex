@@ -23,6 +23,8 @@ end
 
 def render_md(site, readme)
   mkconverter = site.getConverterImpl(Jekyll::Converters::Markdown)
+  readme.gsub! "```","\n```"
+  readme.gsub! '```shell','```bash'
   return mkconverter.convert(readme)
 end
 
@@ -68,7 +70,7 @@ class GitScraper < Jekyll::Generator
       end
 
       # get branches corresponding to ros distros
-      instances = Hash.new {|h,k| h[k]=[]}
+      instances = Hash.new {|h,k| h[k]={}}
 
       # fetch all the instances
       repo.data['instances'].each do |instance_name, instance|
@@ -130,7 +132,7 @@ class GitScraper < Jekyll::Generator
         all_distros.each do |distro|
 
           custom_branch = false
-          if instance.has_key?('distro_branches') and instance['distro_branches'].has_key?(distro) and instance['distro_branches'][distro] == branch_name
+          if instance and instance.has_key?('distro_branches') and instance['distro_branches'].has_key?(distro) and instance['distro_branches'][distro] == branch_name
             print('custom branch for '+distro+': '+branch.to_s)
             custom_branch = true
           end
@@ -212,6 +214,7 @@ class GitScraper < Jekyll::Generator
                     all_packages[package_name][instance_name] = {
                       'name' => package_name,
                       'repo' => repo,
+                      'uri' => instances[instance_name]['uri'],
                       'distros' => {}
                     }
                   end
@@ -263,6 +266,12 @@ class GitScraper < Jekyll::Generator
     print("Found "+String(all_packages.length)+" packages total.\n")
 
     all_packages.each do |package_name, package_instances|
+
+      # create package instance list page
+      site.pages << PackagePage.new(
+        site,
+        package_name,
+        package_instances)
 
       package_instances.each do |instance_name, package_instance|
 
@@ -412,16 +421,16 @@ class PackageListPage < Jekyll::Page
 end
 
 class PackagePage < Jekyll::Page
-  def initialize(site, base, dir, repo, instances)
+  def initialize(site, package_name, package_instances)
     @site = site
-    @base = base
-    @dir = dir
+    @base = site.source
+    @dir = File.join('packages',package_name)
     @name = 'index.html'
 
     self.process(@name)
-    self.read_yaml(File.join(base, '_layouts'),'package.html')
-    self.data['repo'] = repo
-    self.data['instances'] = instances
+    self.read_yaml(File.join(@base, '_layouts'),'package.html')
+    self.data['package_name'] = package_name
+    self.data['package_instances'] = package_instances
   end
 end
 
