@@ -30,7 +30,7 @@ layout: default
               <tbody>
               {% for p in page.instance.distros[distro].packages %}
                 <tr>
-                  <td>{{ p[1].name }}</td>
+                  <td><a href="/p/{{p[1].name}}/{{page.instance.name}}">{{ p[1].name }}</a></td>
                   <td>{{ p[1].version }}</td>
                 </tr>
               {% endfor %}

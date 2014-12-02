@@ -219,6 +219,7 @@ class GitScraper < Jekyll::Generator
                     }
                   end
 
+                  branch_info['packages'][package_name] = package_info
                   all_packages[package_name][instance_name]['distros'][distro] = package_info
                 end
               end
