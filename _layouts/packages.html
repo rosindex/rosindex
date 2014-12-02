@@ -25,13 +25,13 @@ layout: default
         <tbody>
         {% for package in page.list_alpha %}
         <tr>
-          <td data-toggle="tooltip" data-placement="left" title="View Default Instance">
+          <td data-toggle="tooltip" data-placement="left" title="View Package Instances">
             <span class="pull-right">
-              <a href="/p/{{package[0]}}">
-                <span class="glyphicon glyphicon-star"></span>
+              <a href="/packages/{{package[0]}}">
+                <span class="glyphicon glyphicon-th"></span>
               </a>
           </span></td>
-          <td><a href="/packages/{{package[0]}}">{{ package[0] }}</a></td>
+          <td><a href="/p/{{package[0]}}">{{ package[0] }}</a></td>
           <td>n versions</td>
           <td>sometime</td>
           <td>sure, why not?</td>

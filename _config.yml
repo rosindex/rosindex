@@ -35,4 +35,4 @@ old_distros:
   - 'c-turtle'
 
 # package list page
-packages_per_page: 5
+packages_per_page: 25
