@@ -6,7 +6,20 @@ require 'fileutils'
 require 'find'
 require 'rexml/document'
 require 'rexml/xpath'
-require 'nokogiri'         
+require 'nokogiri'
+require 'pathname'
+
+def fix_image_links(text, ns, name, branch, additional_path = '')
+  readme_doc = Nokogiri::HTML(text)
+  readme_doc.xpath("//img[@src]").each() do |el|
+    print('img: '+el['src'].to_s+"\n")
+    unless el['src'].start_with?('http')
+      el['src'] = ('https://raw.githubusercontent.com/%s/%s/%s/%s/' % [ns, name, branch, additional_path])+el['src']
+    end
+  end
+
+  return readme_doc.to_s, readme_doc
+end
 
 def render_md(site, readme)
   mkconverter = site.getConverterImpl(Jekyll::Converters::Markdown)
@@ -35,6 +48,9 @@ class GitScraper < Jekyll::Generator
 
     # get the collection of repos
     repos = site.collections['repos']
+
+    repo_instances = {}
+    all_packages = Hash.new {|h,k| h[k]={}}
 
     # update and extract data from each repo
     repos.docs.each do |repo|
@@ -134,15 +150,7 @@ class GitScraper < Jekyll::Generator
               readme_html = '<div class="rendered-markdown">'+readme_html+"</div>"
 
               # fix image links
-              readme_doc = Nokogiri::HTML(readme_html)
-              readme_doc.xpath("//img[@src]").each() do |el|
-                print('img: '+el['src'].to_s)
-                unless el['src'].start_with?('http')
-                  el['src'] = ('https://raw.githubusercontent.com/%s/%s/%s/' % [instance['ns'], instance['name'], branch_name])+el['src']
-                end
-              end
-
-              branch_info['readme_rendered'] = readme_doc.to_s
+              branch_info['readme_rendered'], _ = fix_image_links(readme_html, instance['ns'], instance['name'], branch_name)
             else
               branch_info['readme_rendered'] = render_md(
                 site,
@@ -158,7 +166,9 @@ class GitScraper < Jekyll::Generator
                   next
                 end
               else
-                tail = path.split(File::SEPARATOR)[-1]
+                path_split = path.split(File::SEPARATOR)
+                tail = path_split[-1]
+                pkg_dir = path_split[0...-1]
                 #print("::"+path+": "+tail+"\n")
                 if tail == 'package.xml'
                   # extract package manifest info
@@ -168,11 +178,45 @@ class GitScraper < Jekyll::Generator
                     'name' => REXML::XPath.first(package_doc, "/package/name/text()").to_s,
                     'version' => REXML::XPath.first(package_doc, "/package/version/text()").to_s,
                     'license' => REXML::XPath.first(package_doc, "/package/license/text()").to_s,
-                    'description' => REXML::XPath.first(package_doc, "/package/description/text()").to_s
+                    'description' => REXML::XPath.first(package_doc, "/package/description/text()").to_s,
+                    'readme_rendered' => "no readme yet."
                   }
                   #print(package_info.to_s+"\n\n")
 
-                  branch_info['packages'][package_info['name']] = package_info
+                  package_name = package_info['name']
+
+                  # TODO: check for readme in same directory as package.xml
+                  readme_path = File.join(pkg_dir,'README.md')
+                  if File.exist?(readme_path)
+                    print(' - found readme for '+package_name+" at "+readme_path+"\n")
+                    readme = IO.read(readme_path)
+                    readme_html = render_md(site, readme)
+                    readme_html = '<div class="rendered-markdown">'+readme_html+"</div>"
+
+                    pn = Pathname.new(File.join(*pkg_dir))
+                    ln = Pathname.new(local_path)
+                    relpath = pn.relative_path_from(ln)
+                    package_info['readme_rendered'], _ =
+                      fix_image_links(readme_html, instance['ns'],
+                                      instance['name'], branch_name,
+                                      relpath.to_s)
+                  else
+                    print(' - did not find readme for '+package_name+" at "+readme_path+"\n")
+                  end
+
+                  unless all_packages.has_key?(package_name)
+                    all_packages[package_name] = {}
+                  end
+
+                  unless all_packages[package_name].has_key?(instance_name)
+                    all_packages[package_name][instance_name] = {
+                      'name' => package_name,
+                      'repo' => repo,
+                      'distros' => {}
+                    }
+                  end
+
+                  all_packages[package_name][instance_name]['distros'][distro] = package_info
                 end
               end
             end
@@ -184,36 +228,103 @@ class GitScraper < Jekyll::Generator
       end
 
       # create the actual pages
-      print("creating pages...\n")
+      print("creating pages for this repo...\n")
 
       site.pages << RepoPage.new(
         site,
         site.source,
-        File.join('r', repo.data['name']),
+        File.join('repos', repo.data['name']),
         repo,
         instances)
 
+      # create pages for each repo instance
       instances.each do |instance_name, instance|
 
         site.pages << RepoInstancePage.new(
           site,
-          site.source,
-          File.join('r', repo.data['name'], instance_name),
           repo,
           instances,
-          instance)
+          instance_name)
 
+        if instance_name == repo.data['default']
+          site.pages << RepoInstancePage.new(
+            site,
+            repo,
+            instances,
+            instance_name,
+            true)
+        end
+      end
 
-        #all_distros.each do |distro|
-          #site.pages << RepoInstanceDistroPage.new(
-            #site,
-            #site.source,
-            #File.join('r', repo.data['name'], instance_name, distro),
-            #repo,
-            #if instance['distros'].has_key?(distro) then instance['distros'][distro] else nil end)
-        #end
+      repo_instances[repo.data['name']] = instances
+    end
+
+    # create package pages
+    print("Found "+String(all_packages.length)+" packages total.\n")
+
+    all_packages.each do |package_name, package_instances|
+
+      package_instances.each do |instance_name, package_instance|
+
+        #print(package_instance.inspect+"\n\n")
+
+        repo = package_instance['repo']
+
+        #print('repo: '+repo.data.inspect+"\n")
+
+        instances = repo_instances[repo.data['name']]
+
+        site.pages << PackageInstancePage.new(
+          site,
+          repo,
+          instances,
+          package_instances,
+          instance_name)
+
+        if repo.data['default'] == instance_name
+          site.pages << PackageInstancePage.new(
+            site,
+            repo,
+            instances,
+            package_instances,
+            instance_name,
+            true)
+        end
       end
     end
+
+    # create package list
+    packages_per_page = site.config['packages_per_page']
+    n_package_list_pages = all_packages.length / packages_per_page
+
+    packages_alpha = all_packages.sort_by { |name, details| name }
+
+    (0..n_package_list_pages).each do |page_index|
+
+      p_start = page_index * packages_per_page
+      p_end = [all_packages.length, p_start+packages_per_page].min
+      list_alpha = packages_alpha.slice(p_start, packages_per_page)
+
+      print('from '+p_start.to_s+' to '+p_end.to_s+"\n")
+
+      site.pages << PackageListPage.new(
+        site,
+        n_package_list_pages + 1,
+        page_index + 1,
+        list_alpha
+      )
+
+      if page_index == 0
+        site.pages << PackageListPage.new(
+          site,
+          n_package_list_pages + 1,
+          page_index + 1,
+          list_alpha,
+          true
+        )
+      end
+    end
+
   end
 end
 
@@ -231,36 +342,48 @@ class RepoPage < Jekyll::Page
   end
 end
 
+def get_available_distros(site, instance)
+  # create easy-to-process lists of available distros for the switcher
+
+  available_distros = {}
+  available_older_distros = {}
+
+  site.config['distros'].each do |distro|
+    available_distros[distro] = instance['distros'].has_key?(distro)
+  end
+
+  site.config['old_distros'].each do |distro|
+    if instance['distros'].has_key?(distro)
+      available_older_distros[distro] = true
+    end
+  end
+
+  return available_distros, available_older_distros, available_older_distros.length
+end
+
+
 class RepoInstancePage < Jekyll::Page
-  def initialize(site, base, dir, repo, instances, instance)
+  def initialize(site, repo, instances, instance_name, default = false)
+
+    instance_base = File.join('r', repo.data['name'])
+
     @site = site
-    @base = base
-    @dir = dir
+    @base = site.source
+    @dir = if default then instance_base else File.join(instance_base, instance_name) end
     @name = 'index.html'
 
     self.process(@name)
-    self.read_yaml(File.join(base, '_layouts'),'repo_instance.html')
+    self.read_yaml(File.join(@base, '_layouts'),'repo_instance.html')
     # clone (or update) git repo
     # for each ROSDISTRO-devel branch
     # list all ROS packages in the repo
     #site.pages << PackagePage.new(...)
     self.data['repo'] =   repo
     self.data['instances'] = instances
-    self.data['instance'] = instance
+    self.data['instance'] = instances[instance_name]
+    self.data['instance_base'] = instance_base
 
-    # create easy-to-process lists of available distros for the switcher
-    self.data['available_distros'] = {}
-    self.data['available_older_distros'] = {}
-
-    site.config['distros'].each do |distro|
-      self.data['available_distros'][distro] = instance['distros'].has_key?(distro)
-    end
-    site.config['old_distros'].each do |distro|
-      if instance['distros'].has_key?(distro)
-        self.data['available_older_distros'][distro] = true
-      end
-    end
-    self.data['n_available_older_distros'] = self.data['available_older_distros'].length
+    self.data['available_distros'], self.data['available_older_distros'], self.data['n_available_older_distros'] = get_available_distros(site, instances[instance_name])
 
     print('old distros: '+self.data['available_older_distros'].inspect+"\n")
 
@@ -268,9 +391,67 @@ class RepoInstancePage < Jekyll::Page
   end
 end
 
+class PackageListPage < Jekyll::Page
+  def initialize(site, n_package_list_pages, page_index, list_alpha, default=false)
+    @site = site
+    @base = site.source
+    @dir = unless default then 'packages/page/'+page_index.to_s else 'packages' end
+    @name = 'index.html'
+
+    self.process(@name)
+    self.read_yaml(File.join(@base, '_layouts'),'packages.html')
+    self.data['n_package_list_pages'] = n_package_list_pages
+    self.data['page_index'] = page_index
+    self.data['list_alpha'] = list_alpha
+
+    self.data['prev_page'] = [page_index - 1, 1].max
+    self.data['next_page'] = [page_index + 1, n_package_list_pages].min
+
+    self.data['near_pages'] = *([1,page_index-4].max..[page_index+4, n_package_list_pages].min)
+  end
+end
+
 class PackagePage < Jekyll::Page
-  def initialize(site, base, dir, name)
-    super(site, base, dir, name)
+  def initialize(site, base, dir, repo, instances)
+    @site = site
+    @base = base
+    @dir = dir
+    @name = 'index.html'
+
+    self.process(@name)
+    self.read_yaml(File.join(base, '_layouts'),'package.html')
+    self.data['repo'] = repo
+    self.data['instances'] = instances
+  end
+end
+
+class PackageInstancePage < Jekyll::Page
+  def initialize(site, repo, instances, package_instances, instance_name, default=false)
+
+    instance_base = File.join('p', package_instances[instance_name]['name'])
+
+    @site = site
+    @base = site.source
+    @dir = if default then instance_base else File.join(instance_base, instance_name) end
+    @name = 'index.html'
+
+    self.process(@name)
+    self.read_yaml(File.join(@base, '_layouts'),'package_instance.html')
+
+    # clone (or update) git repo
+    # for each ROSDISTRO-devel branch
+    # list all ROS packages in the repo
+    #site.pages << PackagePage.new(...)
+    self.data['repo'] = repo
+    self.data['instances'] = instances
+    self.data['instance'] = instances[instance_name]
+    self.data['instance_base'] = instance_base
+    self.data['package_instances'] = package_instances
+    self.data['package_instance'] = package_instances[instance_name]
+
+    self.data['available_distros'], self.data['available_older_distros'], self.data['n_available_older_distros'] = get_available_distros(site, instances[instance_name])
+
+    self.data['all_distros'] = site.config['distros'] + site.config['old_distros']
   end
 end
 

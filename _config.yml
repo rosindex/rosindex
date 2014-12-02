@@ -2,7 +2,7 @@
 title: ROS Index
 #email: your-email@domain.com
 description: > # this means to ignore newlines until "baseurl:"
-  This is a community-maintained index of known ROS packages.
+  A community-maintained index of known ROS packages.
 baseurl: "" # the subpath of your site, e.g. /blog/
 url: "http://yourdomain.com" # the base hostname & protocol for your site
 #twitter_username: jekyllrb
@@ -25,3 +25,5 @@ old_distros:
   - 'diamondback'
   - 'c-turtle'
 
+# package list page
+packages_per_page: 5

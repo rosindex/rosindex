@@ -15,7 +15,8 @@ layout: default
         <table class="table table-condensed table-striped table-hover">
           {% for repo in site.collections.repos.docs %}
             <tr>
-              <td><a href="/r/{{repo.name}}">{{ repo.name }}</a></td>
+              <td data-toggle="tooltip" data-placement="left" title="View Default Instance" class="pull-right"><a href="/r/{{repo.name}}"><span class="glyphicon glyphicon-star"></span></a></td>
+              <td><a href="/repos/{{repo.name}}">{{ repo.name }}</a></td>
               <td>{{ repo.description }}</td>
             </tr>
           {% endfor %}

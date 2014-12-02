@@ -6,8 +6,8 @@ layout: default
   <div class="row">
     <ol class="breadcrumb">
       <li><a href="/">Home</a></li>
-      <li><a href="/repos">Repos</a></li>
-      <li><a href="/repos/{{ page.repo.name }}">{{page.repo.name}}</a></li>
+      <li><a href="/packages">Packages</a></li>
+      <li><a href="/packages/{{ page.package_instance.name }}">{{page.package_instance.name}}</a></li>
       <li class="active">{{page.instance.name}}</li>
     </ol>
   </div>
@@ -17,31 +17,12 @@ layout: default
   <div class="row">
     {% for distro in page.all_distros %}
       <div class="distro distro-{{distro}}">
-        {% if page.instance.distros[distro] %}
-          <div class="panel panel-default">
-            <div class="panel-heading">Packages</div>
-            <table class="table table-condensed table-hover">
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Version</th>
-                </tr>
-              </thead>
-              <tbody>
-              {% for p in page.instance.distros[distro].packages %}
-                <tr>
-                  <td>{{ p[1].name }}</td>
-                  <td>{{ p[1].version }}</td>
-                </tr>
-              {% endfor %}
-              </tbody>
-            </table>
-          </div>
-
+        {% if page.package_instance.distros[distro] %}
+          {% assign package = page.package_instance.distros[distro] %}
           <div class="panel panel-default">
             <div class="panel-heading">README</div>
             <div class="readme-{{ page.repo.type }}" style="margin: 20px">
-              {{ page.instance.distros[distro].readme_rendered }}
+              {{ package.readme_rendered }}
             </div>
           </div>
         {% else %}

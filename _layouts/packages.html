@@ -1,0 +1,47 @@
+---
+layout: default
+---
+
+<div class="container-fluid" style="margin:20px">
+  <div class="row">
+    <ol class="breadcrumb">
+      <li><a href="/">Home</a></li>
+      <li class="active">Packages</li>
+    </ol>
+  </div>
+  <div class="row">
+    <div class="panel panel-default">
+      <div class="panel-heading"><h3 class="panel-title">Packages </h3></div>
+      <table class="table table-condensed table-striped table-hover">
+        <thead>
+          <tr>
+            <th></th>
+            <th>Name</th>
+            <th>Versions</th>
+            <th>Last Updated</th>
+            <th>Released</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for package in page.list_alpha %}
+        <tr>
+          <td data-toggle="tooltip" data-placement="left" title="View Default Instance">
+            <span class="pull-right">
+              <a href="/p/{{package[0]}}">
+                <span class="glyphicon glyphicon-star"></span>
+              </a>
+          </span></td>
+          <td><a href="/package/{{package[0]}}">{{ package[0] }}</a></td>
+          <td>n versions</td>
+          <td>sometime</td>
+          <td>sure, why not?</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div class="row text-center">
+    {% include package_pager.html %}
+  </div>
+</div>
