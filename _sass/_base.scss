@@ -4,14 +4,18 @@
     color: transparent !important;
 }
 
+table.table a.label {
+  text-decoration: none;
+}
+
 
 /**
  * Reset some basic elements
  */
-body {
-    margin: 0;
-    padding: 0;
-}
+/*body {*/
+    /*margin: 0;*/
+    /*padding: 0;*/
+/*}*/
 
 /*body, h1, h2, h3, h4, h5, h6,*/
 /*p, blockquote, pre, hr,*/
@@ -25,15 +29,17 @@ body {
 /**
  * Basic styling
  */
-body {
-    font-family: $base-font-family;
-    font-size: $base-font-size;
-    line-height: $base-line-height;
-    font-weight: 300;
-    color: $text-color;
-    background-color: $background-color;
-    -webkit-text-size-adjust: 100%;
-}
+/*
+ *body {
+ *    font-family: $base-font-family;
+ *    font-size: $base-font-size;
+ *    line-height: $base-line-height;
+ *    font-weight: 300;
+ *    color: $text-color;
+ *    background-color: $background-color;
+ *    -webkit-text-size-adjust: 100%;
+ *}
+ */
 
 
 
@@ -62,13 +68,13 @@ img {
 /**
  * Figures
  */
-figure > img {
-    display: block;
-}
+/*figure > img {*/
+    /*display: block;*/
+/*}*/
 
-figcaption {
-    font-size: $small-font-size;
-}
+/*figcaption {*/
+    /*font-size: $small-font-size;*/
+/*}*/
 
 
 
@@ -79,40 +85,39 @@ figcaption {
     /*margin-left: $spacing-unit;*/
 /*}*/
 
-li {
-    > ul,
-    > ol {
-         margin-bottom: 0;
-    }
-}
+/*li {*/
+    /*> ul,*/
+    /*> ol {*/
+         /*margin-bottom: 0;*/
+    /*}*/
+/*}*/
 
 
 
 /**
  * Headings
  */
-h1, h2, h3, h4, h5, h6 {
-    font-weight: 300;
-}
-
+/*h1, h2, h3, h4, h5, h6 {*/
+    /*font-weight: 300;*/
+/*}*/
 
 
 /**
  * Links
  */
-a {
-    color: $brand-color;
-    text-decoration: none;
+/*a {*/
+    /*color: $brand-color;*/
+    /*text-decoration: none;*/
 
-    &:visited {
-        color: darken($brand-color, 15%);
-    }
+    /*&:visited {*/
+        /*color: darken($brand-color, 15%);*/
+    /*}*/
 
-    &:hover {
-        color: $text-color;
-        text-decoration: underline;
-    }
-}
+    /*&:hover {*/
+        /*color: $text-color;*/
+        /*text-decoration: underline;*/
+    /*}*/
+/*}*/
 
 
 
@@ -137,28 +142,28 @@ blockquote {
 /**
  * Code formatting
  */
-pre,
-code {
-    font-size: 15px;
-    border: 1px solid $grey-color-light;
-    border-radius: 3px;
-    background-color: #eef;
-}
+/*pre,*/
+/*code {*/
+    /*font-size: 15px;*/
+    /*border: 1px solid $grey-color-light;*/
+    /*border-radius: 3px;*/
+    /*background-color: #eef;*/
+/*}*/
 
-code {
-    padding: 1px 5px;
-}
+/*code {*/
+    /*padding: 1px 5px;*/
+/*}*/
 
-pre {
-    padding: 8px 12px;
-    overflow-x: scroll;
+/*pre {*/
+    /*padding: 8px 12px;*/
+    /*overflow-x: scroll;*/
 
-    > code {
-        border: 0;
-        padding-right: 0;
-        padding-left: 0;
-    }
-}
+    /*> code {*/
+        /*border: 0;*/
+        /*padding-right: 0;*/
+        /*padding-left: 0;*/
+    /*}*/
+/*}*/
 
 
 

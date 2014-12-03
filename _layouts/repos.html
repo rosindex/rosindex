@@ -25,10 +25,11 @@ layout: default
           {% for repo in site.collections.repos.docs %}
             <tr>
               <td data-toggle="tooltip" data-placement="left" title="View Repo Instances" class="pull-right">
-                <a href="/repos/{{repo.name}}">
-                  {% assign n_instances = repo.instances | size %}
-                  <span class="label label-{% if n_instances > 1 %}primary{% else %}default{% endif %}">{{n_instances}}</span>
-              </a></td>
+                {% assign n_instances = repo.instances | size %}
+                <a href="/repos/{{repo.name}}"class="label label-{% if n_instances > 1 %}primary{% else %}default{% endif %}">
+                    {{n_instances}}
+                </a>
+              </td>
               <td><a href="/r/{{repo.name}}">{{ repo.name }}</a></td>
               <td>{{ repo.description }}</td>
             </tr>

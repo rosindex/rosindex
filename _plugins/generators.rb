@@ -8,6 +8,7 @@ require 'rexml/document'
 require 'rexml/xpath'
 require 'nokogiri'
 require 'pathname'
+require 'json'
 
 def fix_image_links(text, ns, name, branch, additional_path = '')
   readme_doc = Nokogiri::HTML(text)
@@ -37,6 +38,25 @@ def make_instance_name(instance)
 end
 
 class GitScraper < Jekyll::Generator
+  def initialize(config = {})
+    super(config)
+
+    # lunr search config
+    lunr_config = {
+      'excludes' => [],
+      'strip_index_html' => false,
+      'min_length' => 3,
+      'stopwords' => 'stopwords.txt'
+    }.merge!(config['lunr_search'] || {})
+    # lunr excluded files
+    @excludes = lunr_config['excludes']
+    # if web host supports index.html as default doc, then optionally exclude it from the url 
+    @strip_index_html = lunr_config['strip_index_html']
+    # stop word exclusion configuration
+    @min_length = lunr_config['min_length']
+    @stopwords_file = lunr_config['stopwords']
+  end
+
   def generate(site)
     #print("site: "+site.inspect+"\n")
     print("cwd: " + Dir.getwd + "\n")
@@ -305,7 +325,7 @@ class GitScraper < Jekyll::Generator
       end
     end
 
-    # create package list
+    # create package list pages
     packages_per_page = site.config['packages_per_page']
     n_package_list_pages = all_packages.length / packages_per_page
 
@@ -334,6 +354,9 @@ class GitScraper < Jekyll::Generator
         )
       end
     end
+
+    # create lunr index data
+
 
   end
 end
