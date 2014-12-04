@@ -12,7 +12,12 @@ layout: default
   <div class="row">
     <div id="search">
       <form action="/search" method="get">
-        <input class="form-control" type="text" id="search-query" name="q" placeholder="Search" autocomplete="off">
+        <div class="input-group">
+          <input id="search-query" autocomplete="off" type="text" class="form-control" name="q" placeholder="Search ROS Packages">
+          <span class="input-group-btn">
+            <button class="btn btn-default" type="submit"><span class="glyphicon glyphicon-search"></span></button>
+          </span>
+        </div>
       </form>
     </div>
   </div>

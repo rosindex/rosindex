@@ -17,11 +17,16 @@ layout: default
     &nbsp;
   </div>
   <div class="row">
-    <div class="btn-group btn-group-justified" role="group" aria-label="...">
-      <div class="btn-group" role="group">
-        <a href="search" class="btn btn-default" role="button"><span class="glyphicon glyphicon-search"></span> Search Packages</a>
+
+    <form action="/search/" role="form">
+      <div class="input-group">
+        <input type="text" class="form-control" name="q" placeholder="Search ROS Packages">
+        <span class="input-group-btn">
+          <button class="btn btn-default" type="submit"><span class="glyphicon glyphicon-search"></span></button>
+        </span>
       </div>
-    </div>
+    </form>
+
   </div>
   <div class="row">
     <h1 class="page-heading">Posts</h1>
