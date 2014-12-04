@@ -10,6 +10,7 @@ require 'nokogiri'
 require 'pathname'
 require 'json'
 
+# Modifies markdown image links so that they link to github user content
 def fix_image_links(text, ns, name, branch, additional_path = '')
   readme_doc = Nokogiri::HTML(text)
   readme_doc.xpath("//img[@src]").each() do |el|
@@ -22,6 +23,7 @@ def fix_image_links(text, ns, name, branch, additional_path = '')
   return readme_doc.to_s, readme_doc
 end
 
+# Renders markdown to html (and apply some required tweaks)
 def render_md(site, readme)
   mkconverter = site.getConverterImpl(Jekyll::Converters::Markdown)
   readme.gsub! "```","\n```"
@@ -29,10 +31,12 @@ def render_md(site, readme)
   return mkconverter.convert(readme)
 end
 
+# Computes a github uri from a github ns and repo
 def github_uri(ns,repo)
   return 'https://github.com/%s/%s.git' % [ns,repo]
 end
 
+# Creates a unique instance name based on the host server
 def make_instance_name(instance)
   return [instance['type'], instance['ns'], instance['name']].join("/")
 end
@@ -46,7 +50,7 @@ class GitScraper < Jekyll::Generator
       'excludes' => [],
       'strip_index_html' => false,
       'min_length' => 3,
-      'stopwords' => 'stopwords.txt'
+      'stopwords' => '_stopwords/stop-words-english1.txt'
     }.merge!(config['lunr_search'] || {})
     # lunr excluded files
     @excludes = lunr_config['excludes']
@@ -55,6 +59,11 @@ class GitScraper < Jekyll::Generator
     # stop word exclusion configuration
     @min_length = lunr_config['min_length']
     @stopwords_file = lunr_config['stopwords']
+    if File.exists?(@stopwords_file)
+      @stopwords = IO.readlines(@stopwords_file).map { |l| l.strip }
+    else
+      @stopwords = []
+    end
   end
 
   def generate(site)
@@ -71,7 +80,17 @@ class GitScraper < Jekyll::Generator
     # get the collection of repos
     repos = site.collections['repos']
 
-    repo_instances = {}
+    all_repos = {}
+
+    # all_packages: hash
+    #   key: package name
+    #   value: hash
+    #       key: instance name
+    #       value: hash
+    #         name
+    #         repo
+    #         uri
+    #         distros
     all_packages = Hash.new {|h,k| h[k]={}}
 
     # update and extract data from each repo
@@ -198,11 +217,16 @@ class GitScraper < Jekyll::Generator
                   package_xml = IO.read(path)
                   package_doc = REXML::Document.new(package_xml)
                   package_info = {
+                    'repo' => repo,
+                    'uri' => instances[instance_name]['uri'],
+                    'distro' => distro,
                     'name' => REXML::XPath.first(package_doc, "/package/name/text()").to_s,
                     'version' => REXML::XPath.first(package_doc, "/package/version/text()").to_s,
                     'license' => REXML::XPath.first(package_doc, "/package/license/text()").to_s,
                     'description' => REXML::XPath.first(package_doc, "/package/description/text()").to_s,
                     'maintainers' => REXML::XPath.each(package_doc, "/package/maintainer/text()").to_s,
+                    'authors' => REXML::XPath.each(package_doc, "/package/author/text()").to_s,
+                    'readme' => "no readme yet.",
                     'readme_rendered' => "no readme yet."
                   }
                   #print(package_info.to_s+"\n\n")
@@ -213,8 +237,8 @@ class GitScraper < Jekyll::Generator
                   readme_path = File.join(pkg_dir,'README.md')
                   if File.exist?(readme_path)
                     print(' - found readme for '+package_name+"\n")
-                    readme = IO.read(readme_path)
-                    readme_html = render_md(site, readme)
+                    package_info['readme'] = IO.read(readme_path)
+                    readme_html = render_md(site, package_info['readme'])
                     readme_html = '<div class="rendered-markdown">'+readme_html+"</div>"
 
                     pn = Pathname.new(File.join(*pkg_dir))
@@ -282,7 +306,7 @@ class GitScraper < Jekyll::Generator
         end
       end
 
-      repo_instances[repo.data['name']] = instances
+      all_repos[repo.data['name']] = instances
     end
 
     # create package pages
@@ -304,7 +328,7 @@ class GitScraper < Jekyll::Generator
 
         #print('repo: '+repo.data.inspect+"\n")
 
-        instances = repo_instances[repo.data['name']]
+        instances = all_repos[repo.data['name']]
 
         site.pages << PackageInstancePage.new(
           site,
@@ -356,8 +380,55 @@ class GitScraper < Jekyll::Generator
     end
 
     # create lunr index data
+    index = []
+    all_packages.each do |package_name, package_instances|
+      package_instances.each do |instance_name, package_instance|
+        package_instance['distros'].each do |distro, package|
 
+          if package.nil? then next end
 
+          readme_filtered = self.strip_stopwords(package['readme'])
+
+          index << {
+            :baseurl => site.config['baseurl'],
+            :url => File.join('/p',package_name,instance_name)+"#"+distro,
+            :last_updated => nil,
+            :tags => package_instance['repo'].data['tags'],
+            :name => package_name,
+            :version => package['version'],
+            :description => package['./_site/search.jsondescription'],
+            :maintainers => package['maintainers'],
+            :authors => package['authors'],
+            :distro => distro,
+            :readme => readme_filtered
+          }
+
+          puts 'indexed: ' << "#{package_name} #{instance_name} #{distro}"
+        end
+      end
+    end
+
+    # generate index in the json format needed by lunr
+    index_json = JSON.generate({:entries=>index})
+
+    # save the json file
+    # TODO: is there no way to do this in fewer lines?
+    Dir::mkdir(site.dest) unless File.directory?(site.dest)
+    index_filename = 'search.json'
+
+    File.open(File.join(site.dest, index_filename), "w") do |index_file|
+      index_file.write(index_json)
+    end
+
+    # add this file as a static site file
+    site.static_files << SearchIndexFile.new(site, site.dest, "/", index_filename)
+  end
+
+  def strip_stopwords(text)
+    text = text.split.delete_if() do |x| 
+      t = x.downcase.gsub(/[^a-z']/, '')
+      t.length < @min_length || @stopwords.include?(t)
+    end.join(' ')
   end
 end
 
@@ -483,6 +554,13 @@ class PackageInstancePage < Jekyll::Page
     self.data['available_distros'], self.data['available_older_distros'], self.data['n_available_older_distros'] = get_available_distros(site, instances[instance_name])
 
     self.data['all_distros'] = site.config['distros'] + site.config['old_distros']
+  end
+end
+
+class SearchIndexFile < Jekyll::StaticFile
+  # Override write as the search.json index file has already been created 
+  def write(dest)
+    true
   end
 end
 

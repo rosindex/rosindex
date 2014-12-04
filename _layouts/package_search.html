@@ -1,0 +1,82 @@
+---
+layout: default
+---
+
+<div class="container-fluid" style="margin:20px">
+  <div class="row">
+    <ol class="breadcrumb">
+      <li><a href="/">Home</a></li>
+      <li class="active">Packages</li>
+    </ol>
+  </div>
+  <div class="row">
+    <div id="search">
+      <form action="/search" method="get">
+        <input class="form-control" type="text" id="search-query" name="q" placeholder="Search" autocomplete="off">
+      </form>
+    </div>
+  </div>
+  <div class="row">
+    &nbsp;
+  </div>
+  <div class="row">
+    <div class="panel panel-default">
+      <div class="panel-heading"><h3 class="panel-title">Packages </h3></div>
+      <div class="table-responsive">
+        <table id="search-results" class="table table-condensed table-striped table-hover">
+          <thead>
+            <tr>
+              <th><span class="pull-right"> <span class="glyphicon glyphicon-th"></span></span></th>
+              <th>Name</th>
+              <th>Last Updated</th>
+              <th>Released</th>
+            </tr>
+          </thead>
+          <tbody class="entries">
+          </tbody>
+        </table>
+      </table>
+    </div>
+  </div>
+  <div class="row text-center">
+    {% include package_pager.html %}
+  </div>
+</div>
+
+{% raw %}
+<script id="search-results-template" type="text/mustache">
+  {{#entries}}
+      <tr>
+        <td data-toggle="tooltip" data-placement="left" title="View Package Instances">
+          <span class="pull-right">
+            <!--<a href="/packages/{{name}}" class="label label-{% if n_instances > 1 %}primary{% else %}default{% endif %}">-->
+                <!--{{n_instances}}-->
+            <!--</a>-->
+          </span>
+        </td>
+        <td><a href="{{url}}">{{name}}</a></td>
+        <td>sometime</td>
+        <td>sure, why not?</td>
+      </tr>
+  {{/entries}}
+</script>
+{% endraw %}
+
+<script src="/js/lunr.min.js" type="text/javascript" charset="utf-8"></script>
+<script src="/js/mustache.js" type="text/javascript" charset="utf-8"></script>
+<!--<script src="/js/date.format.js" type="text/javascript" charset="utf-8"></script>-->
+<script src="/js/URI.js" type="text/javascript" charset="utf-8"></script>
+
+<script src="/js/jquery.lunr.search.js" type="text/javascript" charset="utf-8"></script>
+
+<script type="text/javascript">
+  $(function() {
+    $('#search-query').lunrSearch({
+      indexUrl: '/search.json',             // URL of the `search.json` index data for your site
+      results:  '#search-results',          // jQuery selector for the search results container
+      entries:  '.entries',                 // jQuery selector for the element to contain the results list, must be a child of the results element above.
+      template: '#search-results-template'  // jQuery selector for the Mustache.js template
+    });
+  });
+</script>
+
