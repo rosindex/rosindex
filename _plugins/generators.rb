@@ -9,6 +9,8 @@ require 'rexml/xpath'
 require 'nokogiri'
 require 'pathname'
 require 'json'
+require 'uri'
+require 'yaml'
 
 # Modifies markdown image links so that they link to github user content
 def fix_image_links(text, ns, name, branch, additional_path = '')
@@ -40,6 +42,13 @@ end
 def make_instance_name(instance)
   return [instance['type'], instance['ns'], instance['name']].join("/")
 end
+
+class FakeRepoDoc
+  def data
+    @data ||= Hash.new
+  end
+end
+
 
 class GitScraper < Jekyll::Generator
   def initialize(config = {})
@@ -75,12 +84,32 @@ class GitScraper < Jekyll::Generator
       FileUtils.mkpath(checkout_path)
     end
 
+    # construct list of known ros distros
     all_distros = site.config['distros'] + site.config['old_distros']
 
     # get the collection of repos
-    repos = site.collections['repos']
-
+    repos = site.collections['repos'].docs
     all_repos = {}
+
+    # get the released packages from each distro
+    all_distros.each do |distro|
+
+      puts "rosdistro: "+distro
+
+      rosdistro_filename = File.join(site.config['rosdistro_path'],distro,'distribution.yaml')
+      unless File.exist?(rosdistro_filename) then next end
+
+      distro_data = YAML.load_file(rosdistro_filename)
+
+      distro_data['repositories'].each do |repo_name, repo_data|
+        puts repo_name
+
+        #repo = FakeRepoDoc.new()
+        #repo.data['name' ] = repo_name
+        #repo.data[
+      end
+
+    end
 
     # all_packages: hash
     #   key: package name
@@ -94,7 +123,8 @@ class GitScraper < Jekyll::Generator
     all_packages = Hash.new {|h,k| h[k]={}}
 
     # update and extract data from each repo
-    repos.docs.each do |repo|
+    # TODO: iterate over second-hand data structure instead of _repo yaml file docs
+    repos.each do |repo|
       # create or open the repo
       g = nil
       local_path = File.join(checkout_path, repo.data['name'])
@@ -107,6 +137,9 @@ class GitScraper < Jekyll::Generator
         # open existing local repo
         g = Git.open(local_path)
       end
+
+      unless repo.data.has_key?('tags') then repo.data['tags'] = [] end
+      unless repo.data.has_key?('description') then repo.data['description'] = "No known description" end
 
       # get branches corresponding to ros distros
       instances = Hash.new {|h,k| h[k]={}}
@@ -224,12 +257,17 @@ class GitScraper < Jekyll::Generator
                     'version' => REXML::XPath.first(package_doc, "/package/version/text()").to_s,
                     'license' => REXML::XPath.first(package_doc, "/package/license/text()").to_s,
                     'description' => REXML::XPath.first(package_doc, "/package/description/text()").to_s,
-                    'maintainers' => REXML::XPath.each(package_doc, "/package/maintainer/text()").to_s,
-                    'authors' => REXML::XPath.each(package_doc, "/package/author/text()").to_s,
+                    'maintainers' => REXML::XPath.each(package_doc, "/package/maintainer/text()").map { |m| m.to_s },
+                    'authors' => REXML::XPath.each(package_doc, "/package/author/text()").map { |a| a.to_s },
+                    'tags' => REXML::XPath.each(package_doc, "/package/export/rosindex/tags/tag/text()").map { |t| t.to_s },
                     'readme' => "no readme yet.",
                     'readme_rendered' => "no readme yet."
                   }
                   #print(package_info.to_s+"\n\n")
+
+                  package_info['tags'].each do |tag|
+                    unless repo.data['tags'].include? tag then repo.data['tags'] << tag end
+                  end
 
                   package_name = package_info['name']
 
@@ -393,12 +431,12 @@ class GitScraper < Jekyll::Generator
             :baseurl => site.config['baseurl'],
             :url => File.join('/p',package_name,instance_name)+"#"+distro,
             :last_updated => nil,
-            :tags => package_instance['repo'].data['tags'],
+            :tags => package['tags'] * " ",
             :name => package_name,
             :version => package['version'],
             :description => package['./_site/search.jsondescription'],
-            :maintainers => package['maintainers'],
-            :authors => package['authors'],
+            :maintainers => package['maintainers'] * " ",
+            :authors => package['authors'] * " ",
             :distro => distro,
             :readme => readme_filtered
           }

@@ -22,6 +22,7 @@ redcarpet:
 checkout_path: /tmp/rosindex/checkout
 collections:
 - repos
+rosdistro_path: _rosdistro
 
 # ROS distros to look for
 distros:

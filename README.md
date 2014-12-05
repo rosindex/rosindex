@@ -15,12 +15,31 @@ Multiple repositories with different versionf of the code can be listed under
 `instances`.
 
 ```yaml
-layout: repo
-title: conman
-permalink: repos/conman
-tags: [control, orocos, realtime, controller]
+name: conman
+default: jbohren
 instances:
-- {type: 'github', org: 'jbohren', repo: 'conman', tut:'doc/tutorials' }
+  jbohren: {type: 'github', org: 'jbohren', repo: 'conman', tut:'doc/tutorials' }
+```
+
+### Package Metadata
+
+Catkin `package.xml` files can be augmented with `<rosindex>` tags in the `<export>` section.
+
+#### Tags
+
+```xml
+<package>
+  <!-- ... -->
+
+  <export>
+    <rosindex>
+      <tags>
+        <tag>biped</tag>
+        <tag>planning</tag>
+      </tags>
+    </rosindex>
+  </export>
+</package>
 ```
 
 ## Presentation
