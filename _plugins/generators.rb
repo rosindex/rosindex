@@ -6,36 +6,72 @@ require 'fileutils'
 require 'find'
 require 'rexml/document'
 require 'rexml/xpath'
-require 'nokogiri'
 require 'pathname'
 require 'json'
 require 'uri'
 require 'yaml'
+require "net/http"
+
+require 'nokogiri'
+require 'colorize'
+require 'typhoeus'
 
 # Modifies markdown image links so that they link to github user content
-def fix_image_links(text, ns, name, branch, additional_path = '')
+def fix_image_links(text, raw_uri, additional_path = '')
   readme_doc = Nokogiri::HTML(text)
   readme_doc.xpath("//img[@src]").each() do |el|
-    print('img: '+el['src'].to_s+"\n")
+    puts 'img: '+el['src'].to_s
     unless el['src'].start_with?('http')
-      el['src'] = ('https://raw.githubusercontent.com/%s/%s/%s/%s/' % [ns, name, branch, additional_path])+el['src']
+      el['src'] = ('%s/%s/' % [raw_uri, additional_path])+el['src']
     end
   end
 
   return readme_doc.to_s, readme_doc
 end
 
+def get_readme(site, readme_path, raw_uri)
+  if File.exist?(readme_path)
+    # read in the readme and fix links
+    readme = IO.read(readme_path)
+    readme_html = render_md(site, readme)
+    readme_html = '<div class="rendered-markdown">'+readme_html+"</div>"
+    readme_rendered, _ = fix_image_links(readme_html, raw_uri)
+  else
+    readme = "*No README.md file found. Maybe try [wiki.ros.org](http://www.ros.org/browse/list.php)*"
+    readme_rendered = render_md(site, readme)
+  end
+
+  return readme_rendered, readme
+end
+
 # Renders markdown to html (and apply some required tweaks)
 def render_md(site, readme)
-  mkconverter = site.getConverterImpl(Jekyll::Converters::Markdown)
-  readme.gsub! "```","\n```"
-  readme.gsub! '```shell','```bash'
-  return mkconverter.convert(readme)
+  begin
+    mkconverter = site.getConverterImpl(Jekyll::Converters::Markdown)
+    readme.gsub! "```","\n```"
+    readme.gsub! '```shell','```bash'
+    return mkconverter.convert(readme)
+  rescue
+    return 'Could not convert readme.'
+  end
 end
 
 # Computes a github uri from a github ns and repo
 def github_uri(ns,repo)
   return 'https://github.com/%s/%s.git' % [ns,repo]
+end
+
+# Get a raw URI from a repo uri
+def get_raw_uri(uri_s, branch)
+  uri = URI(uri_s)
+
+  case uri.host
+  when 'github.com'
+    uri_split = File.split(uri.path)
+    return 'https://raw.githubusercontent.com/%s/%s/%s' % [uri_split[0], uri_split[1], branch]
+  end
+
+  return ''
 end
 
 # Creates a unique instance name based on the host server
@@ -63,7 +99,7 @@ class GitScraper < Jekyll::Generator
     }.merge!(config['lunr_search'] || {})
     # lunr excluded files
     @excludes = lunr_config['excludes']
-    # if web host supports index.html as default doc, then optionally exclude it from the url 
+    # if web host supports index.html as default doc, then optionally exclude it from the url
     @strip_index_html = lunr_config['strip_index_html']
     # stop word exclusion configuration
     @min_length = lunr_config['min_length']
@@ -76,10 +112,10 @@ class GitScraper < Jekyll::Generator
   end
 
   def generate(site)
-    #print("site: "+site.inspect+"\n")
-    print("cwd: " + Dir.getwd + "\n")
+
+    # create the checkout path if necessary
     checkout_path = site.config['checkout_path']
-    print("checkout path: " + checkout_path + "\n")
+    puts "checkout path: " + checkout_path
     unless File.exist?(checkout_path)
       FileUtils.mkpath(checkout_path)
     end
@@ -87,300 +123,355 @@ class GitScraper < Jekyll::Generator
     # construct list of known ros distros
     all_distros = site.config['distros'] + site.config['old_distros']
 
-    # get the collection of repos
-    repos = site.collections['repos'].docs
-    all_repos = {}
+    # the global index of repos
+    all_repos = Hash.new {|h,k| h[k]={}}
+    # the global index of packages
+    all_packages = Hash.new {|h,k| h[k]={}}
 
-    # get the released packages from each distro
+    # get the repositories from the rosdistro files
     all_distros.each do |distro|
 
-      puts "rosdistro: "+distro
+      puts "processing rosdistro: "+distro
 
+      # read in the rosdistro distribution file
       rosdistro_filename = File.join(site.config['rosdistro_path'],distro,'distribution.yaml')
       unless File.exist?(rosdistro_filename) then next end
-
       distro_data = YAML.load_file(rosdistro_filename)
 
       distro_data['repositories'].each do |repo_name, repo_data|
-        puts repo_name
 
-        #repo = FakeRepoDoc.new()
-        #repo.data['name' ] = repo_name
-        #repo.data[
+        # limit repos if requested
+        if site.config['max_repos'] > 0 and all_repos.length > site.config['max_repos'] then break end
+
+        puts " - "+repo_name
+
+        # TODO: get the release repo to get the upstream repo
+
+        source_uri = nil
+        source_version = nil
+
+        # only index if it has a source repo
+        if repo_data.has_key?('source')
+          if repo_data['source']['type'] == 'git'
+            source_uri = repo_data['source']['url']
+            source_version = repo_data['source']['version']
+          end
+        else
+          next
+        end
+
+        # store the variant for the repo from this distro
+        repo = all_repos[repo_name] = {
+          :name => repo_name,
+          :tags => [],
+          :default => 'rosdistro',
+          :instances => {}
+        }
+        repo[:instances]['rosdistro'] = {
+          :repo => repo,
+          :uri => source_uri,
+          :released => repo_data.has_key?('release'),
+          :distro_branches => { distro => source_version },
+          :distro_versions => {},
+          :distros => {}
+        }
       end
-
     end
 
-    # all_packages: hash
-    #   key: package name
-    #   value: hash
-    #       key: instance name
-    #       value: hash
-    #         name
-    #         repo
-    #         uri
-    #         distros
-    all_packages = Hash.new {|h,k| h[k]={}}
+    # add additional repo instances to the main dict
+    Dir.glob(File.join(site.config['repos_path'],'*.yaml')) do |repo_filename|
 
-    # update and extract data from each repo
-    # TODO: iterate over second-hand data structure instead of _repo yaml file docs
-    repos.each do |repo|
-      # create or open the repo
-      g = nil
-      local_path = File.join(checkout_path, repo.data['name'])
-      unless File.exist?(local_path)
-        # initialize a new local repo
-        print("initializing local repo: " + repo.data['name']+"\n")
-        g = Git.init(local_path)
-      else
-        print("opening existing local repo: " + repo.data['name']+"\n")
-        # open existing local repo
-        g = Git.open(local_path)
+      # limit repos if requested
+      if site.config['max_repos'] > 0 and all_repos.length > site.config['max_repos'] then break end
+
+      # read in the repo data
+      repo_name = File.basename(repo_filename, File.extname(repo_filename))
+      repo_data = YAML.load_file(repo_filename)
+
+      # initialize this repo in the repo index if it doesn't exist yet
+      unless all_repos.has_key?(repo_name)
+        all_repos[repo_name] = {
+          :name => repo_name,
+          :tags => [],
+          :default => nil,
+          :instances => {}
+        }
       end
 
-      unless repo.data.has_key?('tags') then repo.data['tags'] = [] end
-      unless repo.data.has_key?('description') then repo.data['description'] = "No known description" end
+      # get the repo struct for this repo and update it
+      repo = all_repos[repo_name]
+      repo[:tags] = repo_data['tags'] or []
+      repo[:default] = repo[:default] or repo_data['default']
 
-      # get branches corresponding to ros distros
-      instances = Hash.new {|h,k| h[k]={}}
+      # add all the instances
+      repo_data['instances'].each do |instance_name, instance|
 
-      # fetch all the instances
-      repo.data['instances'].each do |instance_name, instance|
-        # create page for this repo
-        # TODO: deal with non-github types
-        uri = github_uri(instance['ns'], instance['name'])
+        # skip instances missing uri
+        unless instance['uri'] then next end
+
+        # add this remote to the repo instances dict
+        repo[:instances][instance_name] = {
+          :repo => repo,
+          :uri => instance['uri'],
+          :released => false,
+          :distro_branches => (repo_file.data['distros'] or {}),
+          :distro_versions => {},
+          :distros => {}
+        }
+      end
+    end
+
+    puts "Found " << all_repos.length.to_s << " repos."
+
+    # clone / fetch all the repos
+    all_repos.each do |repo_name, repo|
+      puts "Getting remotes for for "+repo_name
+
+      # open or initialize this repo
+      local_path = File.join(checkout_path, repo_name)
+      g = if File.exist?(local_path) then Git.open(local_path) else Git.init(local_path) end
+
+      # add / fetch all the instances
+      repo[:instances].each do |instance_name, instance|
+
+        unless instance[:uri]
+          puts ("WARNING: No URI: " + instance.inspect).yellow
+          next
+        end
+
+        # make sure the uri actually exists
+        resp = Typhoeus.get(instance[:uri], followlocation: true)
+
+        if resp.code == 404
+          puts ("ERROR: "+resp.code.to_s+" Bad URI: " + instance.inspect).red
+          next
+        end
 
         # find the remote if it already exists
-        remote = nil
+        new_remote = true
         g.remotes.each do |r|
-          if r.url == uri
+          if r.url == instance[:uri]
             remote = r
+            new_remote = false
           end
         end
 
         # add the remote if it isn't found
-        if remote.nil?
-          print(" - adding remote "+instance_name+" from: " + uri + "\n")
-          remote = g.add_remote(instance_name, uri)
+        if new_remote
+          puts " - adding remote "+instance_name+" from: " + instance[:uri].to_s
+          remote = g.add_remote(instance_name, instance[:uri])
         end
 
         # fetch the remote
-        print(" - fetching remote "+instance_name+" from: " + remote.url + "\n")
-        g.fetch(remote)
-
-        # add this remote to the repo instances dict
-        instances[instance_name] = {
-          'repo' => repo,
-          'name' => instance_name,
-          'uri' => uri,
-          'distros' => {}
-        }
-
-      end
-
-      # extract info from all branches
-      g.branches.each do |branch|
-
-        # detached branches are those checked out by the system but not given names
-        if branch.to_s.include? 'detached'
-          next
+        if new_remote or File.mtime(local_path) < (Time.now() - (60*60*24))
+          puts " - fetching remote "+instance_name+" from: " + remote.url
+          g.fetch(remote)
+        else
+          puts " - not fetching remote "+instance_name+" since it is less than a day old"
         end
 
-        instance_name = branch.to_s.split('/')[1]
-        branch_name = branch.to_s.split('/')[-1]
-
-        instance = repo.data['instances'][instance_name]
-        #print('branch: '+branch.to_s+' instance: '+instance.inspect)
-
-        #print(' - remote name: '+instance_name+"\n")
-        #print(' - short name: '+branch_name+"\n")
-
-        # initialize branch info struct
-        branch_info = {
-          'name' => branch_name,
-          'packages' => {}}
-
-        # determine which instance to add it to
+        # get versions suitable for checkout for each distro
         all_distros.each do |distro|
+          # get explicit version
+          explicit_version = instance[:distro_branches][distro]
 
-          custom_branch = false
-          if instance and instance.has_key?('distro_branches') and instance['distro_branches'].has_key?(distro) and instance['distro_branches'][distro] == branch_name
-            print('custom branch for '+distro+': '+branch.to_s)
-            custom_branch = true
-          end
+          # get the version if it's a branch
+          g.branches.each do |branch|
+            # detached branches are those checked out by the system but not given names
+            if branch.to_s.include? 'detached' then next end
 
-          if branch_name.include? distro or custom_branch
+            # get the branch instance name and shortname
+            remote_name = branch.to_s.split('/')[1]
+            branch_name = branch.to_s.split('/')[-1]
 
-            # get README.md files from each distro (and forks)
-            print(" - checking out "+branch.to_s+"\n")
-            g.checkout(branch)
-            readme_path = File.join(local_path,'README.md')
-
-            # load the readme if it exists
-            if File.exist?(readme_path)
-              print(" - distro "+distro+" has readme\n")
-              readme = IO.read(readme_path)
-              readme_html = render_md(site, readme)
-              readme_html = '<div class="rendered-markdown">'+readme_html+"</div>"
-
-              # fix image links
-              branch_info['readme_rendered'], _ = fix_image_links(readme_html, instance['ns'], instance['name'], branch_name)
-            else
-              branch_info['readme_rendered'] = render_md(
-                site,
-                "*No README.md file found. Maybe try [wiki.ros.org](http://www.ros.org/browse/list.php)*")
-            end
-
-            # find packages in this branch
-            Find.find(local_path) do |path|
-              if FileTest.directory?(path)
-                if File.basename(path)[0] == ?. or File.exist?(File.join(path,'CATKIN_IGNORE'))
-                  Find.prune
-                else
-                  next
+            # save the branch as the version if it matches either the explicit version or the distro name
+            if remote_name == instance_name
+              if explicit_version
+                if branch_name == explicit_version
+                  instance[:distro_versions][distro] = branch
+                  break
                 end
-              else
-                path_split = path.split(File::SEPARATOR)
-                tail = path_split[-1]
-                pkg_dir = path_split[0...-1]
-
-                #print("::"+path+": "+tail+"\n")
-                if tail == 'package.xml'
-                  # extract package manifest info
-                  package_xml = IO.read(path)
-                  package_doc = REXML::Document.new(package_xml)
-                  package_info = {
-                    'repo' => repo,
-                    'uri' => instances[instance_name]['uri'],
-                    'distro' => distro,
-                    'name' => REXML::XPath.first(package_doc, "/package/name/text()").to_s,
-                    'version' => REXML::XPath.first(package_doc, "/package/version/text()").to_s,
-                    'license' => REXML::XPath.first(package_doc, "/package/license/text()").to_s,
-                    'description' => REXML::XPath.first(package_doc, "/package/description/text()").to_s,
-                    'maintainers' => REXML::XPath.each(package_doc, "/package/maintainer/text()").map { |m| m.to_s },
-                    'authors' => REXML::XPath.each(package_doc, "/package/author/text()").map { |a| a.to_s },
-                    'tags' => REXML::XPath.each(package_doc, "/package/export/rosindex/tags/tag/text()").map { |t| t.to_s },
-                    'readme' => "no readme yet.",
-                    'readme_rendered' => "no readme yet."
-                  }
-                  #print(package_info.to_s+"\n\n")
-
-                  package_info['tags'].each do |tag|
-                    unless repo.data['tags'].include? tag then repo.data['tags'] << tag end
-                  end
-
-                  package_name = package_info['name']
-
-                  # TODO: check for readme in same directory as package.xml
-                  readme_path = File.join(pkg_dir,'README.md')
-                  if File.exist?(readme_path)
-                    print(' - found readme for '+package_name+"\n")
-                    package_info['readme'] = IO.read(readme_path)
-                    readme_html = render_md(site, package_info['readme'])
-                    readme_html = '<div class="rendered-markdown">'+readme_html+"</div>"
-
-                    pn = Pathname.new(File.join(*pkg_dir))
-                    ln = Pathname.new(local_path)
-                    relpath = pn.relative_path_from(ln)
-                    package_info['readme_rendered'], _ =
-                      fix_image_links(readme_html, instance['ns'],
-                                      instance['name'], branch_name,
-                                      relpath.to_s)
-                  else
-                    #print(' - did not find readme for '+package_name+" at "+readme_path+"\n")
-                  end
-
-                  unless all_packages.has_key?(package_name)
-                    all_packages[package_name] = {}
-                  end
-
-                  unless all_packages[package_name].has_key?(instance_name)
-                    all_packages[package_name][instance_name] = {
-                      'name' => package_name,
-                      'repo' => repo,
-                      'uri' => instances[instance_name]['uri'],
-                      'distros' => {}
-                    }
-                  end
-
-                  branch_info['packages'][package_name] = package_info
-                  all_packages[package_name][instance_name]['distros'][distro] = package_info
-                end
+              elsif branch_name.include? distro
+                instance[:distro_versions][distro] = branch
+                break
               end
             end
+          end
 
-            # store this branch info
-            instances[instance_name]['distros'][distro] = branch_info
+          unless instance[:distro_versions][distro] then next end
+
+          # get the version if it's a tag
+          g.tags.each do |tag|
+            tag_name = tag.to_s
+
+            # save the tag if it matches either the explicit version or the distro name
+            if explicit_version
+              if tag_name == explicit_version
+                instance[:distro_versions][distro] = tag
+                break
+              end
+            elsif tag_name.include? distro
+              instance[:distro_versions][distro] = tag
+              break
+            end
+          end
+        end
+
+        # debug which versions were found
+        puts instance[:distro_versions].inspect
+
+        # extract info (including packages) from each version of this repo
+        instance[:distro_versions].each do |distro, version|
+          uri  = instance[:uri]
+
+          # get the version shortname if it's a branch
+          version_name = version.to_s.split('/')[-1]
+
+          # initialize this instance struct
+          branch_info = instance[:distros][distro] = {
+            :raw_uri => get_raw_uri(instance[:uri], version_name),
+            :packages => {},
+            :readme => nil,
+            :readme_rendered => nil}
+
+          # check out this branch
+          puts " - checking out "+version.to_s+" from "+instance[:uri]
+          g.checkout(version)
+
+          # load the repo readme for this branch if it exists
+          branch_info[:readme_rendered], branch_info[:readme] = get_readme(
+            site,
+            File.join(local_path,'README.md'),
+            branch_info[:raw_uri])
+
+          # find packages in this branch
+          Find.find(local_path) do |path|
+            if FileTest.directory?(path)
+              # skip certain paths
+              if File.basename(path)[0] == ?. or File.exist?(File.join(path,'CATKIN_IGNORE'))
+                Find.prune
+              end
+
+              # check for package.xml in this directory
+              manifest_path = File.join(path,'package.xml')
+              if File.exist?(manifest_path)
+                pkg_dir = path
+
+                # compute the relative path from the root of the repo to this directory
+                relpath = Pathname.new(File.join(*pkg_dir)).relative_path_from(Pathname.new(local_path))
+
+                # read the package manifest
+                package_xml = IO.read(manifest_path)
+                package_doc = REXML::Document.new(package_xml)
+
+                # extract package manifest info
+                package_name = REXML::XPath.first(package_doc, "/package/name/text()").to_s
+
+
+                puts " -- adding package " << package_name
+
+                package_info = {
+                  :name => package_name,
+                  :repo => all_repos[repo_name],
+                  :distro => distro,
+                  :raw_uri => File.join(branch_info[:raw_uri], relpath),
+                  # required package info
+                  :name => package_name,
+                  :version => REXML::XPath.first(package_doc, "/package/version/text()").to_s,
+                  :license => REXML::XPath.first(package_doc, "/package/license/text()").to_s,
+                  :description => REXML::XPath.first(package_doc, "/package/description/text()").to_s,
+                  :maintainers => REXML::XPath.each(package_doc, "/package/maintainer/text()").map { |m| m.to_s },
+                  # optional package info
+                  :authors => REXML::XPath.each(package_doc, "/package/author/text()").map { |a| a.to_s },
+                  # rosindex metadata
+                  :tags => REXML::XPath.each(package_doc, "/package/export/rosindex/tags/tag/text()").map { |t| t.to_s },
+                  # package contents
+                  :readme => nil,
+                  :readme_rendered => nil
+                }
+
+                # add package tags to the containing repo
+                package_info[:tags].each do |tag|
+                  unless instance[:tags].include? tag then instance[:tags] << tag end
+                end
+
+                # check for readme in same directory as package.xml
+                package_info[:readme_rendered], package_info[:readme] = get_readme(
+                  site,
+                  File.join(pkg_dir,'README.md'),
+                  package_info[:raw_uri])
+
+                # add this package to the global package dict
+                unless all_packages[package_name].has_key?(:instances)
+                  puts " -- adding new package" << package_name
+                  all_packages[package_name] = {
+                    :name => package_name,
+                    :instances => {}}
+                end
+                unless all_packages[package_name][:instances].has_key?(instance_name)
+                  puts " -- adding new package " << package_name << " instance " << instance_name
+                  all_packages[package_name][:instances][instance_name] = {
+                    :name => package_name,
+                    :repo => all_repos[repo_name],
+                    :distros => {}
+                  }
+                end
+
+                # reference the package info in the global indices
+                all_packages[package_name][:instances][instance_name][:distros][distro] = package_info
+                all_repos      [repo_name][:instances][instance_name][:distros][distro][:packages][package_name] = package_info
+
+                # stop searching a directory after finding a package.xml
+                Find.prune
+              end
+            end
           end
         end
       end
 
-      # create the actual pages
-      print("creating pages for this repo...\n")
+      # create the repo pages
+      puts " - creating pages for repo "+repo[:name]+"..."
 
-      site.pages << RepoPage.new(
-        site,
-        site.source,
-        File.join('repos', repo.data['name']),
-        repo,
-        instances)
+      # create a page that lists all the repo instances
+      site.pages << RepoPage.new(site, repo)
 
       # create pages for each repo instance
-      instances.each do |instance_name, instance|
+      repo[:instances].each do |instance_name, instance|
 
-        site.pages << RepoInstancePage.new(
-          site,
-          repo,
-          instances,
-          instance_name)
+        site.pages << RepoInstancePage.new(site, repo, instance_name)
 
-        if instance_name == repo.data['default']
-          site.pages << RepoInstancePage.new(
-            site,
-            repo,
-            instances,
-            instance_name,
-            true)
+        if repo[:default] == instance_name
+          site.pages << RepoInstancePage.new(site, repo, instance_name, true)
         end
       end
-
-      all_repos[repo.data['name']] = instances
     end
 
     # create package pages
-    print("Found "+String(all_packages.length)+" packages total.\n")
+    puts "Found "+String(all_packages.length)+" packages total."
 
-    all_packages.each do |package_name, package_instances|
+    all_packages.each do |package_name, package|
 
-      # create package instance list page
-      site.pages << PackagePage.new(
-        site,
-        package_name,
-        package_instances)
+      # create package page which lists all the instances
+      site.pages << PackagePage.new(site, package)
 
-      package_instances.each do |instance_name, package_instance|
+      # create a page for each instance
+      package[:instances].each do |instance_name, package_instance|
 
-        #print(package_instance.inspect+"\n\n")
+        repo = package_instance[:repo]
 
-        repo = package_instance['repo']
-
-        #print('repo: '+repo.data.inspect+"\n")
-
-        instances = all_repos[repo.data['name']]
+        instances = all_repos[repo[:name]]
 
         site.pages << PackageInstancePage.new(
           site,
           repo,
-          instances,
-          package_instances,
+          package,
           instance_name)
 
-        if repo.data['default'] == instance_name
+        if repo[:default] == instance_name
           site.pages << PackageInstancePage.new(
             site,
             repo,
-            instances,
-            package_instances,
+            package,
             instance_name,
             true)
         end
@@ -403,8 +494,7 @@ class GitScraper < Jekyll::Generator
         site,
         n_package_list_pages + 1,
         page_index + 1,
-        list_alpha
-      )
+        list_alpha)
 
       if page_index == 0
         site.pages << PackageListPage.new(
@@ -412,31 +502,30 @@ class GitScraper < Jekyll::Generator
           n_package_list_pages + 1,
           page_index + 1,
           list_alpha,
-          true
-        )
+          true)
       end
     end
 
     # create lunr index data
     index = []
-    all_packages.each do |package_name, package_instances|
-      package_instances.each do |instance_name, package_instance|
-        package_instance['distros'].each do |distro, package|
+    all_packages.each do |package_name, package|
+      package[:instances].each do |instance_name, instance|
+        instance[:distros].each do |distro, p|
 
           if package.nil? then next end
 
-          readme_filtered = self.strip_stopwords(package['readme'])
+          readme_filtered = self.strip_stopwords(p[:readme])
 
           index << {
             :baseurl => site.config['baseurl'],
             :url => File.join('/p',package_name,instance_name)+"#"+distro,
             :last_updated => nil,
-            :tags => package['tags'] * " ",
+            :tags => p[:tags] * " ",
             :name => package_name,
-            :version => package['version'],
-            :description => package['./_site/search.jsondescription'],
-            :maintainers => package['maintainers'] * " ",
-            :authors => package['authors'] * " ",
+            :version => p[:version],
+            :description => p[:description],
+            :maintainers => p[:maintainers] * " ",
+            :authors => p[:authors] * " ",
             :distro => distro,
             :readme => readme_filtered
           }
@@ -463,7 +552,7 @@ class GitScraper < Jekyll::Generator
   end
 
   def strip_stopwords(text)
-    text = text.split.delete_if() do |x| 
+    text = text.split.delete_if() do |x|
       t = x.downcase.gsub(/[^a-z']/, '')
       t.length < @min_length || @stopwords.include?(t)
     end.join(' ')
@@ -471,16 +560,16 @@ class GitScraper < Jekyll::Generator
 end
 
 class RepoPage < Jekyll::Page
-  def initialize(site, base, dir, repo, instances)
+  def initialize(site, repo)
     @site = site
-    @base = base
-    @dir = dir
+    @base = site.source
+    @dir = File.join('repos', repo[:name])
     @name = 'index.html'
 
     self.process(@name)
-    self.read_yaml(File.join(base, '_layouts'),'repo.html')
+    self.read_yaml(File.join(@base, '_layouts'),'repo.html')
     self.data['repo'] = repo
-    self.data['instances'] = instances
+    self.data['instances'] = repo[:instances]
   end
 end
 
@@ -491,11 +580,11 @@ def get_available_distros(site, instance)
   available_older_distros = {}
 
   site.config['distros'].each do |distro|
-    available_distros[distro] = instance['distros'].has_key?(distro)
+    available_distros[distro] = instance[:distros].has_key?(distro)
   end
 
   site.config['old_distros'].each do |distro|
-    if instance['distros'].has_key?(distro)
+    if instance[:distros].has_key?(distro)
       available_older_distros[distro] = true
     end
   end
@@ -505,9 +594,9 @@ end
 
 
 class RepoInstancePage < Jekyll::Page
-  def initialize(site, repo, instances, instance_name, default = false)
+  def initialize(site, repo, instance_name, default = false)
 
-    instance_base = File.join('r', repo.data['name'])
+    instance_base = File.join('r', repo[:name])
 
     @site = site
     @base = site.source
@@ -521,11 +610,11 @@ class RepoInstancePage < Jekyll::Page
     # list all ROS packages in the repo
     #site.pages << PackagePage.new(...)
     self.data['repo'] =   repo
-    self.data['instances'] = instances
-    self.data['instance'] = instances[instance_name]
+    self.data['instances'] = repo[:instances]
+    self.data['instance'] = repo[:instances][instance_name]
     self.data['instance_base'] = instance_base
 
-    self.data['available_distros'], self.data['available_older_distros'], self.data['n_available_older_distros'] = get_available_distros(site, instances[instance_name])
+    self.data['available_distros'], self.data['available_older_distros'], self.data['n_available_older_distros'] = get_available_distros(site, repo[:instances][instance_name])
 
     self.data['all_distros'] = site.config['distros'] + site.config['old_distros']
   end
@@ -552,23 +641,23 @@ class PackageListPage < Jekyll::Page
 end
 
 class PackagePage < Jekyll::Page
-  def initialize(site, package_name, package_instances)
+  def initialize(site, package)
     @site = site
     @base = site.source
-    @dir = File.join('packages',package_name)
+    @dir = File.join('packages',package[:name])
     @name = 'index.html'
 
     self.process(@name)
     self.read_yaml(File.join(@base, '_layouts'),'package.html')
-    self.data['package_name'] = package_name
-    self.data['package_instances'] = package_instances
+    self.data['package_name'] = package[:name]
+    self.data['package_instances'] = package[:instances]
   end
 end
 
 class PackageInstancePage < Jekyll::Page
-  def initialize(site, repo, instances, package_instances, instance_name, default=false)
+  def initialize(site, repo, package, instance_name, default=false)
 
-    instance_base = File.join('p', package_instances[instance_name]['name'])
+    instance_base = File.join('p', package[:name])
 
     @site = site
     @base = site.source
@@ -583,20 +672,20 @@ class PackageInstancePage < Jekyll::Page
     # list all ROS packages in the repo
     #site.pages << PackagePage.new(...)
     self.data['repo'] = repo
-    self.data['instances'] = instances
-    self.data['instance'] = instances[instance_name]
+    self.data['instances'] = repo[:instances]
+    self.data['instance'] = repo[:instances][instance_name]
     self.data['instance_base'] = instance_base
-    self.data['package_instances'] = package_instances
-    self.data['package_instance'] = package_instances[instance_name]
+    self.data['package_instances'] = package[:instances]
+    self.data['package_instance'] = package[:instances][instance_name]
 
-    self.data['available_distros'], self.data['available_older_distros'], self.data['n_available_older_distros'] = get_available_distros(site, instances[instance_name])
+    self.data['available_distros'], self.data['available_older_distros'], self.data['n_available_older_distros'] = get_available_distros(site, repo[:instances][instance_name])
 
     self.data['all_distros'] = site.config['distros'] + site.config['old_distros']
   end
 end
 
 class SearchIndexFile < Jekyll::StaticFile
-  # Override write as the search.json index file has already been created 
+  # Override write as the search.json index file has already been created
   def write(dest)
     true
   end

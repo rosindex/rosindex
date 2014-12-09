@@ -17,12 +17,16 @@ kramdown:
   hard_wrap: false
 
 redcarpet:
-  input: GFM
+  extensions:
+    - fenced_code_blocks
+    - autolink
+    - no_intra_emphasis
+
+highlighter: pygments
 
 checkout_path: /tmp/rosindex/checkout
-collections:
-- repos
 rosdistro_path: _rosdistro
+repos_path: _repos
 
 # ROS distros to look for
 distros:
@@ -37,3 +41,6 @@ old_distros:
 
 # package list page
 packages_per_page: 25
+
+# uncomment the following line for testing (limit the number of indexed repos)
+max_repos: 5

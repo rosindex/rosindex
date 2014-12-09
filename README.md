@@ -1,45 +1,112 @@
 ROS Index
 =========
 
-A simple index for known ROS packages on GitHub. It builds in jekyll with a
-plugin to pull down information from github, and uses client-side javascript to
-fetch additional information from GitHub like open tickets and forks.
+A simple static index for known ROS packages on GitHub. It builds in jekyll
+with a plugin to pull down information from github, and uses client-side
+javascript for quick searching and to fetch additional information from GitHub
+like open tickets and active forks.
 
 ## Contributing
 
-### Repositories
+### Adding a Repository to the Index
 
-Repositories are described in YAML-annotated markdown files in the `_repos`
-directory. Each repo file describes one or more version-control repositories.
-Multiple repositories with different versionf of the code can be listed under
-`instances`.
+Most repositories are listed in the standard
+[rosdistro](http://github.com/ros/rosdistro) files. These files contain lists
+of repositories containing *both* released and unreleased packages. Even if your
+code is experimental, it's important to get it indexed in the main ROS distro
+indexes.
+
+### Adding a Fork of a Repository to the Index
+
+Unfortunately, the *rosdistro* standard, as defined in
+[REP-141](http://ros.org/reps/rep-0141.html), does not accomodate the indexing
+of *forks*. Until the standard is extended to do so, rosindex will support the
+indexing of this additional information.
+
+Forks are described in the YAML-formatted markdown files in the `_repos`
+directory which correspond to the repository names in *rosdistro*. Each
+repository fork should be given an identifying name for easy reference on the
+rosindex website.
+
+The only required key is the `url`, but you can also add a `purpose` describing
+why the package was forked, as well as `distros` to describe which ROS distros
+map to which branches in the repository.
 
 ```yaml
-name: conman
-default: jbohren
-instances:
-  jbohren: {type: 'github', org: 'jbohren', repo: 'conman', tut:'doc/tutorials' }
+forks:
+  RCPRG-ros-pkg:
+    url: "https://github.com/RCPRG-ros-pkg/conman.git"
+    purpose: "Experimental features"
+    distros:
+      indigo: master
+      hydro: master
 ```
 
-### Package Metadata
+### Adding Package Metadata
 
-Catkin `package.xml` files can be augmented with `<rosindex>` tags in the `<export>` section.
-
-#### Tags
+Catkin `package.xml` files can be augmented with `<rosindex>` tags in the
+`<export>` section, which is meant for 3rd-party use. Adding an empty rosindex
+section to a `package.xml` fifle would look like the following:
 
 ```xml
 <package>
+  <!-- required metadata -->
   <!-- ... -->
 
   <export>
     <rosindex>
-      <tags>
-        <tag>biped</tag>
-        <tag>planning</tag>
-      </tags>
+      <!-- rosindex-related tags -->
     </rosindex>
   </export>
 </package>
+```
+
+The metadata described in the following sub-sections must all be added under
+a single `<rosindex></rosindex>` tag.
+
+#### REAMDE
+
+***UNIMPLEMENTED***
+
+By default, rosindex will assume that the readme file for a package is titled
+`REDME.md` and is placed in the package root. If not, a `<readme></readme>` tag
+can be used to specify an alternative.
+
+For example, an alternative readme, stored in a `doc` subdirectory, could be
+specified like the following:
+
+```xml
+<readme>doc/README.md</readme>
+```
+
+#### Tags
+
+Tags are useful for categorizing related ROS packages in rosindex. They are
+single words or multiple hyphenated words.
+
+For example, adding the tags `biped`, `planning`, and `real-time` in the
+rosindex section would look like the following:
+
+```xml
+<tags>
+  <tag>biped</tag>
+  <tag>planning</tag>
+  <tag>real-time</tag>
+</tags>
+```
+
+#### Tutorials
+
+***UNIMPLEMENTED***
+
+A package can also give a list of a series of tutorials.
+
+```xml
+<tutorials>
+  <tutorial>doc/tut1.md</tutorial>
+  <tutorial>doc/tut2.md</tutorial>
+  <tutorial>doc/tut3.md</tutorial>
+</tutorials>
 ```
 
 ## Presentation
