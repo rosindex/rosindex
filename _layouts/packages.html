@@ -16,7 +16,7 @@ layout: default
         <table class="table table-condensed table-striped table-hover">
           <thead>
             <tr>
-              <th><span class="pull-right"> <span class="glyphicon glyphicon-th"></span></span></th>
+              <th style="text-align: center;"><span class="glyphicon glyphicon-th"></span></th>
               <th>Name</th>
               <th>Last Updated</th>
               <th>Released</th>
@@ -27,7 +27,7 @@ layout: default
           <tr>
             <td data-toggle="tooltip" data-placement="left" title="View Package Instances">
               <span class="pull-right">
-                {% assign n_instances = package[1] | size %}
+                {% assign n_instances = package[1].instances | size %}
                 <a href="/packages/{{package[0]}}" class="label label-{% if n_instances > 1 %}primary{% else %}default{% endif %}">
                     {{n_instances}}
                 </a>

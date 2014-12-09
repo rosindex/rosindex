@@ -16,27 +16,30 @@ layout: default
         <table class="table table-condensed table-striped table-hover">
           <thead>
             <tr>
-              <th><span class="pull-right"> <span class="glyphicon glyphicon-th"></span></span></th>
+              <th style="text-align: center;"><span class="glyphicon glyphicon-th"></span></th>
               <th>Name</th>
               <th>Description</th>
             </tr>
           </thead>
           <tbody>
-          {% for repo in site.collections.repos.docs %}
+          {% for repo in page.list_alpha %}
             <tr>
-              <td data-toggle="tooltip" data-placement="left" title="View Repo Instances" class="pull-right">
-                {% assign n_instances = repo.instances | size %}
-                <a href="/repos/{{repo.name}}"class="label label-{% if n_instances > 1 %}primary{% else %}default{% endif %}">
+              <td data-toggle="tooltip" data-placement="left" title="View Repo Instances" align="center">
+                {% assign n_instances = repo[1].instances | size %}
+                <a href="/repos/{{repo[0]}}"class="label label-{% if n_instances > 1 %}primary{% else %}default{% endif %}">
                     {{n_instances}}
                 </a>
               </td>
-              <td><a href="/r/{{repo.name}}">{{ repo.name }}</a></td>
-              <td>{{ repo.description }}</td>
+              <td><a href="/r/{{repo[0]}}">{{ repo[0] }}</a></td>
+              <td>{{ repo[0] }}</td>
             </tr>
           {% endfor %}
           </tbody>
         </table>
       </div>
     </div>
+  </div>
+  <div class="row text-center">
+    {% include package_pager.html %}
   </div>
 </div>

@@ -79,13 +79,6 @@ def make_instance_name(instance)
   return [instance['type'], instance['ns'], instance['name']].join("/")
 end
 
-class FakeRepoDoc
-  def data
-    @data ||= Hash.new
-  end
-end
-
-
 class GitScraper < Jekyll::Generator
   def initialize(config = {})
     super(config)
@@ -162,18 +155,19 @@ class GitScraper < Jekyll::Generator
 
         # store the variant for the repo from this distro
         repo = all_repos[repo_name] = {
-          :name => repo_name,
-          :tags => [],
-          :default => 'rosdistro',
-          :instances => {}
+          'name' => repo_name,
+          'tags' => [],
+          'default' => 'rosdistro',
+          'instances' => {}
         }
-        repo[:instances]['rosdistro'] = {
-          :repo => repo,
-          :uri => source_uri,
-          :released => repo_data.has_key?('release'),
-          :distro_branches => { distro => source_version },
-          :distro_versions => {},
-          :distros => {}
+        repo['instances']['rosdistro'] = {
+          'name' => 'rosdistro',
+          'repo' => repo,
+          'uri' => source_uri,
+          'released' => repo_data.has_key?('release'),
+          'distro_branches' => { distro => source_version },
+          'distro_versions' => {},
+          'distros' => {}
         }
       end
     end
@@ -191,17 +185,17 @@ class GitScraper < Jekyll::Generator
       # initialize this repo in the repo index if it doesn't exist yet
       unless all_repos.has_key?(repo_name)
         all_repos[repo_name] = {
-          :name => repo_name,
-          :tags => [],
-          :default => nil,
-          :instances => {}
+          'name' => repo_name,
+          'tags' => [],
+          'default' => nil,
+          'instances' => {}
         }
       end
 
       # get the repo struct for this repo and update it
       repo = all_repos[repo_name]
-      repo[:tags] = repo_data['tags'] or []
-      repo[:default] = repo[:default] or repo_data['default']
+      repo['tags'] = repo_data['tags'] or []
+      repo['default'] = repo['default'] or repo_data['default']
 
       # add all the instances
       repo_data['instances'].each do |instance_name, instance|
@@ -210,13 +204,14 @@ class GitScraper < Jekyll::Generator
         unless instance['uri'] then next end
 
         # add this remote to the repo instances dict
-        repo[:instances][instance_name] = {
-          :repo => repo,
-          :uri => instance['uri'],
-          :released => false,
-          :distro_branches => (repo_file.data['distros'] or {}),
-          :distro_versions => {},
-          :distros => {}
+        repo['instances'][instance_name] = {
+          'name' => instance_name,
+          'repo' => repo,
+          'uri' => instance['uri'],
+          'released' => false,
+          'distro_branches' => (repo_file.data['distros'] or {}),
+          'distro_versions' => {},
+          'distros' => {}
         }
       end
     end
@@ -232,15 +227,15 @@ class GitScraper < Jekyll::Generator
       g = if File.exist?(local_path) then Git.open(local_path) else Git.init(local_path) end
 
       # add / fetch all the instances
-      repo[:instances].each do |instance_name, instance|
+      repo['instances'].each do |instance_name, instance|
 
-        unless instance[:uri]
+        unless instance['uri']
           puts ("WARNING: No URI: " + instance.inspect).yellow
           next
         end
 
         # make sure the uri actually exists
-        resp = Typhoeus.get(instance[:uri], followlocation: true)
+        resp = Typhoeus.get(instance['uri'], followlocation: true)
 
         if resp.code == 404
           puts ("ERROR: "+resp.code.to_s+" Bad URI: " + instance.inspect).red
@@ -250,7 +245,7 @@ class GitScraper < Jekyll::Generator
         # find the remote if it already exists
         new_remote = true
         g.remotes.each do |r|
-          if r.url == instance[:uri]
+          if r.url == instance['uri']
             remote = r
             new_remote = false
           end
@@ -258,8 +253,8 @@ class GitScraper < Jekyll::Generator
 
         # add the remote if it isn't found
         if new_remote
-          puts " - adding remote "+instance_name+" from: " + instance[:uri].to_s
-          remote = g.add_remote(instance_name, instance[:uri])
+          puts " - adding remote "+instance_name+" from: " + instance['uri'].to_s
+          remote = g.add_remote(instance_name, instance['uri'])
         end
 
         # fetch the remote
@@ -273,7 +268,7 @@ class GitScraper < Jekyll::Generator
         # get versions suitable for checkout for each distro
         all_distros.each do |distro|
           # get explicit version
-          explicit_version = instance[:distro_branches][distro]
+          explicit_version = instance['distro_branches'][distro]
 
           # get the version if it's a branch
           g.branches.each do |branch|
@@ -288,17 +283,17 @@ class GitScraper < Jekyll::Generator
             if remote_name == instance_name
               if explicit_version
                 if branch_name == explicit_version
-                  instance[:distro_versions][distro] = branch
+                  instance['distro_versions'][distro] = branch
                   break
                 end
               elsif branch_name.include? distro
-                instance[:distro_versions][distro] = branch
+                instance['distro_versions'][distro] = branch
                 break
               end
             end
           end
 
-          unless instance[:distro_versions][distro] then next end
+          unless instance['distro_versions'][distro] then next end
 
           # get the version if it's a tag
           g.tags.each do |tag|
@@ -307,42 +302,43 @@ class GitScraper < Jekyll::Generator
             # save the tag if it matches either the explicit version or the distro name
             if explicit_version
               if tag_name == explicit_version
-                instance[:distro_versions][distro] = tag
+                instance['distro_versions'][distro] = tag
                 break
               end
             elsif tag_name.include? distro
-              instance[:distro_versions][distro] = tag
+              instance['distro_versions'][distro] = tag
               break
             end
           end
         end
 
         # debug which versions were found
-        puts instance[:distro_versions].inspect
+        puts instance['distro_versions'].inspect
 
         # extract info (including packages) from each version of this repo
-        instance[:distro_versions].each do |distro, version|
-          uri  = instance[:uri]
+        instance['distro_versions'].each do |distro, version|
+          uri  = instance['uri']
 
           # get the version shortname if it's a branch
           version_name = version.to_s.split('/')[-1]
 
           # initialize this instance struct
-          branch_info = instance[:distros][distro] = {
-            :raw_uri => get_raw_uri(instance[:uri], version_name),
-            :packages => {},
-            :readme => nil,
-            :readme_rendered => nil}
+          branch_info = instance['distros'][distro] = {
+            'raw_uri' => get_raw_uri(instance['uri'], version_name),
+            'packages' => {},
+            'readme' => nil,
+            'readme_rendered' => nil}
 
           # check out this branch
-          puts " - checking out "+version.to_s+" from "+instance[:uri]
-          g.checkout(version)
+          puts " - checking out "+version.to_s+" from "+instance['uri']
+          g.reset_hard(version)
+          #g.checkout(version)
 
           # load the repo readme for this branch if it exists
-          branch_info[:readme_rendered], branch_info[:readme] = get_readme(
+          branch_info['readme_rendered'], branch_info['readme'] = get_readme(
             site,
             File.join(local_path,'README.md'),
-            branch_info[:raw_uri])
+            branch_info['raw_uri'])
 
           # find packages in this branch
           Find.find(local_path) do |path|
@@ -371,55 +367,55 @@ class GitScraper < Jekyll::Generator
                 puts " -- adding package " << package_name
 
                 package_info = {
-                  :name => package_name,
-                  :repo => all_repos[repo_name],
-                  :distro => distro,
-                  :raw_uri => File.join(branch_info[:raw_uri], relpath),
+                  'name' => package_name,
+                  'repo' => all_repos[repo_name],
+                  'distro' => distro,
+                  'raw_uri' => File.join(branch_info['raw_uri'], relpath),
                   # required package info
-                  :name => package_name,
-                  :version => REXML::XPath.first(package_doc, "/package/version/text()").to_s,
-                  :license => REXML::XPath.first(package_doc, "/package/license/text()").to_s,
-                  :description => REXML::XPath.first(package_doc, "/package/description/text()").to_s,
-                  :maintainers => REXML::XPath.each(package_doc, "/package/maintainer/text()").map { |m| m.to_s },
+                  'name' => package_name,
+                  'version' => REXML::XPath.first(package_doc, "/package/version/text()").to_s,
+                  'license' => REXML::XPath.first(package_doc, "/package/license/text()").to_s,
+                  'description' => REXML::XPath.first(package_doc, "/package/description/text()").to_s,
+                  'maintainers' => REXML::XPath.each(package_doc, "/package/maintainer/text()").map { |m| m.to_s },
                   # optional package info
-                  :authors => REXML::XPath.each(package_doc, "/package/author/text()").map { |a| a.to_s },
+                  'authors' => REXML::XPath.each(package_doc, "/package/author/text()").map { |a| a.to_s },
                   # rosindex metadata
-                  :tags => REXML::XPath.each(package_doc, "/package/export/rosindex/tags/tag/text()").map { |t| t.to_s },
+                  'tags' => REXML::XPath.each(package_doc, "/package/export/rosindex/tags/tag/text()").map { |t| t.to_s },
                   # package contents
-                  :readme => nil,
-                  :readme_rendered => nil
+                  'readme' => nil,
+                  'readme_rendered' => nil
                 }
 
                 # add package tags to the containing repo
-                package_info[:tags].each do |tag|
-                  unless instance[:tags].include? tag then instance[:tags] << tag end
+                package_info['tags'].each do |tag|
+                  unless instance['tags'].include? tag then instance['tags'] << tag end
                 end
 
                 # check for readme in same directory as package.xml
-                package_info[:readme_rendered], package_info[:readme] = get_readme(
+                package_info['readme_rendered'], package_info['readme'] = get_readme(
                   site,
                   File.join(pkg_dir,'README.md'),
-                  package_info[:raw_uri])
+                  package_info['raw_uri'])
 
                 # add this package to the global package dict
-                unless all_packages[package_name].has_key?(:instances)
+                unless all_packages[package_name].has_key?('instances')
                   puts " -- adding new package" << package_name
                   all_packages[package_name] = {
-                    :name => package_name,
-                    :instances => {}}
+                    'name' => package_name,
+                    'instances' => {}}
                 end
-                unless all_packages[package_name][:instances].has_key?(instance_name)
+                unless all_packages[package_name]['instances'].has_key?(instance_name)
                   puts " -- adding new package " << package_name << " instance " << instance_name
-                  all_packages[package_name][:instances][instance_name] = {
-                    :name => package_name,
-                    :repo => all_repos[repo_name],
-                    :distros => {}
+                  all_packages[package_name]['instances'][instance_name] = {
+                    'name' => package_name,
+                    'repo' => all_repos[repo_name],
+                    'distros' => {}
                   }
                 end
 
                 # reference the package info in the global indices
-                all_packages[package_name][:instances][instance_name][:distros][distro] = package_info
-                all_repos      [repo_name][:instances][instance_name][:distros][distro][:packages][package_name] = package_info
+                all_packages[package_name]['instances'][instance_name]['distros'][distro] = package_info
+                all_repos      [repo_name]['instances'][instance_name]['distros'][distro]['packages'][package_name] = package_info
 
                 # stop searching a directory after finding a package.xml
                 Find.prune
@@ -430,17 +426,17 @@ class GitScraper < Jekyll::Generator
       end
 
       # create the repo pages
-      puts " - creating pages for repo "+repo[:name]+"..."
+      puts " - creating pages for repo "+repo['name']+"..."
 
       # create a page that lists all the repo instances
       site.pages << RepoPage.new(site, repo)
 
       # create pages for each repo instance
-      repo[:instances].each do |instance_name, instance|
+      repo['instances'].each do |instance_name, instance|
 
         site.pages << RepoInstancePage.new(site, repo, instance_name)
 
-        if repo[:default] == instance_name
+        if repo['default'] == instance_name
           site.pages << RepoInstancePage.new(site, repo, instance_name, true)
         end
       end
@@ -455,11 +451,11 @@ class GitScraper < Jekyll::Generator
       site.pages << PackagePage.new(site, package)
 
       # create a page for each instance
-      package[:instances].each do |instance_name, package_instance|
+      package['instances'].each do |instance_name, package_instance|
 
-        repo = package_instance[:repo]
+        repo = package_instance['repo']
 
-        instances = all_repos[repo[:name]]
+        instances = all_repos[repo['name']]
 
         site.pages << PackageInstancePage.new(
           site,
@@ -467,7 +463,7 @@ class GitScraper < Jekyll::Generator
           package,
           instance_name)
 
-        if repo[:default] == instance_name
+        if repo['default'] == instance_name
           site.pages << PackageInstancePage.new(
             site,
             repo,
@@ -475,6 +471,34 @@ class GitScraper < Jekyll::Generator
             instance_name,
             true)
         end
+      end
+    end
+    
+    # create repo list pages
+    repos_per_page = site.config['repos_per_page']
+    n_repo_list_pages = all_repos.length / repos_per_page
+
+    repos_alpha = all_repos.sort_by { |name, details| name }
+
+    (0..n_repo_list_pages).each do |page_index|
+
+      p_start = page_index * repos_per_page
+      p_end = [all_repos.length, p_start+repos_per_page].min
+      list_alpha = repos_alpha.slice(p_start, repos_per_page)
+
+      site.pages << RepoListPage.new(
+        site,
+        n_repo_list_pages + 1,
+        page_index + 1,
+        list_alpha)
+
+      if page_index == 0
+        site.pages << RepoListPage.new(
+          site,
+          n_repo_list_pages + 1,
+          page_index + 1,
+          list_alpha,
+          true)
       end
     end
 
@@ -509,25 +533,25 @@ class GitScraper < Jekyll::Generator
     # create lunr index data
     index = []
     all_packages.each do |package_name, package|
-      package[:instances].each do |instance_name, instance|
-        instance[:distros].each do |distro, p|
+      package['instances'].each do |instance_name, instance|
+        instance['distros'].each do |distro, p|
 
           if package.nil? then next end
 
-          readme_filtered = self.strip_stopwords(p[:readme])
+          readme_filtered = self.strip_stopwords(p['readme'])
 
           index << {
-            :baseurl => site.config['baseurl'],
-            :url => File.join('/p',package_name,instance_name)+"#"+distro,
-            :last_updated => nil,
-            :tags => p[:tags] * " ",
-            :name => package_name,
-            :version => p[:version],
-            :description => p[:description],
-            :maintainers => p[:maintainers] * " ",
-            :authors => p[:authors] * " ",
-            :distro => distro,
-            :readme => readme_filtered
+            'baseurl' => site.config['baseurl'],
+            'url' => File.join('/p',package_name,instance_name)+"#"+distro,
+            'last_updated' => nil,
+            'tags' => p['tags'] * " ",
+            'name' => package_name,
+            'version' => p['version'],
+            'description' => p['description'],
+            'maintainers' => p['maintainers'] * " ",
+            'authors' => p['authors'] * " ",
+            'distro' => distro,
+            'readme' => readme_filtered
           }
 
           puts 'indexed: ' << "#{package_name} #{instance_name} #{distro}"
@@ -536,7 +560,7 @@ class GitScraper < Jekyll::Generator
     end
 
     # generate index in the json format needed by lunr
-    index_json = JSON.generate({:entries=>index})
+    index_json = JSON.generate({'entries'=>index})
 
     # save the json file
     # TODO: is there no way to do this in fewer lines?
@@ -563,13 +587,13 @@ class RepoPage < Jekyll::Page
   def initialize(site, repo)
     @site = site
     @base = site.source
-    @dir = File.join('repos', repo[:name])
+    @dir = File.join('repos', repo['name'])
     @name = 'index.html'
 
     self.process(@name)
     self.read_yaml(File.join(@base, '_layouts'),'repo.html')
     self.data['repo'] = repo
-    self.data['instances'] = repo[:instances]
+    self.data['instances'] = repo['instances']
   end
 end
 
@@ -580,11 +604,11 @@ def get_available_distros(site, instance)
   available_older_distros = {}
 
   site.config['distros'].each do |distro|
-    available_distros[distro] = instance[:distros].has_key?(distro)
+    available_distros[distro] = instance['distros'].has_key?(distro)
   end
 
   site.config['old_distros'].each do |distro|
-    if instance[:distros].has_key?(distro)
+    if instance['distros'].has_key?(distro)
       available_older_distros[distro] = true
     end
   end
@@ -596,7 +620,7 @@ end
 class RepoInstancePage < Jekyll::Page
   def initialize(site, repo, instance_name, default = false)
 
-    instance_base = File.join('r', repo[:name])
+    instance_base = File.join('r', repo['name'])
 
     @site = site
     @base = site.source
@@ -610,18 +634,18 @@ class RepoInstancePage < Jekyll::Page
     # list all ROS packages in the repo
     #site.pages << PackagePage.new(...)
     self.data['repo'] =   repo
-    self.data['instances'] = repo[:instances]
-    self.data['instance'] = repo[:instances][instance_name]
+    self.data['instances'] = repo['instances']
+    self.data['instance'] = repo['instances'][instance_name]
     self.data['instance_base'] = instance_base
 
-    self.data['available_distros'], self.data['available_older_distros'], self.data['n_available_older_distros'] = get_available_distros(site, repo[:instances][instance_name])
+    self.data['available_distros'], self.data['available_older_distros'], self.data['n_available_older_distros'] = get_available_distros(site, repo['instances'][instance_name])
 
     self.data['all_distros'] = site.config['distros'] + site.config['old_distros']
   end
 end
 
 class PackageListPage < Jekyll::Page
-  def initialize(site, n_package_list_pages, page_index, list_alpha, default=false)
+  def initialize(site, n_list_pages, page_index, list_alpha, default=false)
     @site = site
     @base = site.source
     @dir = unless default then 'packages/page/'+page_index.to_s else 'packages' end
@@ -629,14 +653,40 @@ class PackageListPage < Jekyll::Page
 
     self.process(@name)
     self.read_yaml(File.join(@base, '_layouts'),'packages.html')
-    self.data['n_package_list_pages'] = n_package_list_pages
+    self.data['pager'] = {
+      'base' => 'packages'
+    }
+    self.data['n_list_pages'] = n_list_pages
     self.data['page_index'] = page_index
     self.data['list_alpha'] = list_alpha
 
     self.data['prev_page'] = [page_index - 1, 1].max
-    self.data['next_page'] = [page_index + 1, n_package_list_pages].min
+    self.data['next_page'] = [page_index + 1, n_list_pages].min
 
-    self.data['near_pages'] = *([1,page_index-4].max..[page_index+4, n_package_list_pages].min)
+    self.data['near_pages'] = *([1,page_index-4].max..[page_index+4, n_list_pages].min)
+  end
+end
+
+class RepoListPage < Jekyll::Page
+  def initialize(site, n_list_pages, page_index, list_alpha, default=false)
+    @site = site
+    @base = site.source
+    @dir = unless default then 'repos/page/'+page_index.to_s else 'repos' end
+    @name = 'index.html'
+
+    self.process(@name)
+    self.read_yaml(File.join(@base, '_layouts'),'repos.html')
+    self.data['pager'] = {
+      'base' => 'repos'
+    }
+    self.data['n_list_pages'] = n_list_pages
+    self.data['page_index'] = page_index
+    self.data['list_alpha'] = list_alpha
+
+    self.data['prev_page'] = [page_index - 1, 1].max
+    self.data['next_page'] = [page_index + 1, n_list_pages].min
+
+    self.data['near_pages'] = *([1,page_index-4].max..[page_index+4, n_list_pages].min)
   end
 end
 
@@ -644,20 +694,20 @@ class PackagePage < Jekyll::Page
   def initialize(site, package)
     @site = site
     @base = site.source
-    @dir = File.join('packages',package[:name])
+    @dir = File.join('packages',package['name'])
     @name = 'index.html'
 
     self.process(@name)
     self.read_yaml(File.join(@base, '_layouts'),'package.html')
-    self.data['package_name'] = package[:name]
-    self.data['package_instances'] = package[:instances]
+    self.data['package_name'] = package['name']
+    self.data['package_instances'] = package['instances']
   end
 end
 
 class PackageInstancePage < Jekyll::Page
   def initialize(site, repo, package, instance_name, default=false)
 
-    instance_base = File.join('p', package[:name])
+    instance_base = File.join('p', package['name'])
 
     @site = site
     @base = site.source
@@ -672,13 +722,13 @@ class PackageInstancePage < Jekyll::Page
     # list all ROS packages in the repo
     #site.pages << PackagePage.new(...)
     self.data['repo'] = repo
-    self.data['instances'] = repo[:instances]
-    self.data['instance'] = repo[:instances][instance_name]
+    self.data['instances'] = repo['instances']
+    self.data['instance'] = repo['instances'][instance_name]
     self.data['instance_base'] = instance_base
-    self.data['package_instances'] = package[:instances]
-    self.data['package_instance'] = package[:instances][instance_name]
+    self.data['package_instances'] = package['instances']
+    self.data['package_instance'] = package['instances'][instance_name]
 
-    self.data['available_distros'], self.data['available_older_distros'], self.data['n_available_older_distros'] = get_available_distros(site, repo[:instances][instance_name])
+    self.data['available_distros'], self.data['available_older_distros'], self.data['n_available_older_distros'] = get_available_distros(site, repo['instances'][instance_name])
 
     self.data['all_distros'] = site.config['distros'] + site.config['old_distros']
   end
