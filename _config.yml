@@ -40,8 +40,8 @@ old_distros:
   - 'c-turtle'
 
 # package list page
-packages_per_page: 5
-repos_per_page: 5
+packages_per_page: 50
+repos_per_page: 50
 
 pagers:
   repos:
@@ -52,4 +52,4 @@ pagers:
     page_count: 5
 
 # uncomment the following line for testing (limit the number of indexed repos)
-max_repos: 6
+max_repos: 0
