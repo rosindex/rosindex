@@ -244,12 +244,15 @@ class GitScraper < Jekyll::Generator
 
         # find the remote if it already exists
         new_remote = true
+        remote = nil
         g.remotes.each do |r|
           if r.url == instance['uri']
             remote = r
             new_remote = false
           end
         end
+
+        unless remote then next end
 
         # add the remote if it isn't found
         if new_remote

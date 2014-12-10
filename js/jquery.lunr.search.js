@@ -33,6 +33,7 @@
       this.indexDataUrl = options.indexUrl;
       this.index = this.createIndex();
       this.template = this.compileTemplate($(options.template));
+      this.ready = options.ready
 
       this.initialize();
     }
@@ -45,6 +46,7 @@
         self.populateIndex(data);
         self.populateSearchFromQuery();
         self.bindKeypress();
+        self.ready();
       });
     };
 

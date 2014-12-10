@@ -6,10 +6,17 @@ layout: default
   <div class="row">
     <ol class="breadcrumb">
       <li><a href="/">Home</a></li>
-      <li class="active">Packages</li>
+      <li class="active">Search</li>
     </ol>
   </div>
-  <div class="row">
+  <div class="hide-when-loaded" class="row">
+    <h3>Loading Index...</h3>
+    <div class="progress">
+      <div id="index-loader-bar" class="active progress-bar progress-bar-warning progress-bar-striped" role="progressbar" style="width: 100%">
+      </div>
+    </div>
+  </div>
+  <div id="search-row" class="row show-when-loaded" style="display: none">
     <div id="search">
       <form action="/search" method="get">
         <div class="input-group">
@@ -24,7 +31,7 @@ layout: default
   <div class="row">
     &nbsp;
   </div>
-  <div class="row">
+  <div class="row show-when-loaded" style="display: none">
     <div class="panel panel-default">
       <div class="panel-heading"><h3 class="panel-title">Packages </h3></div>
       <div class="table-responsive">
@@ -75,13 +82,21 @@ layout: default
 <script src="/js/jquery.lunr.search.js" type="text/javascript" charset="utf-8"></script>
 
 <script type="text/javascript">
-  $(function() {
-    $('#search-query').lunrSearch({
-      indexUrl: '/search.json',             // URL of the `search.json` index data for your site
-      results:  '#search-results',          // jQuery selector for the search results container
-      entries:  '.entries',                 // jQuery selector for the element to contain the results list, must be a child of the results element above.
-      template: '#search-results-template'  // jQuery selector for the Mustache.js template
+$(function() {
+  console.log('ready');
+  $('#search-query').lunrSearch({
+    indexUrl: '/search.json',             // URL of the `search.json` index data for your site
+    results:  '#search-results',          // jQuery selector for the search results container
+    entries:  '.entries',                 // jQuery selector for the element to contain the results list, must be a child of the results element above.
+    template: '#search-results-template',  // jQuery selector for the Mustache.js template
+    ready: (function() {
+            console.log('done indexing');
+            $('.hide-when-loaded').hide();
+            $('.show-when-loaded').show();
+            console.log('display toggled');
+            })
     });
-  });
+  console.log('done loading');
+});
 </script>
 

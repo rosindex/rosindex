@@ -40,8 +40,8 @@ old_distros:
   - 'c-turtle'
 
 # package list page
-packages_per_page: 50
-repos_per_page: 50
+packages_per_page: 5
+repos_per_page: 5
 
 pagers:
   repos:
