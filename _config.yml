@@ -26,7 +26,10 @@ highlighter: pygments
 
 checkout_threads: 5
 checkout_path: _checkout
-exclude: [_checkout]
+
+exclude:
+  - _checkout
+  - node_modules
 
 rosdistro_path: _rosdistro
 repos_path: _repos
