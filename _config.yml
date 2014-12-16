@@ -4,7 +4,7 @@ title: ROS Index
 description: > # this means to ignore newlines until "baseurl:"
   A community-maintained index of known ROS packages.
 baseurl: "" # the subpath of your site, e.g. /blog/
-url: "http://yourdomain.com" # the base hostname & protocol for your site
+url: "http://rosindex.github.io" # the base hostname & protocol for your site
 #twitter_username: jekyllrb
 github_username:  rosindex
 
@@ -24,7 +24,10 @@ redcarpet:
 
 highlighter: pygments
 
-checkout_path: /tmp/rosindex/checkout
+checkout_threads: 4
+checkout_path: _checkout
+exclude: [_checkout]
+
 rosdistro_path: _rosdistro
 repos_path: _repos
 
@@ -43,13 +46,5 @@ old_distros:
 packages_per_page: 50
 repos_per_page: 50
 
-pagers:
-  repos:
-    title: "Repositories"
-    page_count: 5
-  packages:
-    title: "Packages"
-    page_count: 5
-
 # uncomment the following line for testing (limit the number of indexed repos)
-max_repos: 0
+max_repos: 00

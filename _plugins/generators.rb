@@ -11,6 +11,7 @@ require 'json'
 require 'uri'
 require 'yaml'
 require "net/http"
+require 'thread'
 
 require 'nokogiri'
 require 'colorize'
@@ -219,6 +220,19 @@ class GitScraper < Jekyll::Generator
     puts "Found " << all_repos.length.to_s << " repos."
 
     # clone / fetch all the repos
+    if 0
+      work_q = Queue.new
+      all_repos.each {|r| work_q.push r}
+      workers = (0...site.config['checkout_threads']).map do
+        Thread.new do
+          begin
+          rescue ThreadError
+          end
+        end
+      end; "ok"
+      workers.map(&:join); "ok"
+    end
+
     all_repos.each do |repo_name, repo|
       puts "Getting remotes for for "+repo_name
 
@@ -229,7 +243,9 @@ class GitScraper < Jekyll::Generator
       # add / fetch all the instances
       repo['instances'].each do |instance_name, instance|
 
-        unless instance['uri']
+        if instance['uri']
+          puts " - uri: "+instance['uri']
+        else
           puts ("WARNING: No URI: " + instance.inspect).yellow
           next
         end
@@ -252,12 +268,15 @@ class GitScraper < Jekyll::Generator
           end
         end
 
-        unless remote then next end
-
         # add the remote if it isn't found
         if new_remote
           puts " - adding remote "+instance_name+" from: " + instance['uri'].to_s
           remote = g.add_remote(instance_name, instance['uri'])
+        end
+
+        unless remote
+          puts ("ERROR: failed to add remote").red
+          next
         end
 
         # fetch the remote
@@ -334,8 +353,8 @@ class GitScraper < Jekyll::Generator
 
           # check out this branch
           puts " - checking out "+version.to_s+" from "+instance['uri']
-          g.reset_hard(version)
-          #g.checkout(version)
+          #g.reset_hard(version)
+          g.checkout(version)
 
           # load the repo readme for this branch if it exists
           branch_info['readme_rendered'], branch_info['readme'] = get_readme(
@@ -476,7 +495,7 @@ class GitScraper < Jekyll::Generator
         end
       end
     end
-    
+
     # create repo list pages
     repos_per_page = site.config['repos_per_page']
     n_repo_list_pages = all_repos.length / repos_per_page
