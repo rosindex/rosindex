@@ -4,40 +4,42 @@ require 'git'
 
 task :default => [:devel]
 
-task :devel => [:"devel:build", :"devel:serve"]
-task :deploy => [:"deploy:build", :"deploy:serve"]
+task :devel => [:"build:devel", :"serve:devel"]
+task :deploy => [:"build:deploy", :"serve:deploy"]
 
-namespace :devel do
+namespace :build do
 
-  task :build do
+  task :devel do
     puts "Generating local rosindex..."
     sh "jekyll build --trace --config=_config.yml,_config_devel.yml"
   end
 
-  task :serve do
-    puts "Serving local rosindex..."
-    sh "jekyll serve --trace --config=_config.yml,_config_devel.yml --skip-initial-build"
-  end
-
-end
-
-namespace :deploy do
-
-  task :build do
+  task :deploy do
     puts 'Generating deployment rosindex (this could take a while)...'
     sh "jekyll build --trace --destination=_deploy --config=_config.yml"
   end
 
-  task :serve do
+end
+
+namespace :serve do
+
+  task :deploy do
     puts "Serving local rosindex..."
     sh "jekyll serve --trace --destination=_deploy --config=_config.yml --skip-initial-build"
   end
 
-  task :live do
-    #g = Git.open('.')
-    #g.branch('master').delete
-    #sh "git push -f origin master"
-    puts 'ROS Index deployed!'
+  task :devel do
+    puts "Serving local rosindex..."
+    sh "jekyll serve --trace --config=_config.yml,_config_devel.yml --skip-initial-build"
   end
 
+
 end
+
+task :publish do
+  #g = Git.open('.')
+  #g.branch('master').delete
+  #sh "git push -f origin master"
+  puts 'ROS Index published!'
+end
+

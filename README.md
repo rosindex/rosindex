@@ -118,10 +118,23 @@ list. This sets a client-side cookie which will persist.
 
 ### Tutorials
 
+## Cloning
+
+```
+git submodule init
+git submodule update
+```
+
 ## Building
 
 ```
-jekyll build
+rake build:devel
+rake serve:devel
+```
+
+```
+rake build:deploy
+rake serve:deploy
 ```
 
 ## Deployment
@@ -131,13 +144,12 @@ be deployed from a fully-equipped environment.
 
 ```
 git checkout source
-jekyll build
-git branch -D master
-git checkout -b master
-git add -f _site
-git commit -m "deploying"
-git filter-branch --subdirectory-filter _site/ -f
-git push -f origin master
-git checkout source
+rake build:deploy
+pushd _deploy
+git commit -am "deploy"
+git push origin master
+popd
+git commit -am "deployed"
+git push origin source
 ```
 
