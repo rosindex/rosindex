@@ -24,7 +24,7 @@ redcarpet:
 
 highlighter: pygments
 
-checkout_threads: 4
+checkout_threads: 5
 checkout_path: _checkout
 exclude: [_checkout]
 
