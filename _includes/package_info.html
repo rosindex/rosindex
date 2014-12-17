@@ -1,0 +1,38 @@
+<div class="panel panel-primary">
+  <div class="panel-heading">
+    <h4 class="panel-title">{{page.package_instance.name}} <small>{{ page.instance_name }}</small>
+      <span class="pull-right">
+        <a class="label label-primary" href="{{ page.instance.uri }}">
+          git
+        </a>
+      </span>
+      <span class="pull-right">
+        <a class="label label-primary" href="/r/{{page.repo.name}}/{{ page.instance_name }}">
+          repo
+        </a>
+      </span>
+    </h4>
+  </div>
+  <table class="table table-condensed">
+    <tbody>
+    <tr>
+      <!--<td><span class="pull-right">description</span></td>-->
+      <td>
+        {% for tag in page.repo.tags %}<span class="label label-default">{{ tag }}</span> {% endfor %}
+      </td>
+    </tr>
+    {% if page.instance %}
+    <tr>
+      <td>{% include instance_switch.html %}</td>
+    </tr>
+    {% endif %}
+    {% if page.available_distros %}
+    <tr>
+      <td>
+        {% include distro_switch.html %}
+      </td>
+    </tr>
+    {% endif %}
+    </tbody>
+  </table>
+</div>

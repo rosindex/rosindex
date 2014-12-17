@@ -15,12 +15,12 @@ namespace :build do
   task :devel do
     puts "Generating local rosindex..."
     sh "jekyll build --trace --config=_config.yml,_config_devel.yml"
-    sh lunr_cmd + " " + lunr_index_fields + " < _site/search.json > _site/index.json"
+    sh lunr_cmd + " " + lunr_index_fields + " < _devel/search.json > _devel/index.json"
   end
 
   task :deploy do
     puts 'Generating deployment rosindex (this could take a while)...'
-    sh "jekyll build --trace --destination=_deploy --config=_config.yml"
+    sh "jekyll build --trace --config=_config.yml"
     sh lunr_cmd + " " + lunr_index_fields + " < _deploy/search.json > _deploy/index.json"
   end
 
@@ -30,7 +30,7 @@ namespace :serve do
 
   task :deploy do
     puts "Serving local rosindex..."
-    sh "jekyll serve --trace --destination=_deploy --config=_config.yml --skip-initial-build"
+    sh "jekyll serve --trace --config=_config.yml --skip-initial-build"
   end
 
   task :devel do

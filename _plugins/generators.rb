@@ -156,7 +156,7 @@ class GitScraper < Jekyll::Generator
       end
 
       # fetch the remote
-      if new_remote or File.mtime(local_path) < (Time.now() - (60*60*24))
+      if new_remote or File.mtime(File.join(local_path,'.git')) < (Time.now() - (60*60*24))
         puts " - fetching remote "+instance_name+" from: " + remote.url
         g.fetch(remote)
       else

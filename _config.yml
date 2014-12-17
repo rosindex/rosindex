@@ -7,6 +7,7 @@ baseurl: "" # the subpath of your site, e.g. /blog/
 url: "http://rosindex.github.io" # the base hostname & protocol for your site
 #twitter_username: jekyllrb
 github_username:  rosindex
+destination: _deploy
 
 # Build settings
 markdown: redcarpet
@@ -30,6 +31,8 @@ checkout_path: _checkout
 exclude:
   - _checkout
   - node_modules
+  - Rakefile
+  - README.md
 
 rosdistro_path: _rosdistro
 repos_path: _repos

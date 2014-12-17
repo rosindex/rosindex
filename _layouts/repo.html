@@ -36,7 +36,7 @@ layout: default
           {% for instance in page.instances %}
             <tr>
               <td><a href="/r/{{page.repo.name}}/{{instance[0]}}">{{ instance[0] }}</a></td>
-              <td class="filterable-cell"><span class="label label-primary pull-right">{{ instance[1].uri }}</span></td>
+              <td class="filterable-cell"><a class="label label-default pull-right" href="{{instance[1].uri}}">{{ instance[1].uri }}</a></td>
             </tr>
           {% endfor %}
           </tbody>

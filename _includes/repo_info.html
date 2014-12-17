@@ -1,10 +1,20 @@
-<div class="well well-sm">
-  <table class="table-condensed">
+<div class="panel panel-primary">
+  <div class="panel-heading">
+    <h4 class="panel-title">{{page.repo.name}} <small>{{ page.instance_name }}</small>
+      {% if page.instance.uri %}
+      <span class="pull-right">
+        <a class="label label-primary" href="{{ page.instance.uri }}">
+          git
+        </a>
+      </span>
+      {% endif %}
+    </h4>
+  </div>
+  <table class="table table-condensed">
     <tbody>
       <tr>
         <!--<td><span class="pull-right">description</span></td>-->
         <td>
-          <h4>{{ page.repo.name }} <small>{{ page.repo.description }}</small></h4>
           {% for tag in page.repo.tags %}<span class="label label-default">{{ tag }}</span> {% endfor %}
         </td>
       </tr>

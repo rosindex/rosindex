@@ -12,8 +12,9 @@ layout: default
   </div>
   <div class="row">
     <div class="panel panel-default">
-      <div class="panel-heading"><h3 class="panel-title">Instances
-      </h3></div>
+      <div class="panel-heading">
+        <h3 class="panel-title">Instances</h3>
+      </div>
       <div class="table-responsive">
         <table class="table table-condensed">
           <thead>
@@ -25,7 +26,7 @@ layout: default
           <tbody>
           {% for instance in page.package_instances %}
             <tr>
-              <td><a href="/p/{{instance[1].repo.name}}/{{instance[0]}}">{{ instance[0] }}</a></td>
+              <td><a href="/p/{{page.package_name}}/{{instance[0]}}">{{ instance[0] }}</a></td>
               <td class="filterable-cell"><span class="label label-primary pull-right">{{ instance[1].uri }}</span></td>
             </tr>
           {% endfor %}
