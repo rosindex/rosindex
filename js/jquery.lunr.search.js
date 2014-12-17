@@ -30,25 +30,34 @@
       this.$elem = elem;
       this.$results = $(options.results);
       this.$entries = $(options.entries, this.$results);
-      this.indexDataUrl = options.indexUrl;
-      this.index = this.createIndex();
       this.template = this.compileTemplate($(options.template));
       this.ready = options.ready
 
-      this.initialize();
-    }
+      this.indexUrl = options.indexUrl;
+      this.indexDataUrl = options.indexDataUrl;
 
-    // initialize the lunr search
-    LunrSearch.prototype.initialize = function() {
       var self = this;
 
-      this.loadIndexData(function(data) {
-        self.populateIndex(data);
+      this.jxhr = [];
+
+      this.jxhr.push($.getJSON(self.indexUrl, function(serialized_index) {
+        console.log("loading " + self.indexUrl);
+        self.index = lunr.Index.load(serialized_index);
+      }));
+      this.jxhr.push($.getJSON(self.indexDataUrl, function(index) {
+        console.log("loading " + self.indexDataUrl);
+        self.entries = index.entries;
+      }));
+
+      $.when.apply($, this.jxhr).done(function() {
         self.populateSearchFromQuery();
         self.bindKeypress();
         self.ready();
+        console.log("done loading everything");
       });
-    };
+    }
+
+      // http://stackoverflow.com/questions/5817811/jquery-multiple-getjson-requests
 
     // create lunr.js search index
     LunrSearch.prototype.createIndex = function() {
@@ -75,7 +84,9 @@
 
     // load the search index data
     LunrSearch.prototype.loadIndexData = function(callback) {
-      $.getJSON(this.indexDataUrl, callback);
+    };
+
+    LunrSearch.prototype.loadIndex = function(callback) {
     };
 
     LunrSearch.prototype.populateIndex = function(data) {

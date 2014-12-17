@@ -592,6 +592,7 @@ class GitScraper < Jekyll::Generator
           readme_filtered = self.strip_stopwords(p['readme'])
 
           index << {
+            'id' => index.length,
             'baseurl' => site.config['baseurl'],
             'url' => File.join('/p',package_name,instance_name)+"#"+distro,
             'last_updated' => nil,
