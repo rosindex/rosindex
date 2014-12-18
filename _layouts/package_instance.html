@@ -6,9 +6,11 @@ layout: default
   <div class="row">
     <ol class="breadcrumb">
       <li><a href="/">Home</a></li>
-      <li><a href="/packages">Packages</a></li>
-      <li><a href="/packages/{{ page.package_instance.name }}">{{page.package_instance.name}}</a></li>
-      <li class="active">{{page.instance.name}}</li>
+      <li><a href="/repos">Repos</a></li>
+      <li><a href="/r/{{page.repo.name}}/{{ page.instance.name }}">{{page.repo.name}}</a></li>
+      <li class="active">{{page.package_instance.name}}
+      </li>
+      <!--<li class="active">{{page.instance.name}}</li>-->
     </ol>
   </div>
   <div class="row">
