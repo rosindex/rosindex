@@ -278,7 +278,7 @@ class GitScraper < Jekyll::Generator
               package_doc = REXML::Document.new(package_xml)
 
               # extract package manifest info
-              package_name = REXML::XPath.first(package_doc, "/package/name/text()").to_s
+              package_name = REXML::XPath.first(package_doc, "/package/name/text()").to_s.rstrip.lstrip
 
 
               puts " -- adding package " << package_name
