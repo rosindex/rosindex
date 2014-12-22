@@ -16,11 +16,26 @@ table.table a.label {
   float: none;
 }
 
+
 .truncate {
-  width: 100%;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+    position: relative;
+}
+.truncate .content {
+    position: absolute;
+    max-width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.truncate .spacer {
+    height: 0;
+    overflow: hidden;
+}
+
+
+a.inactive {
+  color: #999999;
+  text-decoration: none;
 }
 
 

@@ -23,9 +23,11 @@ layout: default
           <thead>
             <tr>
               <th style="text-align: center;"><span class="glyphicon glyphicon-th"></span></th>
+              <th style="text-align: center;"><span class="glyphicon glyphicon-flash"></span></th>
               <th style="text-align: center;"><span class="glyphicon glyphicon-file"></span></th>
+              <th style="text-align: center;"><span class="glyphicon glyphicon-time"></span></th>
               <th>Name</th>
-              <th>Packages</th>
+              <th width="100%">Packages</th>
             </tr>
           </thead>
           <tbody>
@@ -42,21 +44,35 @@ layout: default
               {% for distro in page.all_distros %}
                 {% assign r = instance.distros[distro] %}
                 {% if r %}
+                  <td class="distro distro-{{distro}} text-center">
+                    {% if r.released %}
+                      <span class="glyphicon glyphicon-ok"></span>
+                    {% endif %}
+                  </td>
                   <td class="distro distro-{{distro}}" data-toggle="tooltip" data-placement="left" title="Has README" align="center">
                     {% if r.readme %}
                       <span class="glyphicon glyphicon-ok"></span>
                     {% endif %}
                   </td>
-                  <td class="distro distro-{{distro}}"><a href="/r/{{repo[0]}}">{{ repo[0] }}</a></td>
                   <td class="distro distro-{{distro}}">
-                    {{ for p in r.packages }}
-                      <span class="label label-default">{{p[0]}}</span>
-                    {{ endfor }}
+                    <span class="label label-default">{{ r.last_commit_time | date: "%F" }}</span>
+                  </td>
+                  <td class="distro distro-{{distro}}">
+                    <a href="/r/{{repo[0]}}">{{ repo[0] }}</a>
+                  </td>
+                  <td class="distro distro-{{distro}}">
+                    {% for p in r.packages %}
+                    <a href="/p/{{p[0]}}/{{default}}" class="label label-primary">{{p[0]}}</a>
+                    {% endfor %}
                   </td>
                 {% else %}
-                  <td class="distro distro-{{distro}}" data-toggle="tooltip" data-placement="left" title="Has README" align="center"></td>
-                  <td class="distro distro-{{distro}}"><a href="/r/{{repo[0]}}">{{ repo[0] }}</a></td>
-                  <td class="distro distro-{{distro}}"><em>N/A</em></td>
+                  <td class="distro distro-{{distro}}"></td>
+                  <td class="distro distro-{{distro}}"></td>
+                  <td class="distro distro-{{distro}}"></td>
+                  <td class="distro distro-{{distro}}">
+                    <a class="inactive" href="/r/{{repo[0]}}">{{ repo[0] }}</a>
+                  </td>
+                  <td class="distro distro-{{distro}}"></td>
                 {% endif %}
               {% endfor %}
             </tr>

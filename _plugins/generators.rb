@@ -240,6 +240,7 @@ class GitScraper < Jekyll::Generator
         branch_info = instance['distros'][distro] = {
           'raw_uri' => get_raw_uri(instance['uri'], version_name),
           'packages' => {},
+          'last_commit_time' => nil,
           'readme' => nil,
           'readme_rendered' => nil}
 
@@ -250,6 +251,9 @@ class GitScraper < Jekyll::Generator
         rescue
           g.reset(version.name, :hard)
         end
+
+        # get the date of the last modification
+        branch_info['last_commit_time'] = g.last_commit.time.to_s
 
         # load the repo readme for this branch if it exists
         branch_info['readme_rendered'], branch_info['readme'] = get_readme(
@@ -718,6 +722,10 @@ class PackageListPage < Jekyll::Page
 
     self.data['near_pages'] = *([1,page_index-4].max..[page_index+4, n_list_pages].min)
     self.data['all_distros'] = site.config['distros'] + site.config['old_distros']
+
+    self.data['available_distros'] = Hash[site.config['distros'].collect { |d| [d, true] }]
+    self.data['available_older_distros'] = Hash[site.config['old_distros'].collect { |d| [d, true] }]
+    self.data['n_available_older_distros'] = site.config['old_distros'].length
   end
 end
 
