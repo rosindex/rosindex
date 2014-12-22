@@ -39,8 +39,8 @@ def get_readme(site, readme_path, raw_uri)
     readme_html = '<div class="rendered-markdown">'+readme_html+"</div>"
     readme_rendered, _ = fix_image_links(readme_html, raw_uri)
   else
-    readme = "*No README.md file found. Maybe try [wiki.ros.org](http://www.ros.org/browse/list.php)*"
-    readme_rendered = render_md(site, readme)
+    readme = nil
+    readme_rendered = nil
   end
 
   return readme_rendered, readme
@@ -319,6 +319,7 @@ class GitScraper < Jekyll::Generator
                 puts " -- adding new package" << package_name
                 @all_packages[package_name] = {
                   'name' => package_name,
+                  'repo' => repo,
                   'instances' => {}}
               end
               unless @all_packages[package_name]['instances'].has_key?(instance_name)
@@ -589,7 +590,7 @@ class GitScraper < Jekyll::Generator
 
           if package.nil? then next end
 
-          readme_filtered = self.strip_stopwords(p['readme'])
+          readme_filtered = if p['readme'] then self.strip_stopwords(p['readme']) else "" end
 
           index << {
             'id' => index.length,
@@ -716,6 +717,7 @@ class PackageListPage < Jekyll::Page
     self.data['next_page'] = [page_index + 1, n_list_pages].min
 
     self.data['near_pages'] = *([1,page_index-4].max..[page_index+4, n_list_pages].min)
+    self.data['all_distros'] = site.config['distros'] + site.config['old_distros']
   end
 end
 
@@ -739,6 +741,11 @@ class RepoListPage < Jekyll::Page
     self.data['next_page'] = [page_index + 1, n_list_pages].min
 
     self.data['near_pages'] = *([1,page_index-4].max..[page_index+4, n_list_pages].min)
+    self.data['all_distros'] = site.config['distros'] + site.config['old_distros']
+
+    self.data['available_distros'] = Hash[site.config['distros'].collect { |d| [d, true] }]
+    self.data['available_older_distros'] = Hash[site.config['old_distros'].collect { |d| [d, true] }]
+    self.data['n_available_older_distros'] = site.config['old_distros'].length
   end
 end
 

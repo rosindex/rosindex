@@ -1,7 +1,35 @@
 <header class="site-header">
 
   <div class="wrapper">
+    <div class="container-fluid" style="margin-bottom: 10px">
+      <div class="row">
 
+        <!-- title -->
+        <div class="col-xs-6 col-sm-4" style="margin-top: 8px">
+          <a class="site-title" href="{{ site.baseurl }}/">{{ site.title }}</a>
+        </div>
+
+        <!-- main links -->
+        <div class="col-xs-6 col-sm-4 text-right" style="margin-top: 8px">
+          <a class="btn btn-link" href="/packages">Packages</a>
+          <a class="btn btn-link" href="/repos">Repositories</a>
+        </div>
+
+        <!-- searchbox -->
+        <div class="col-xs-12 col-sm-4 text-right" style="margin-top: 12px">
+          <form action="/search/" role="form">
+            <div class="input-group input-group-sm">
+              <input type="text" class="form-control" name="q" placeholder="Search">
+              <span class="input-group-btn">
+                <button class="btn btn-default btn-sm" type="submit"><span class="glyphicon glyphicon-search"></span></button>
+              </span>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!--
     <a class="site-title" href="{{ site.baseurl }}/">{{ site.title }}</a>
 
     <nav class="site-nav">
@@ -14,12 +42,12 @@
       </a>
 
       <div class="trigger">
-        <!--<a class="page-link" href="{{ page.url | prepend: site.baseurl }}">{{ page.title }}</a>-->
         <a class="page-link" href="/packages">Packages</a>
         <a class="page-link" href="/repos">Repositories</a>
         <a class="page-link" href="/search">Search</a>
       </div>
     </nav>
+    -->
 
   </div>
 

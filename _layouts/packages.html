@@ -17,6 +17,7 @@ layout: default
           <thead>
             <tr>
               <th style="text-align: center;"><span class="glyphicon glyphicon-th"></span></th>
+              <th style="text-align: center;"><span class="glyphicon glyphicon-file"></span></th>
               <th>Name</th>
               <th>Last Updated</th>
               <th>Released</th>
@@ -30,6 +31,18 @@ layout: default
               <a href="/packages/{{package[0]}}" class="label label-{% if n_instances > 1 %}primary{% else %}default{% endif %}">
                 {{n_instances}}
               </a>
+            </td>
+            <td data-toggle="tooltip" data-placement="left" title="Has README" align="center">
+              {{ assign default = package[1].repo.default }}
+              {% for distro in page.all_distros %}
+                <div class="distro distro-{{distro}}">
+                  {{ distro }}
+
+                  {% if package[1].instances[default].distros[distro].readme %}
+                    <span class="glyphicon glyphicon-ok"></span>
+                  {% endif %}
+                </div>
+              {% endfor %}
             </td>
             <td><a href="/p/{{package[0]}}">{{ package[0] }}</a></td>
             <td>sometime</td>

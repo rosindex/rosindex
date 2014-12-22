@@ -10,6 +10,12 @@ layout: default
     </ol>
   </div>
   <div class="row">
+    {% include distro_switch.html %}
+  </div>
+  <div class="row">
+    &nbsp;
+  </div>
+  <div class="row">
     <div class="panel panel-default">
       <div class="panel-heading"><h3 class="panel-title">Repositories</h3></div>
       <div class="table-responsive">
@@ -17,6 +23,7 @@ layout: default
           <thead>
             <tr>
               <th style="text-align: center;"><span class="glyphicon glyphicon-th"></span></th>
+              <th style="text-align: center;"><span class="glyphicon glyphicon-file"></span></th>
               <th>Name</th>
               <th>Description</th>
             </tr>
@@ -29,6 +36,20 @@ layout: default
                 <a href="/repos/{{repo[0]}}"class="label label-{% if n_instances > 1 %}primary{% else %}default{% endif %}">
                     {{n_instances}}
                 </a>
+              </td>
+              <td data-toggle="tooltip" data-placement="left" title="Has README" align="center">
+                {{ assign default = repo[1].default }}
+                {% for instance in repo[1].instances %}
+                  {% if instance[0] == repo[1].default %}
+                    {% for distro in instance[1].distros %}
+                      <div class="distro distro-{{distro[0]}}">
+                        {% if distro[1].readme %}
+                        <span class="glyphicon glyphicon-ok"></span>
+                        {% endif %}
+                      </div>
+                    {% endfor %}
+                  {% endif %}
+                {% endfor %}
               </td>
               <td><a href="/r/{{repo[0]}}">{{ repo[0] }}</a></td>
               <td>{{ repo[0] }}</td>
@@ -43,3 +64,6 @@ layout: default
     {% include package_pager.html %}
   </div>
 </div>
+
+
+<script src="/js/distro_switch.js"></script>

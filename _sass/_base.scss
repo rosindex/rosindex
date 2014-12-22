@@ -10,6 +10,20 @@ table.table a.label {
 
 .top-buffer { margin-top:10px; }
 
+.vcenter {
+  display: inline-block;
+  vertical-align: middle;
+  float: none;
+}
+
+.truncate {
+  width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+
 /**
  * Reset some basic elements
  */

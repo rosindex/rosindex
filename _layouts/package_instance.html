@@ -21,6 +21,14 @@ layout: default
       <div class="distro distro-{{distro}}">
         {% if page.package_instance.distros[distro] %}
           {% assign package = page.package_instance.distros[distro] %}
+
+          <div class="panel panel-default">
+            <div class="panel-heading">Metadata</div>
+            <div>
+              
+            </div>
+          </div>
+
           <div class="panel panel-default">
             <div class="panel-heading">README</div>
             <div class="readme-{{ page.repo.type }}" style="margin: 20px">
