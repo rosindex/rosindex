@@ -414,21 +414,33 @@ class GitScraper < Jekyll::Generator
         end
 
         # store the variant for the repo from this distro
-        repo = @all_repos[repo_name] = {
-          'name' => repo_name,
-          'tags' => [],
-          'default' => 'rosdistro',
-          'instances' => {}
-        }
-        repo['instances']['rosdistro'] = {
-          'name' => 'rosdistro',
-          'repo' => repo,
-          'uri' => source_uri,
-          'released' => repo_data.has_key?('release'),
-          'distro_branches' => { distro => source_version },
-          'distro_versions' => {},
-          'distros' => {}
-        }
+        repo = nil
+        instance_name = 'rosdistro-'+distro
+
+        unless @all_repos.has_key?(repo_name)
+          repo = @all_repos[repo_name] = {
+            'name' => repo_name,
+            'tags' => [],
+            'default' => instance_name,
+            'instances' => {}
+          }
+        else
+          repo = @all_repos[repo_name]
+        end
+
+        unless repo['instances'].has_key?(instance_name)
+          repo['instances'][instance_name] = {
+            'name' => instance_name,
+            'repo' => repo,
+            'uri' => source_uri,
+            'released' => repo_data.has_key?('release'),
+            'distro_branches' => {},
+            'distro_versions' => {},
+            'distros' => {}
+          }
+        end
+
+        repo['instances'][instance_name]['distro_branches'][distro] = source_version
       end
     end
 
