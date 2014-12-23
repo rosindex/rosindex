@@ -15,80 +15,86 @@ layout: default
   <div class="row">
     &nbsp;
   </div>
-  <div class="row">
-    <div class="panel panel-default">
-      <div class="panel-heading"><h3 class="panel-title">Packages </h3></div>
-      <div class="table-responsive">
-        <table class="table table-condensed table-striped table-hover">
-          <thead>
-            <tr>
-              <th style="text-align: center;"><span class="glyphicon glyphicon-th"></span></th>
-              <th style="text-align: center;"><span class="glyphicon glyphicon-flash"></span></th>
-              <th style="text-align: center;"><span class="glyphicon glyphicon-file"></span></th>
-              <th style="text-align: center;"><span class="glyphicon glyphicon-time"></span></th>
-              <th>Name</th>
-              <th>Description</th>
-            </tr>
-          </thead>
-          <tbody>
-          {% for package in page.list_alpha %}
-            {% assign repo = package[1].repo %}
-            {% assign default = repo.default %}
-            {% assign r = repo.instances[default] %}
-            {% assign instance = package[1].instances[default] %}
-            {% assign n_instances = package[1].instances | size %}
-          <tr>
-            <td data-toggle="tooltip" data-placement="left" title="View Package Instances" align="center">
-              <a href="/packages/{{package[0]}}" class="label label-{% if n_instances > 1 %}primary{% else %}default{% endif %}">
-                {{n_instances}}
-              </a>
-            </td>
-            {% for distro in page.all_distros %}
-              {% assign p = instance.distros[distro] %}
-              {% if p %}
-                <td class="distro distro-{{distro}} text-center">
-                  {% if r.released %}
-                    <span class="glyphicon glyphicon-ok"></span>
+  {% for distro in page.all_distros %}
+    <div class="row distro distro-{{distro}}">
+      <div class="panel panel-default">
+        <div class="panel-heading"><h3 class="panel-title">Packages </h3></div>
+        <div class="table-responsive">
+          <table class="table table-condensed table-striped table-hover">
+            <thead>
+              <tr>
+                <th style="text-align: center;"><span class="glyphicon glyphicon-th"></span></th>
+                <th style="text-align: center;"><span class="glyphicon glyphicon-flash"></span></th>
+                <th style="text-align: center;"><span class="glyphicon glyphicon-file"></span></th>
+                <th style="text-align: center;"><span class="glyphicon glyphicon-time"></span></th>
+                <th>Name</th>
+                <th width="100%">Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for package in page.list_alpha %}
+                {% assign repo = package[1].repo %}
+                {% assign default = repo.default %}
+                {% assign r = repo.instances[default] %}
+                {% assign instance = package[1].instances[default] %}
+                {% assign n_instances = package[1].instances | size %}
+                <tr>
+                  <td title="View Package Instances" data-toggle="tooltip" data-placement="left" align="center">
+                    <a href="/packages/{{package[0]}}" class="label label-{% if n_instances > 1 %}primary{% else %}default{% endif %}">
+                        {{n_instances}}
+                    </a>
+                  </td>
+                  {% assign p = instance.distros[distro] %}
+                  {% if p %}
+                    {% if r.released %}
+                      <td class="text-center">
+                        <span title="Released in {{distro}}" data-toggle="tooltip" data-placement="left" class="glyphicon glyphicon-flash"></span>
+                      </td>
+                    {% else %}
+                      <td title="Not released in {{distro}}" data-toggle="tooltip" data-placement="left" class="text-center">
+                        <span class="glyphicon glyphicon-none"></span>
+                      </td>
+                    {% endif %}
+                    {% if p.readme %}
+                      <td title="Has README" data-toggle="tooltip" data-placement="left" align="center">
+                        <span class="glyphicon glyphicon-file"></span>
+                      </td>
+                    {% else %}
+                      <td title="No README" data-toggle="tooltip" data-placement="left" align="center">
+                        <span class="glyphicon glyphicon-none"></span>
+                      </td>
+                    {% endif %}
+                    </td>
+                    <td>
+                      <span class="label label-default">{{ r.distros[distro].last_commit_time | date: "%F" }}</span>
+                    </td>
+                    <td>
+                      <a href="/p/{{package[0]}}">{{ package[0] }}</a>
+                    </td>
+                    <td>
+                      <div class="truncate">
+                        <div class="spacer">{{ p.description }}</div>
+                        <div class="content">{{ p.description }}</div>
+                        <span>&nbsp;</span>
+                      </div>
+                    </td>
+                  {% else %}
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td>
+                      <a class="inactive" href="/p/{{package[0]}}">{{ package[0] }}</a>
+                    </td>
+                    <td></td>
                   {% endif %}
-                </td>
-                <td class="distro distro-{{distro}}" data-toggle="tooltip" data-placement="left" title="Has README" align="center">
-                    <div class="distro distro-{{distro}}">
-                      {% if p.readme %}
-                        <span class="glyphicon glyphicon-ok"></span>
-                      {% endif %}
-                    </div>
-                </td>
-                <td class="distro distro-{{distro}}">
-                  <span class="label label-default">{{ r.distros[distro].last_commit_time | date: "%F" }}</span>
-                </td>
-                <td class="distro distro-{{distro}}">
-                  <a href="/p/{{package[0]}}">{{ package[0] }}</a>
-                </td>
-                <td class="distro distro-{{distro}}">
-                  <div class="truncate">
-                    <div class="spacer">{{ p.description }}</div>
-                    <div class="content">{{ p.description }}</div>
-                    <span>&nbsp;</span>
-                  </div>
-                </td>
-              {% else %}
-                <td class="distro distro-{{distro}}"></td>
-                <td class="distro distro-{{distro}}"></td>
-                <td class="distro distro-{{distro}}"></td>
-                <td class="distro distro-{{distro}}"></td>
-                <td class="distro distro-{{distro}}">
-                  <a class="inactive" href="/p/{{package[0]}}">{{ package[0] }}</a>
-                </td>
-                <td class="distro distro-{{distro}}"></td>
-              {% endif %}
-            {% endfor %}
-          </tr>
-          {% endfor %}
-          </tbody>
-        </table>
-      </table>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
-  </div>
+  {% endfor %}
   <div class="row text-center">
     {% include package_pager.html %}
   </div>
