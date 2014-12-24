@@ -22,7 +22,7 @@ require 'typhoeus'
 def fix_image_links(text, raw_uri, additional_path = '')
   readme_doc = Nokogiri::HTML(text)
   readme_doc.xpath("//img[@src]").each() do |el|
-    puts 'img: '+el['src'].to_s
+    #puts 'img: '+el['src'].to_s
     unless el['src'].start_with?('http')
       el['src'] = ('%s/%s/' % [raw_uri, additional_path])+el['src']
     end
@@ -117,53 +117,201 @@ class GitScraper < Jekyll::Generator
 
     # add / fetch all the instances
     repo['instances'].each do |instance_name, instance|
+      instance['distros'].each do |distro, details|
 
-      if instance['uri']
-        puts " - uri: "+instance['uri']
-      else
-        puts ("WARNING: No URI: " + instance.inspect).yellow
-        next
-      end
+        uri = details['uri']
 
-      # make sure the uri actually exists
-      resp = Typhoeus.get(instance['uri'], followlocation: true)
+        # make sure there's an actual uri
+        unless uri
+          #puts ("WARNING: No URI: " + details.inspect).yellow
+          next
+        end
 
-      if resp.code == 404
-        puts ("ERROR: "+resp.code.to_s+" Bad URI: " + instance.inspect).red
-        next
-      end
+        # make sure the uri actually exists before adding it
+        resp = Typhoeus.get(uri, followlocation: true)
+        if resp.code == 404
+          puts ("ERROR: "+resp.code.to_s+" Bad URI: " + uri).red
+          next
+        end
 
-      # find the remote if it already exists
-      new_remote = true
-      remote = nil
-      g.remotes.each do |r|
-        #puts "remote url: " << r.url
-        if r.url == instance['uri']
-          remote = r
-          new_remote = false
+        # find the remote if it already exists under a different name
+        new_remote = true
+        remote = nil
+        g.remotes.each do |r|
+          #puts "remote url: " << r.url
+          if r.url == uri
+            remote = r
+            new_remote = false
+            break
+          end
+        end
+
+        # add the remote if it isn't found
+        if new_remote
+          puts " - adding remote "+instance_name+" from: " + uri.to_s
+          remote = g.remotes.create(instance_name, uri)
+        end
+
+        unless remote
+          puts ("ERROR: failed to add remote").red
+          next
+        end
+
+        # fetch the remote
+        if new_remote or File.mtime(File.join(local_path,'.git')) < (Time.now() - (60*60*24))
+          puts " - fetching remote "+repo_name+": "+instance_name+" from: " + remote.url
+          g.fetch(remote)
+        else
+          puts " - not fetching remote "+repo_name+": "+instance_name+" since it is less than a day old"
         end
       end
+    end
+  end
 
-      # add the remote if it isn't found
-      if new_remote
-        puts " - adding remote "+instance_name+" from: " + instance['uri'].to_s
-        remote = g.remotes.create(instance_name, instance['uri'])
-      end
+  def find_packages(site, repo, instance, distro, details, local_path)
 
-      unless remote
-        puts ("ERROR: failed to add remote").red
-        next
-      end
+    data = details['data']
+    packages = {}
 
-      # fetch the remote
-      if new_remote or File.mtime(File.join(local_path,'.git')) < (Time.now() - (60*60*24))
-        puts " - fetching remote "+instance_name+" from: " + remote.url
-        g.fetch(remote)
-      else
-        puts " - not fetching remote "+instance_name+" since it is less than a day old"
+    # find packages in this branch
+    Find.find(local_path) do |path|
+      if FileTest.directory?(path)
+        # skip certain paths
+        if File.basename(path)[0] == ?. or File.exist?(File.join(path,'CATKIN_IGNORE'))
+          Find.prune
+        end
+
+        # check for package.xml in this directory
+        manifest_path = File.join(path,'package.xml')
+        if File.exist?(manifest_path)
+          pkg_dir = path
+
+          # compute the relative path from the root of the repo to this directory
+          relpath = Pathname.new(File.join(*pkg_dir)).relative_path_from(Pathname.new(local_path))
+
+          # read the package manifest
+          package_xml = IO.read(manifest_path)
+          package_doc = REXML::Document.new(package_xml)
+
+          # extract package manifest info
+          package_name = REXML::XPath.first(package_doc, "/package/name/text()").to_s.rstrip.lstrip
+
+
+          puts " -- adding package " << package_name
+
+          package_info = {
+            'name' => package_name,
+            'repo' => repo,
+            'distro' => distro,
+            'raw_uri' => File.join(data['raw_uri'], relpath),
+            # required package info
+            'name' => package_name,
+            'version' => REXML::XPath.first(package_doc, "/package/version/text()").to_s,
+            'license' => REXML::XPath.first(package_doc, "/package/license/text()").to_s,
+            'description' => REXML::XPath.first(package_doc, "/package/description/text()").to_s,
+            'maintainers' => REXML::XPath.each(package_doc, "/package/maintainer/text()").map { |m| m.to_s },
+            # optional package info
+            'authors' => REXML::XPath.each(package_doc, "/package/author/text()").map { |a| a.to_s },
+            # rosindex metadata
+            'tags' => REXML::XPath.each(package_doc, "/package/export/rosindex/tags/tag/text()").map { |t| t.to_s },
+            # package contents
+            'readme' => nil,
+            'readme_rendered' => nil
+          }
+
+          # add package tags to the containing repo
+          package_info['tags'].each do |tag|
+            unless instance['tags'].include? tag then instance['tags'] << tag end
+          end
+
+          # check for readme in same directory as package.xml
+          package_info['readme_rendered'], package_info['readme'] = get_readme(
+            site,
+            File.join(pkg_dir,'README.md'),
+            package_info['raw_uri'])
+
+          packages[package_name] = package_info
+
+          # stop searching a directory after finding a package.xml
+          Find.prune
+        end
       end
     end
 
+    return packages
+  end
+
+  def scrape_version(site, repo, instance, distro, details, local_path, g, version)
+    # debug which versions were found
+    #puts instance['distro_versions'].inspect
+
+    repo_name = repo['name']
+    instance_name = instance['name']
+
+    # extract info (including packages) from each version of this repo
+    uri = details['uri']
+
+    unless uri
+      puts ("WARNING: no URI for "+repo_name+" "+instance_name+" "+distro).yellow
+      return
+    end
+    puts " - uri: " << uri
+
+    # get the version shortname if it's a branch
+    version_name = version.to_s.split('/')[-1]
+
+    # initialize this instance struct
+    data = details['data'] = {
+      'raw_uri' => get_raw_uri(uri, version_name),
+      'packages' => {},
+      'last_commit_time' => nil,
+      'readme' => nil,
+      'readme_rendered' => nil,
+      'packages' => {}}
+
+    # check out this branch
+    puts " - checking out " << version.name+" from " << uri << " for instance: " << instance_name << " distro: " << distro
+    begin
+      g.checkout(version)
+    rescue
+      g.reset(version.name, :hard)
+    end
+
+    # get the date of the last modification
+    data['last_commit_time'] = g.last_commit.time.to_s
+
+    # load the repo readme for this branch if it exists
+    data['readme_rendered'], data['readme'] = get_readme(
+      site,
+      File.join(local_path,'README.md'),
+      data['raw_uri'])
+
+    # get all packages from the repo
+    packages = find_packages(site, repo, instance, distro, details, local_path)
+
+    packages.each do |package_name, package_info|
+      # add this package to the global package dict
+      unless @all_packages[package_name].has_key?('instances')
+        puts " -- adding new package" << package_name
+        @all_packages[package_name] = {
+          'name' => package_name,
+          'repo' => repo,
+          'instances' => {}}
+      end
+
+      unless @all_packages[package_name]['instances'].has_key?(instance_name)
+        puts " -- adding new package: " << package_name << " instance: " << instance_name << " distro: " << package_info['distro']
+        @all_packages[package_name]['instances'][instance_name] = {
+          'name' => package_name,
+          'repo' => repo,
+          'distros' => {}
+        }
+      end
+
+      # reference the package info in the global indices
+      @all_packages[package_name]['instances'][instance_name]['distros'][distro] = package_info
+      @all_repos      [repo_name]['instances'][instance_name]['distros'][distro]['data']['packages'][package_name] = package_info
+    end
   end
 
   def scrape_repo(site, repo_name, repo)
@@ -178,36 +326,42 @@ class GitScraper < Jekyll::Generator
 
       # get versions suitable for checkout for each distro
       @all_distros.each do |distro|
-        #puts " -- looking for distro: " << distro
 
-        # get explicit version
-        explicit_version = instance['distro_branches'][distro]
+        details = instance['distros'][distro]
 
-        # get the version if it's a branch
+        puts details.inspect
+
+        version = nil
+
+        # get explicit version (this is either set or nil)
+        explicit_version = details['version']
+
+        # get the implicit version if it's a branch
         g.branches.each() do |branch|
           # detached branches are those checked out by the system but not given names
           if branch.to_s.include? 'detached' then next end
 
-          # get the branch instance name and shortname
+          unless branch.remote_name == instance_name then next end
+
+          # get the branch shortname
           branch_name = branch.name.split('/')[-1]
 
-          #puts  " -- inspecting branch: " << branch_name << " from remote: " << branch.remote_name
+          puts " - checking branch " << branch.name << " trunc: " << branch_name
+          puts " - should have " << distro << " version " << explicit_version.to_s
 
-          # save the branch as the version if it matches either the explicit version or the distro name
-          if branch.remote_name == instance_name
-            if explicit_version
-              if branch_name == explicit_version
-                instance['distro_versions'][distro] = branch
-                break
-              end
-            elsif branch_name.include? distro
-              instance['distro_versions'][distro] = branch
+          # save the branch as the version if it matches either the explicit
+          # version or the distro name
+          if explicit_version
+            if branch_name == explicit_version
+              version = branch
               break
             end
+          elsif branch_name.include? distro
+            details['version'] = branch_name
+            version = branch
+            break
           end
         end
-
-        unless instance['distro_versions'][distro] then next end
 
         # get the version if it's a tag
         g.tags.each do |tag|
@@ -216,150 +370,38 @@ class GitScraper < Jekyll::Generator
           # save the tag if it matches either the explicit version or the distro name
           if explicit_version
             if tag_name == explicit_version
-              instance['distro_versions'][distro] = tag
+              version = tag
               break
             end
           elsif tag_name.include? distro
-            instance['distro_versions'][distro] = tag
+            details['version'] = tag_name
+            version = tag
             break
           end
         end
-      end
 
-      # debug which versions were found
-      #puts instance['distro_versions'].inspect
-
-      # extract info (including packages) from each version of this repo
-      instance['distro_versions'].each do |distro, version|
-        uri  = instance['uri']
-
-        # get the version shortname if it's a branch
-        version_name = version.to_s.split('/')[-1]
-
-        # initialize this instance struct
-        branch_info = instance['distros'][distro] = {
-          'raw_uri' => get_raw_uri(instance['uri'], version_name),
-          'packages' => {},
-          'last_commit_time' => nil,
-          'readme' => nil,
-          'readme_rendered' => nil}
-
-        # check out this branch
-        puts " - checking out "+version.name+" from "+instance['uri']
-        begin
-          g.checkout(version)
-        rescue
-          g.reset(version.name, :hard)
-        end
-
-        # get the date of the last modification
-        branch_info['last_commit_time'] = g.last_commit.time.to_s
-
-        # load the repo readme for this branch if it exists
-        branch_info['readme_rendered'], branch_info['readme'] = get_readme(
-          site,
-          File.join(local_path,'README.md'),
-          branch_info['raw_uri'])
-
-        # find packages in this branch
-        Find.find(local_path) do |path|
-          if FileTest.directory?(path)
-            # skip certain paths
-            if File.basename(path)[0] == ?. or File.exist?(File.join(path,'CATKIN_IGNORE'))
-              Find.prune
-            end
-
-            # check for package.xml in this directory
-            manifest_path = File.join(path,'package.xml')
-            if File.exist?(manifest_path)
-              pkg_dir = path
-
-              # compute the relative path from the root of the repo to this directory
-              relpath = Pathname.new(File.join(*pkg_dir)).relative_path_from(Pathname.new(local_path))
-
-              # read the package manifest
-              package_xml = IO.read(manifest_path)
-              package_doc = REXML::Document.new(package_xml)
-
-              # extract package manifest info
-              package_name = REXML::XPath.first(package_doc, "/package/name/text()").to_s.rstrip.lstrip
-
-
-              puts " -- adding package " << package_name
-
-              package_info = {
-                'name' => package_name,
-                'repo' => repo,
-                'distro' => distro,
-                'raw_uri' => File.join(branch_info['raw_uri'], relpath),
-                # required package info
-                'name' => package_name,
-                'version' => REXML::XPath.first(package_doc, "/package/version/text()").to_s,
-                'license' => REXML::XPath.first(package_doc, "/package/license/text()").to_s,
-                'description' => REXML::XPath.first(package_doc, "/package/description/text()").to_s,
-                'maintainers' => REXML::XPath.each(package_doc, "/package/maintainer/text()").map { |m| m.to_s },
-                # optional package info
-                'authors' => REXML::XPath.each(package_doc, "/package/author/text()").map { |a| a.to_s },
-                # rosindex metadata
-                'tags' => REXML::XPath.each(package_doc, "/package/export/rosindex/tags/tag/text()").map { |t| t.to_s },
-                # package contents
-                'readme' => nil,
-                'readme_rendered' => nil
-              }
-
-              # add package tags to the containing repo
-              package_info['tags'].each do |tag|
-                unless instance['tags'].include? tag then instance['tags'] << tag end
-              end
-
-              # check for readme in same directory as package.xml
-              package_info['readme_rendered'], package_info['readme'] = get_readme(
-                site,
-                File.join(pkg_dir,'README.md'),
-                package_info['raw_uri'])
-
-              # add this package to the global package dict
-              unless @all_packages[package_name].has_key?('instances')
-                puts " -- adding new package" << package_name
-                @all_packages[package_name] = {
-                  'name' => package_name,
-                  'repo' => repo,
-                  'instances' => {}}
-              end
-              unless @all_packages[package_name]['instances'].has_key?(instance_name)
-                puts " -- adding new package " << package_name << " instance " << instance_name
-                @all_packages[package_name]['instances'][instance_name] = {
-                  'name' => package_name,
-                  'repo' => repo,
-                  'distros' => {}
-                }
-              end
-
-              # reference the package info in the global indices
-              @all_packages[package_name]['instances'][instance_name]['distros'][distro] = package_info
-              @all_repos      [repo_name]['instances'][instance_name]['distros'][distro]['packages'][package_name] = package_info
-
-              # stop searching a directory after finding a package.xml
-              Find.prune
-            end
-          end
+        # scrape the data (packages etc)
+        if version
+          scrape_version(site, repo, instance, distro, details, local_path, g, version) 
+        else
+          puts (" - no version for " << repo['name'] << " instance: " << instance['name'] << " distro: " << distro).yellow
         end
       end
-    end
 
-    # create the repo pages
-    puts " - creating pages for repo "+repo['name']+"..."
+      # create the repo pages
+      puts " - creating pages for repo "+repo['name']+"..."
 
-    # create a page that lists all the repo instances
-    site.pages << RepoPage.new(site, repo)
+      # create a page that lists all the repo instances
+      site.pages << RepoPage.new(site, repo)
 
-    # create pages for each repo instance
-    repo['instances'].each do |instance_name, instance|
+      # create pages for each repo instance
+      repo['instances'].each do |instance_name, instance|
 
-      site.pages << RepoInstancePage.new(site, repo, instance_name)
+        site.pages << RepoInstancePage.new(site, repo, instance_name)
 
-      if repo['default'] == instance_name
-        site.pages << RepoInstancePage.new(site, repo, instance_name, true)
+        if repo['default'] == instance_name
+          site.pages << RepoInstancePage.new(site, repo, instance_name, true)
+        end
       end
     end
   end
@@ -381,6 +423,8 @@ class GitScraper < Jekyll::Generator
     # the global index of packages
     @all_packages = Hash.new {|h,k| h[k]={}}
 
+    #blank_distro_map = Hash[@all_distros.collect { |d| [d, {}] }]
+
     # get the repositories from the rosdistro files
     @all_distros.each do |distro|
 
@@ -394,7 +438,7 @@ class GitScraper < Jekyll::Generator
       distro_data['repositories'].each do |repo_name, repo_data|
 
         # limit repos if requested
-        if site.config['max_repos'] > 0 and @all_repos.length > site.config['max_repos'] then break end
+        if not @all_repos.has_key?(repo_name) and site.config['max_repos'] > 0 and @all_repos.length > site.config['max_repos'] then next end
 
         puts " - "+repo_name
 
@@ -406,8 +450,8 @@ class GitScraper < Jekyll::Generator
         # only index if it has a source repo
         if repo_data.has_key?('source')
           if repo_data['source']['type'] == 'git'
-            source_uri = repo_data['source']['url']
-            source_version = repo_data['source']['version']
+            source_uri = repo_data['source']['url'].to_s
+            source_version = repo_data['source']['version'].to_s
           end
         else
           next
@@ -415,32 +459,34 @@ class GitScraper < Jekyll::Generator
 
         # store the variant for the repo from this distro
         repo = nil
-        instance_name = 'rosdistro-'+distro
+        instance_name = 'rosdistro'
 
         unless @all_repos.has_key?(repo_name)
-          repo = @all_repos[repo_name] = {
+          @all_repos[repo_name] = {
             'name' => repo_name,
             'tags' => [],
             'default' => instance_name,
             'instances' => {}
           }
-        else
-          repo = @all_repos[repo_name]
         end
+
+        repo = @all_repos[repo_name]
 
         unless repo['instances'].has_key?(instance_name)
           repo['instances'][instance_name] = {
             'name' => instance_name,
             'repo' => repo,
-            'uri' => source_uri,
-            'released' => repo_data.has_key?('release'),
-            'distro_branches' => {},
-            'distro_versions' => {},
-            'distros' => {}
+            'distros' => Hash[@all_distros.collect { |d| [d, {}] }]
           }
         end
 
-        repo['instances'][instance_name]['distro_branches'][distro] = source_version
+        repo['instances'][instance_name]['distros'][distro] = {
+          'released' => repo_data.has_key?('release'),
+          'uri' => source_uri,
+          'version' => source_version,
+          'data' => {}
+        }
+
       end
     end
 
@@ -448,7 +494,7 @@ class GitScraper < Jekyll::Generator
     Dir.glob(File.join(site.config['repos_path'],'*.yaml')) do |repo_filename|
 
       # limit repos if requested
-      if site.config['max_repos'] > 0 and @all_repos.length > site.config['max_repos'] then break end
+      #if site.config['max_repos'] > 0 and @all_repos.length > site.config['max_repos'] then break end
 
       # read in the repo data
       repo_name = File.basename(repo_filename, File.extname(repo_filename))
@@ -472,19 +518,32 @@ class GitScraper < Jekyll::Generator
       # add all the instances
       repo_data['instances'].each do |instance_name, instance|
 
-        # skip instances missing uri
-        unless instance['uri'] then next end
-
         # add this remote to the repo instances dict
-        repo['instances'][instance_name] = {
-          'name' => instance_name,
-          'repo' => repo,
-          'uri' => instance['uri'],
-          'released' => false,
-          'distro_branches' => (repo_file.data['distros'] or {}),
-          'distro_versions' => {},
-          'distros' => {}
-        }
+        unless repo['instances'].has_key?(instance_name)
+          repo['instances'][instance_name] = {
+            'name' => instance_name,
+            'repo' => repo,
+            'distros' => Hash[@all_distros.collect { |d| [d, {}] }]
+          }
+        end
+
+        # add distro versions for instance
+        @all_distros.each do |distro|
+
+          uri = if instance['distros'].has_key?(distro) and instance['distros'][distro].has_key?('uri') then instance['distros'][distro]['uri'] else instance['uri'] end
+          explicit_version = if instance['distros'].has_key?(distro) and instance['distros'][distro].has_key?('version') then instance['distros'][distro]['version'] else nil end
+
+          details = {
+            'released' => false,
+            'uri' => uri,
+            'version' => explicit_version,
+            'data' => {}
+          }
+
+          repo['instances'][instance_name]['distros'][distro] = details
+
+          puts "Added fork for " << repo['name'] << " instance: " << instance_name << " distro: " << distro << " from uri " << details['uri'].to_s << " version: " << details['version'].to_s
+        end
       end
     end
 
@@ -493,7 +552,7 @@ class GitScraper < Jekyll::Generator
     # clone / fetch all the repos
     work_q = Queue.new
     @all_repos.each {|r| work_q.push r}
-    puts "Fetching sources with " << site.config['checkout_threads'] << " threads."
+    puts "Fetching sources with " << site.config['checkout_threads'].to_s << " threads."
     workers = (0...site.config['checkout_threads']).map do
       Thread.new do
         begin
@@ -506,7 +565,9 @@ class GitScraper < Jekyll::Generator
     end; "ok"
     workers.map(&:join); "ok"
 
+    puts "Scraping known repos..."
     @all_repos.each do |repo_name, repo|
+      puts "Scraping " << repo_name << "..."
       scrape_repo(site, repo_name, repo)
     end
 

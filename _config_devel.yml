@@ -6,3 +6,5 @@ repos_per_page: 3
 max_repos: 10
 
 destination: _devel
+
+checkout_threads: 1
