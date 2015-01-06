@@ -1,30 +1,30 @@
 
-<table class="table table-condensed">
+<table class="table table-condensed instance-switch">
   <tr>
     <td>
       <div id="repo-switch" class="btn-group btn-group-justified" role="group">
         <div class="btn-group" style="width: 10%">
           <a type="button" class="btn btn-xs btn-default" data-toggle="tooltip" data-placement="left" title="View Instances" 
-            href="{% if page.package_instance.name %}/packages/{{page.package_instance.name}}{% else %}/repos/{{page.repo.name}}{% endif %}"><span class="glyphicon glyphicon-th"></span></a>
+            href="/{{page.instance_index_url}}"><span class="glyphicon glyphicon-th"></span></a>
         </div>
         <div class="btn-group" style="width: 90%" role="group">
           <div class="dropdown">
-            <! -- TODO: add disabled when only 1 version is known -->
+            <!-- TODO: add disabled when only 1 version is known -->
             <button class="btn btn-xs btn-default dropdown-toggle" type="button" id="dropdownMenu1" data-toggle="dropdown">
               <span class="pull-left">
-                <span class="glyphicon glyphicon-{% if page.repo.default == page.instance.name %}star{% else %}none{% endif %}"></span>
-                {{ page.instance.name }} - {{page.instance.uri}}
-              </span>
+                <span class="glyphicon glyphicon-{% if page.default_instance_id == instance.id %}star{% else %}none{% endif %}"></span>
+                  {{ instance.id }} {% if instance.purpose %} - {{instance.purpose}} {% endif %}
+                </span>
               <span class="pull-right"><span class="caret"></span></span>
             </button>
             <ul class="dropdown-menu" role="menu">
               {% for instance in page.instances %}
-              <li role="presentation">
-              <a id="{{instance[0]}}" role="menuitem" tabindex="-1" href="/{{page.instance_base}}/{{instance[0]}}" data="{{instance[0]}}">
-                <span class="glyphicon glyphicon-{% if page.repo.default == instance[0] %}star{% else %}none{% endif %}"></span>
-                {{instance[0]}} ( {{instance[1].uri}} )
-              </a>
-              </li>
+                <li role="presentation">
+                  <a id="{{instance[0]}}" role="menuitem" tabindex="-1" href="/{{page.instance_base_url}}/{{instance[0]}}" data="{{instance[0]}}">
+                    <span class="glyphicon glyphicon-{% if page.default_instance_id == instance[0] %}star{% else %}none{% endif %}"></span>
+                    {{instance[0]}} {% if instance[1].purpose %} - {{instance[1].purpose}} {% endif %}
+                  </a>
+                </li>
               {% endfor %}
             </ul>
           </div>

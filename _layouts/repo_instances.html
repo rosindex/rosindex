@@ -7,17 +7,22 @@ layout: default
     <ol class="breadcrumb">
       <li><a href="/">Home</a></li>
       <li><a href="/repos">Repos</a></li>
-      <li class="active">{{ page.repo.name }}</li>
+      <li class="active">{{ page.repo_instances.name }}</li>
     </ol>
   </div>
   <div class="row">
-    {% include repo_info.html %}
+    <div class="well well-sm">
+      <div>
+        <h3><img style="width: 50px; margin-right: 5px;" src="/assets/repo.png">{{page.repo_instances.name}} <small>repo</small></h3>
+      </div>
+    </div>
   </div>
   <div class="row">
     <div class="panel panel-default">
       <div class="panel-heading"><h3 class="panel-title">Instances 
           <span class="pull-right">
-            <a href="https://github.com/rosindex/rosindex.github.io/edit/source/_repos/{{ page.repo.name }}.md">
+            <a
+              href="https://github.com/rosindex/rosindex.github.io/edit/source/_repos/{{ page.repo_instances.name }}.md">
               <button type="button" class="btn btn-xs btn-success">
                 <span class="glyphicon glyphicon-plus"></span> Submit New Instance
               </button>
@@ -33,10 +38,10 @@ layout: default
             </tr>
           </thead>
           <tbody>
-          {% for instance in page.instances %}
+          {% for instance in page.repo_instances.instances %}
             <tr>
-              <td><a href="/r/{{page.repo.name}}/{{instance[0]}}">{{ instance[0] }}</a></td>
-              <td class="filterable-cell"><a class="label label-default pull-right" href="{{instance[1].uri}}">{{ instance[1].uri }}</a></td>
+              <td><a href="/r/{{page.repo_instances.name}}/{{instance[0]}}">{{ instance[0] }}</a></td>
+              <td class="filterable-cell"><a class="label label-primary pull-right" href="{{instance[1].uri}}">{{ instance[1].uri }}</a></td>
             </tr>
           {% endfor %}
           </tbody>

@@ -33,8 +33,7 @@ layout: default
             </thead>
             <tbody>
             {% for repo in page.list_alpha %}
-              {% assign default = repo[1].default %}
-              {% assign instance = repo[1].instances[default] %}
+              {% assign instance = repo[1].default %}
               {% assign n_instances = repo[1].instances | size %}
               <tr>
                 <td data-toggle="tooltip" data-placement="left" title="View Repo Instances" align="center">
@@ -42,8 +41,8 @@ layout: default
                       {{n_instances}}
                   </a>
                 </td>
-                {% assign r = instance.distros[distro] %}
-                {% if r %}
+                {% assign r = instance.versions[distro] %}
+                {% if r.version %}
                   {% if r.released %}
                     <td class="text-center">
                       <span title="Released in {{distro}}" data-toggle="tooltip" data-placement="left" class="glyphicon glyphicon-flash"></span>
@@ -63,13 +62,14 @@ layout: default
                     </td>
                   {% endif %}
                   <td>
-                    <span class="label label-default">{{ r.data.last_commit_time | date: "%F" }}</span>
+                    {% assign date_str = r.data.last_commit_time | date: "%F" %}
+                    <span class="label label-default">{{ date_str }}</span>
                   </td>
                   <td>
                     <a href="/r/{{repo[0]}}">{{ repo[0] }}</a>
                   </td>
                   <td>
-                    {% for p in r.data.packages %}
+                    {% for p in r.packages %}
                     <a href="/p/{{p[0]}}/{{default}}" class="label label-primary">{{p[0]}}</a>
                     {% endfor %}
                   </td>

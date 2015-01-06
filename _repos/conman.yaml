@@ -1,10 +1,10 @@
-tags: [control, orocos, realtime, controller]
-default: jbohren
 instances:
-  jbohren:
-    uri: 'https://github.com/jbohren/conman'
+  - uri: 'https://github.com/jbohren/conman'
+    default: true
+    purpose: 'original'
+    distros:
+      hydro: { default: true, version: 'master' }
+  - uri: 'https://github.com/RCPRG-ros-pkg/conman'
+    purpose: 'experimentation'
     distros:
       hydro: { version: 'master' }
-  RCPRG-ros-pkg:
-    distros:
-      hydro: { uri: 'https://github.com/RCPRG-ros-pkg/conman', version: 'master' }

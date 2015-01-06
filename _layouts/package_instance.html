@@ -7,8 +7,8 @@ layout: default
     <ol class="breadcrumb">
       <li><a href="/">Home</a></li>
       <li><a href="/repos">Repos</a></li>
-      <li><a href="/r/{{page.repo.name}}/{{ page.instance.name }}">{{page.repo.name}}</a></li>
-      <li class="active">{{page.package_instance.name}}
+      <li><a href="/r/{{page.instance.name}}/{{ page.instance.id }}">{{page.instance.name}}</a></li>
+      <li class="active">{{page.package_name}}
       </li>
       <!--<li class="active">{{page.instance.name}}</li>-->
     </ol>
@@ -19,13 +19,13 @@ layout: default
   <div class="row">
     {% for distro in page.all_distros %}
       <div class="distro distro-{{distro}}">
-        {% if page.package_instance.distros[distro] %}
+        {% if page.available_distros[distro] %}
           {% assign package = page.package_instance.distros[distro] %}
 
           <div class="panel panel-default">
             <div class="panel-heading">Metadata</div>
             <div>
-              
+
             </div>
           </div>
 
@@ -36,7 +36,7 @@ layout: default
             </div>
           </div>
         {% else %}
-        <em>No branch for distro <strong>{{ distro }}</strong>. Known supported distros are highlighted in the buttons above.</em>
+          <div class="alert alert-warning" role="alert">No version for distro <strong>{{ distro }}</strong>. Known supported distros are highlighted in the buttons above.</div>
         {% endif %}
       </div>
     {% endfor %}

@@ -1,0 +1,44 @@
+---
+layout: default
+---
+
+<div class="container-fluid" style="margin:20px">
+  <div class="row">
+    <ol class="breadcrumb">
+      <li><a href="/">Home</a></li>
+      <li><a href="/packages">Packages</a></li>
+      <li class="active">{{ page.package_instances.name }}</li>
+    </ol>
+  </div>
+  <div class="row">
+    {% include package_info.html %}
+  </div>
+  <div class="row">
+    <div class="panel panel-default">
+      <div class="panel-heading">
+        <h3 class="panel-title">Instances</h3>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-condensed">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th><span class="pull-right">URI</span></th>
+            </tr>
+          </thead>
+          <tbody>
+          {% for package in page.package_instances.instances %}
+            <tr>
+              <td><a href="/p/{{page.package_instances.name}}/{{package[0]}}">{{package[0] }}</a></td>
+              <td class="filterable-cell"><a href="{{package[1].repo.uri}}" class="label label-primary pull-right">{{ package[1].repo.uri }}</a></td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <div class="row">
+  </div>
+</div>
+

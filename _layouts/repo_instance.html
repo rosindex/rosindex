@@ -17,7 +17,7 @@ layout: default
   <div class="row">
     {% for distro in page.all_distros %}
       <div class="distro distro-{{distro}}">
-        {% if page.instance.distros[distro] %}
+        {% if page.available_distros[distro] or page.available_older_distros[distro] %}
           <div class="panel panel-default">
             <div class="panel-heading">Packages</div>
             <table class="table table-condensed table-hover">
@@ -28,10 +28,10 @@ layout: default
                 </tr>
               </thead>
               <tbody>
-              {% for p in page.instance.distros[distro].packages %}
+              {% for p in page.repo.versions[distro].packages %}
                 <tr>
-                  <td><a href="/p/{{p[1].name}}/{{page.instance.name}}">{{ p[1].name }}</a></td>
-                  <td>{{ p[1].version }}</td>
+                  <td><a href="/p/{{p[1].name}}/{{page.repo.id}}">{{ p[1].name }}</a></td>
+                  <td>{{ p[1].data.version }}</td>
                 </tr>
               {% endfor %}
               </tbody>
@@ -41,11 +41,11 @@ layout: default
           <div class="panel panel-default">
             <div class="panel-heading">README</div>
             <div class="readme-{{ page.repo.type }}" style="margin: 20px">
-              {{ page.instance.distros[distro].readme_rendered }}
+              {{ page.repo.versions[distro].data.readme_rendered }}
             </div>
           </div>
         {% else %}
-        <em>No branch for distro <strong>{{ distro }}</strong>. Known supported distros are highlighted in the buttons above.</em>
+          <div class="alert alert-warning" role="alert">No version for distro <strong>{{ distro }}</strong>. Known supported distros are highlighted in the buttons above.</div>
         {% endif %}
       </div>
     {% endfor %}

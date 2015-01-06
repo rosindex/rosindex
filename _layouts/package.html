@@ -7,35 +7,70 @@ layout: default
     <ol class="breadcrumb">
       <li><a href="/">Home</a></li>
       <li><a href="/packages">Packages</a></li>
-      <li class="active">{{ page.package_name }}</li>
+      <li class="active">{{page.package_instances.name}}</li>
     </ol>
   </div>
   <div class="row">
-    <div class="panel panel-default">
-      <div class="panel-heading">
-        <h3 class="panel-title">Instances</h3>
+    <div class="well well-sm">
+      <div class="top-buffer">
+        <h3><img style="width: 50px; margin-right: 5px;" src="/assets/package.png">{{page.package_name}} <small>package</small></h3>
       </div>
-      <div class="table-responsive">
-        <table class="table table-condensed">
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th><span class="pull-right">URI</span></th>
-            </tr>
-          </thead>
-          <tbody>
-          {% for instance in page.package_instances %}
-            <tr>
-              <td><a href="/p/{{page.package_name}}/{{instance[0]}}">{{ instance[0] }}</a></td>
-              <td class="filterable-cell"><span class="label label-primary pull-right">{{ instance[1].uri }}</span></td>
-            </tr>
-          {% endfor %}
-          </tbody>
-        </table>
+      <div class="top-buffer">
+        {% for tag in page.package_instances.tags %}<span class="label label-default">{{ tag }}</span> {% endfor %}
       </div>
+      <div class="top-buffer">
+        {% include distro_switch.html %}
+      </div>
+      {% for distro in page.all_distros %}
+        {% if page.available_distros[distro] %}
+          <div class="top-buffer distro distro-{{distro}}">
+            {% assign instance = page.package_instances.versions[distro].repo %}
+            {% include instance_switch.html %}
+          </div>
+        {% endif %}
+      {% endfor %}
     </div>
   </div>
   <div class="row">
+    {% for distro in page.all_distros %}
+      <div class="distro distro-{{distro}}">
+        {% if page.available_distros[distro] %}
+          {% assign package = page.package_instances.versions[distro] %}
+
+          <div class="panel panel-default">
+            <div class="panel-heading">Repository</div>
+            <div>
+              repo id: {{ package.repo.id }}
+              <br>
+              repo uri: {{ package.repo.uri }}
+            </div>
+          </div>
+
+          <div class="panel panel-default">
+            <div class="panel-heading">Metadata</div>
+            <div>
+              version: {{ package.data.version }}
+              <br>
+              maintainers: {{ package.data.maintainers }}
+            </div>
+          </div>
+
+          <div class="panel panel-default">
+            <div class="panel-heading">README</div>
+            <div class="readme-" style="margin: 20px">
+              {% if package.data.readme_rendered %}
+                {{ package.data.readme_rendered }}
+              {% else %}
+                <em>No README found.</em>
+              {% endif %}
+            </div>
+          </div>
+        {% else %}
+          <div class="alert alert-warning" role="alert">No version for distro <strong>{{ distro }}</strong>. Known supported distros are highlighted in the buttons above.</div>
+        {% endif %}
+      </div>
+    {% endfor %}
   </div>
 </div>
 
+<script src="/js/distro_switch.js"></script>

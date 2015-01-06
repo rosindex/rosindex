@@ -33,10 +33,8 @@ layout: default
             </thead>
             <tbody>
               {% for package in page.list_alpha %}
-                {% assign repo = package[1].repo %}
-                {% assign default = repo.default %}
-                {% assign r = repo.instances[default].distros[distro] %}
-                {% assign instance = package[1].instances[default] %}
+                {% assign p = package[1].versions[distro] %}
+                {% assign r = p.snapshot %}
                 {% assign n_instances = package[1].instances | size %}
                 <tr>
                   <td title="View Package Instances" data-toggle="tooltip" data-placement="left" align="center">
@@ -44,7 +42,6 @@ layout: default
                         {{n_instances}}
                     </a>
                   </td>
-                  {% assign p = instance.distros[distro] %}
                   {% if p %}
                     {% if r.released %}
                       <td class="text-center">
@@ -55,7 +52,7 @@ layout: default
                         <span class="glyphicon glyphicon-none"></span>
                       </td>
                     {% endif %}
-                    {% if p.readme %}
+                    {% if p.data.readme %}
                       <td title="Has README" data-toggle="tooltip" data-placement="left" align="center">
                         <span class="glyphicon glyphicon-file"></span>
                       </td>
@@ -73,8 +70,8 @@ layout: default
                     </td>
                     <td>
                       <div class="truncate">
-                        <div class="spacer">{{ p.description }}</div>
-                        <div class="content">{{ p.description }}</div>
+                        <div class="spacer">{{ p.data.description }}</div>
+                        <div class="content">{{ p.data.description }}</div>
                         <span>&nbsp;</span>
                       </div>
                     </td>

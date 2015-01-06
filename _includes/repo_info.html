@@ -1,25 +1,15 @@
-<div>
-  {% if page.instance %}
-  {% include instance_switch.html %}
-  {% endif %}
-</div>
 <div class="well well-sm">
   <div>
-    <h3>{{page.repo.name}} <small>repo</small></h3>
+    <h3><img style="width: 50px; margin-right: 5px;" src="/assets/repo.png">{{page.repo.name}} <small>repo</small></h3>
   </div>
-  {% if page.instance.uri %}
-  <div class="top-buffer">
-    <a class="label label-default" href="{{ page.instance.uri }}">
-      {{ page.instance.uri }}
-    </a>
-  </div>
-  {% endif %}
   <div class="top-buffer">
     {% for tag in page.repo.tags %}<span class="label label-default">{{ tag }}</span> {% endfor %}
   </div>
-  {% if page.available_distros %}
+  <div class="top-buffer">
+    {% assign instance = page.instance %}
+    {% include instance_switch.html %}
+  </div>
   <div class="top-buffer">
     {% include distro_switch.html %}
   </div>
-  {% endif %}
 </div>

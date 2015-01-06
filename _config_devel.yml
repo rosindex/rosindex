@@ -3,7 +3,7 @@ packages_per_page: 3
 repos_per_page: 3
 
 # set the following to a non-zero value for testing (limit the number of indexed repos)
-max_repos: 10
+max_repos: 2
 
 destination: _devel
 
