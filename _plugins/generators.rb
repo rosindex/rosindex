@@ -682,9 +682,9 @@ class GitScraper < Jekyll::Generator
 
     # create lunr index data
     index = []
-    @package_names.each do |package_name, package_instances|
-      package_instances.instances.each do |instance_id, instance|
-        instance.versions.each do |distro, repo_snapshot|
+    @all_repos.each do |instance_id, repo|
+        repo.versions.each do |distro, repo_snapshot|
+
           if repo_snapshot.version == nil then next end
 
           repo_snapshot.packages.each do |package_name, package|
@@ -711,7 +711,6 @@ class GitScraper < Jekyll::Generator
             }
 
             puts 'indexed: ' << "#{package_name} #{instance_id} #{distro}"
-          end
         end
       end
     end
