@@ -41,7 +41,7 @@ layout: default
                       {{n_instances}}
                   </a>
                 </td>
-                {% assign r = instance.versions[distro] %}
+                {% assign r = instance.snapshots[distro] %}
                 {% if r.version %}
                   {% if r.released %}
                     <td class="text-center">

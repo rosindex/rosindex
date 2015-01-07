@@ -61,11 +61,6 @@ def render_md(site, readme)
   end
 end
 
-# Computes a github uri from a github ns and repo
-def github_uri(ns,repo)
-  return 'https://github.com/%s/%s.git' % [ns,repo]
-end
-
 # Get a raw URI from a repo uri
 def get_raw_uri(uri_s, branch)
   uri = URI(uri_s)
@@ -79,19 +74,18 @@ def get_raw_uri(uri_s, branch)
   return ''
 end
 
-# Creates a unique instance name based on the host server
-def make_instance_name(instance)
-  return [instance['type'], instance['ns'], instance['name']].join("/")
-end
-
 class PackageSnapshot < Liquid::Drop
   # This represents a snapshot of a ROS package found in a repo snapshot
   attr_accessor :name, :repo, :snapshot, :version, :data
   def initialize(name, repo, snapshot, data)
     @name = name
+
+    # TODO: get rid of these back-pointers
     @repo = repo
     @snapshot = snapshot
     @version = snapshot.version
+
+    # additionally-collected data
     @data = data
   end
 end
@@ -100,26 +94,51 @@ class RepoSnapshot < Liquid::Drop
   # This represents a snapshot of a version control repository
   attr_accessor :released, :distro, :version, :data, :packages
   def initialize(version, distro, released)
+    # the version control system version string
+    # this is either a branch or tag of the remote repo
     @version = version
+
+    # whether this snapshot is released
     @released = released
+
+    # the distro that this snapshot works with
     @distro = distro
+
+    # metadata about this snapshot
     @data = {}
+
+    # package name -> PackageSnapshot
+    # these are all the packages in this repo snapshot
     @packages = {}
   end
 end
 
 class Repo < Liquid::Drop
   # This represents a remote repository
-  attr_accessor :name, :id, :uri, :purpose, :versions, :tags
+  attr_accessor :name, :id, :uri, :purpose, :snapshots, :tags
   def initialize(name, type, uri, purpose)
+    # non-unique identifier for this repo
     @name = name
-    # generate unique id
+
+    # the uri for cloning this repo
+    @uri = uri
+
+    # unique identifier for this repo instance
+    # combines the domain name and path, hyphenated
     p_uri = URI(uri)
     @id = (p_uri.host.split('.').reject{|v| if v.length < 3 or v == 'com' or v == 'org' or v == 'edu' then v end} + p_uri.path.split(%r{[./]}).reject{|v| if v.length == 0 then true end}[0,2]).join('-')
-    @uri = uri
+
+    # the version control system type
     @type = type
+
+    # a brief description of this remote
     @purpose = purpose
-    @versions = Hash[$all_distros.collect { |d| [d, RepoSnapshot.new(nil, d, false)] }]
+
+    # hash distro -> RepoSnapshot
+    # each entry in this hash represents the preferred version for a given distro in this repo
+    @snapshots = Hash[$all_distros.collect { |d| [d, RepoSnapshot.new(nil, d, false)] }]
+
+    # tags from all versions
     @tags = []
   end
 end
@@ -128,19 +147,35 @@ class RepoInstances < Liquid::Drop
   # This represents a group of repositories with the same name
   attr_accessor :name, :default, :instances
   def initialize(name)
+    # identifier for this repo
     @name = name
-    @default = nil
+
+    # hash instance_id -> Repo
+    # these are all of the known instances of this repo
     @instances = {}
+
+    # reference to the preferred Repo instance
+    @default = nil
   end
 end
 
 class PackageInstances < Liquid::Drop
   # This represents a group of package snapshots with the same name
-  attr_accessor :name, :tags, :instances, :versions
+  attr_accessor :name, :tags, :instances, :snapshots, :repos
   def initialize(name)
+    # name of the package
     @name = name
+
+    # tags from all package instances
     @tags = []
-    @versions = Hash[$all_distros.collect { |d| [d, nil] }]
+
+    # hash distro -> RepoSnapshot
+    # each entry in this hash is the preferred snapshot for this package
+    @repos = Hash[$all_distros.collect { |d| [d, nil] }]
+    @snapshots = Hash[$all_distros.collect { |d| [d, nil] }]
+
+    # hash instance_id -> Repo
+    # each repo in this hash contains the package in question, even if it's not a preferred snapshot
     @instances = {}
   end
 end
@@ -183,7 +218,7 @@ class GitScraper < Jekyll::Generator
     repo_instances.instances.each do |id, repo|
 
       uri = repo.uri
-      repo.versions.each do |distro, version|
+      repo.snapshots.each do |distro, version|
 
         # make sure there's an actual uri
         unless uri
@@ -360,7 +395,8 @@ class GitScraper < Jekyll::Generator
       # add this package as the default for this distro
       if @repo_names[repo.name].default
         puts " --- Setting repo instance " << repo.id << "as default for package " << package_name << " in distro " << distro
-        @package_names[package_name].versions[distro] = package
+        @package_names[package_name].repos[distro] = repo
+        @package_names[package_name].snapshots[distro] =  package
       end
     end
   end
@@ -373,7 +409,7 @@ class GitScraper < Jekyll::Generator
     g = if File.exist?(local_path) then Rugged::Repository.new(local_path) else Rugged::Repository.init_at(local_path) end
 
     # get versions suitable for checkout for each distro
-    repo.versions.each do |distro, snapshot|
+    repo.snapshots.each do |distro, snapshot|
 
       # get explicit version (this is either set or nil)
       explicit_version = snapshot.version
@@ -509,8 +545,8 @@ class GitScraper < Jekyll::Generator
         end
 
         # add the specific version from this instance
-        repo.versions[distro].version = source_version
-        repo.versions[distro].released = repo_data.key?('release')
+        repo.snapshots[distro].version = source_version
+        repo.snapshots[distro].released = repo_data.key?('release')
 
         # store this repo in the name index
         @repo_names[repo.name].default = repo
@@ -546,8 +582,8 @@ class GitScraper < Jekyll::Generator
           explicit_version = if instance['distros'].key?(distro) and instance['distros'][distro].key?('version') then instance['distros'][distro]['version'] else nil end
 
           # add the specific version from this instance
-          repo.versions[distro].version = explicit_version
-          repo.versions[distro].released = false
+          repo.snapshots[distro].version = explicit_version
+          repo.snapshots[distro].released = false
         end
 
         # store this repo in the unique index
@@ -683,7 +719,7 @@ class GitScraper < Jekyll::Generator
     # create lunr index data
     index = []
     @all_repos.each do |instance_id, repo|
-        repo.versions.each do |distro, repo_snapshot|
+        repo.snapshots.each do |distro, repo_snapshot|
 
           if repo_snapshot.version == nil then next end
 
@@ -791,7 +827,7 @@ class RepoPage < Jekyll::Page
     self.data['instance_index_url'] = File.join('repos', repo.name)
     self.data['default_instance_id'] = instances.default.id
 
-    self.data['available_distros'], self.data['available_older_distros'], self.data['n_available_older_distros'] = get_available_distros(site, repo.versions)
+    self.data['available_distros'], self.data['available_older_distros'], self.data['n_available_older_distros'] = get_available_distros(site, repo.snapshots)
 
     self.data['all_distros'] = site.config['distros'] + site.config['old_distros']
   end
@@ -870,7 +906,7 @@ class PackagePage < Jekyll::Page
     self.data['instance_index_url'] = File.join('packages',package_instances.name)
     self.data['instance_base_url'] = @dir
 
-    self.data['available_distros'], self.data['available_older_distros'], self.data['n_available_older_distros'] = get_available_distros(site, package_instances.versions)
+    self.data['available_distros'], self.data['available_older_distros'], self.data['n_available_older_distros'] = get_available_distros(site, package_instances.snapshots)
 
     self.data['all_distros'] = site.config['distros'] + site.config['old_distros']
   end
@@ -908,7 +944,7 @@ class PackageInstancePage < Jekyll::Page
     self.data['instance_index_url'] = ['packages',package_instances.name].join('/')
     self.data['instance_base_url'] = ['p',package_name].join('/')
 
-    self.data['available_distros'], self.data['available_older_distros'], self.data['n_available_older_distros'] = get_available_distros(site, instance.versions)
+    self.data['available_distros'], self.data['available_older_distros'], self.data['n_available_older_distros'] = get_available_distros(site, instance.snapshots)
     self.data['all_distros'] = site.config['distros'] + site.config['old_distros']
   end
 end

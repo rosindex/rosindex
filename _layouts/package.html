@@ -24,7 +24,7 @@ layout: default
       {% for distro in page.all_distros %}
         {% if page.available_distros[distro] %}
           <div class="top-buffer distro distro-{{distro}}">
-            {% assign instance = page.package_instances.versions[distro].repo %}
+            {% assign instance = page.package_instances.repos[distro] %}
             {% include instance_switch.html %}
           </div>
         {% endif %}
@@ -35,11 +35,11 @@ layout: default
     {% for distro in page.all_distros %}
       <div class="distro distro-{{distro}}">
         {% if page.available_distros[distro] %}
-          {% assign package = page.package_instances.versions[distro] %}
+          {% assign package = page.package_instances.snapshots[distro] %}
 
           <div class="panel panel-default">
             <div class="panel-heading">Repository</div>
-            <div>
+            <div class="panel-body">
               repo id: {{ package.repo.id }}
               <br>
               repo uri: {{ package.repo.uri }}
@@ -48,10 +48,12 @@ layout: default
 
           <div class="panel panel-default">
             <div class="panel-heading">Metadata</div>
-            <div>
+            <div class="panel-body">
               version: {{ package.data.version }}
               <br>
               maintainers: {{ package.data.maintainers }}
+              <br>
+              license: {{ package.data.license }}
             </div>
           </div>
 

@@ -20,7 +20,7 @@ layout: default
     {% for distro in page.all_distros %}
       <div class="distro distro-{{distro}}">
         {% if page.available_distros[distro] %}
-          {% assign package = page.package_instance.distros[distro] %}
+          {% assign package = page.instance.snapshots[distro].packages[page.package_name] %}
 
           <div class="panel panel-default">
             <div class="panel-heading">Metadata</div>
@@ -32,7 +32,7 @@ layout: default
           <div class="panel panel-default">
             <div class="panel-heading">README</div>
             <div class="readme-{{ page.repo.type }}" style="margin: 20px">
-              {{ package.readme_rendered }}
+              {{ package.data.readme_rendered }}
             </div>
           </div>
         {% else %}

@@ -33,8 +33,8 @@ layout: default
             </thead>
             <tbody>
               {% for package in page.list_alpha %}
-                {% assign p = package[1].versions[distro] %}
-                {% assign r = p.snapshot %}
+                {% assign r = package[1].repos[distro].snapshots[distro] %}
+                {% assign p = package[1].snapshots[distro] %}
                 {% assign n_instances = package[1].instances | size %}
                 <tr>
                   <td title="View Package Instances" data-toggle="tooltip" data-placement="left" align="center">
