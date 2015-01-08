@@ -12,6 +12,12 @@ layout: default
     </ol>
   </div>
   <div class="row">
+    {% include distro_switch.html %}
+  </div>
+  <div class="row">
+    &nbsp;
+  </div>
+  <div class="row">
     {% include repo_info.html %}
   </div>
   <div class="row">
@@ -27,7 +33,7 @@ layout: default
                   <td><a class="label label-default" href="{{page.repo.uri}}">{{page.repo.uri}}</a></td>
                 </tr>
                 <tr>
-                  {% assign date_str = page.repo.snapshots[distro].data.last_commit_time | date: "%F" %}
+                  {% assign date_str = page.repo.snapshots[distro].data.last_commit_time %}
                   <td class="text-right"><b>Last Updated</b></div>
                   <td><span class="label label-default">{{ date_str }}</span></td>
                 </tr>
@@ -68,8 +74,12 @@ layout: default
 
           <div class="panel panel-default">
             <div class="panel-heading">README</div>
-            <div class="readme-{{ page.repo.type }}" style="margin: 20px">
-              {{ page.repo.snapshots[distro].data.readme_rendered }}
+            <div class="panel-body readme-{{ page.repo.type }}">
+              {% if page.repo.snapshots[distro].data.readme %}
+                {{ page.repo.snapshots[distro].data.readme_rendered }}
+              {% else %}
+                <b class="text-warning">No README found.</b>
+              {% endif %}
             </div>
           </div>
         {% else %}

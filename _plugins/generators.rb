@@ -18,8 +18,13 @@ require 'rugged'
 require 'nokogiri'
 require 'colorize'
 require 'typhoeus'
+require 'pandoc-ruby'
 
 $fetched_uris = {}
+
+def rst_to_md(rst)
+  return PandocRuby.convert(rst, :from => :rst, :to => :markdown)
+end
 
 # Modifies markdown image links so that they link to github user content
 def fix_image_links(text, raw_uri, additional_path = '')
@@ -34,19 +39,28 @@ def fix_image_links(text, raw_uri, additional_path = '')
   return readme_doc.to_s, readme_doc
 end
 
-def get_readme(site, readme_path, raw_uri)
-  if File.exist?(readme_path)
+def get_readme(site, path, raw_uri)
+
+  rst_path = File.join(path,'README.rst')
+  md_path = File.join(path,'README.md')
+
+  if File.exist?(rst_path)
+    readme_rst = IO.read(rst_path)
+    readme_md = rst_to_md(readme_rst)
+  elsif File.exist?(md_path)
+    readme_md = IO.read(md_path)
+  end
+
+  if readme_md
     # read in the readme and fix links
-    readme = IO.read(readme_path)
-    readme_html = render_md(site, readme)
+    readme_html = render_md(site, readme_md)
     readme_html = '<div class="rendered-markdown">'+readme_html+"</div>"
     readme_rendered, _ = fix_image_links(readme_html, raw_uri)
   else
-    readme = nil
     readme_rendered = nil
   end
 
-  return readme_rendered, readme
+  return readme_rendered, readme_md
 end
 
 # Renders markdown to html (and apply some required tweaks)
@@ -322,7 +336,7 @@ class GitScraper < Jekyll::Generator
           # check for readme in same directory as package.xml
           package_info['readme_rendered'], package_info['readme'] = get_readme(
             site,
-            File.join(pkg_dir,'README.md'),
+            pkg_dir,
             package_info['raw_uri'])
 
           packages[package_name] = package_info
@@ -364,14 +378,14 @@ class GitScraper < Jekyll::Generator
       # get the uri for resolving raw links (for imgages, etc)
       'raw_uri' => get_raw_uri(uri, version_name),
       # get the date of the last modification
-      'last_commit_time' => g.last_commit.time.to_s,
+      'last_commit_time' => g.last_commit.time.strftime('%F'),
       'readme' => nil,
       'readme_rendered' => nil}
 
     # load the repo readme for this branch if it exists
     data['readme_rendered'], data['readme'] = get_readme(
       site,
-      File.join(local_path,'README.md'),
+      local_path,
       data['raw_uri'])
 
     # get all packages from the repo
@@ -735,14 +749,18 @@ class GitScraper < Jekyll::Generator
               'id' => index.length,
               'baseurl' => site.config['baseurl'],
               'url' => File.join('/p',package_name,instance_id)+"#"+distro,
-              'last_updated' => nil,
+              'last_commit_time' => repo_snapshot.data['last_commit_time'],
               'tags' => p['tags'] * " ",
               'name' => package_name,
+              'repo_name' => repo.name,
+              'released' => if repo_snapshot.released then 'is:released' else '' end,
+              'unreleased' => if repo_snapshot.released then 'is:unreleased' else '' end,
               'version' => p['version'],
               'description' => p['description'],
               'maintainers' => p['maintainers'] * " ",
               'authors' => p['authors'] * " ",
               'distro' => distro,
+              'instance' => repo.id,
               'readme' => readme_filtered
             }
 

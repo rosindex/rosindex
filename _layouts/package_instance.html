@@ -14,6 +14,12 @@ layout: default
     </ol>
   </div>
   <div class="row">
+    {% include distro_switch.html %}
+  </div>
+  <div class="row">
+    &nbsp;
+  </div>
+  <div class="row">
     {% include package_info.html %}
   </div>
   <div class="row">
@@ -31,8 +37,12 @@ layout: default
 
           <div class="panel panel-default">
             <div class="panel-heading">README</div>
-            <div class="readme-{{ page.repo.type }}" style="margin: 20px">
-              {{ package.data.readme_rendered }}
+            <div class="panel-body readme-{{ page.repo.type }}">
+              {% if package.data.readme %}
+                {{ package.data.readme_rendered }}
+              {% else %}
+                <p class="text-warning">No README found.</p>
+              {% endif %}
             </div>
           </div>
         {% else %}

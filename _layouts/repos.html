@@ -62,7 +62,7 @@ layout: default
                     </td>
                   {% endif %}
                   <td>
-                    {% assign date_str = r.data.last_commit_time | date: "%F" %}
+                    {% assign date_str = r.data.last_commit_time %}
                     <span class="label label-default">{{ date_str }}</span>
                   </td>
                   <td>

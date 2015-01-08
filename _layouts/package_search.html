@@ -38,10 +38,13 @@ layout: default
         <table id="search-results" class="table table-condensed table-striped table-hover">
           <thead>
             <tr>
-              <th><span class="pull-right"> <span class="glyphicon glyphicon-th"></span></span></th>
+              <th style="text-align: center;"><span class="glyphicon glyphicon-flash"></span></th>
+              <th style="text-align: center;"><span class="glyphicon glyphicon-file"></span></th>
+              <th style="text-align: center;"><span class="glyphicon glyphicon-time"></span></th>
+              <th>Distro</th>
               <th>Name</th>
-              <th>Last Updated</th>
-              <th>Released</th>
+              <th>Repo</th>
+              <th>Description</th>
             </tr>
           </thead>
           <tbody class="entries">
@@ -59,20 +62,42 @@ layout: default
 <script id="search-results-template" type="text/mustache">
   {{#entries}}
       <tr>
-        <td data-toggle="tooltip" data-placement="left" title="View Package Instances">
-          <span class="pull-right">
-            <!--<a href="/packages/{{name}}" class="label label-{% if n_instances > 1 %}primary{% else %}default{% endif %}">-->
-                <!--{{n_instances}}-->
-            <!--</a>-->
-          </span>
-        </td>
+        {{#released}}
+          <td class="text-center">
+            <span title="Released" data-toggle="tooltip" data-placement="left" class="glyphicon glyphicon-flash"></span>
+          </td>
+        {{/released}}
+        {{^released}}
+          <td title="Not released" data-toggle="tooltip" data-placement="left" class="text-center">
+            <span class="glyphicon glyphicon-none"></span>
+          </td>
+        {{/released}}
+        {{#readme}}
+          <td title="Has README" data-toggle="tooltip" data-placement="left" align="center">
+            <span class="glyphicon glyphicon-file"></span>
+          </td>
+        {{/readme}}
+        {{^readme}}
+          <td title="No README" data-toggle="tooltip" data-placement="left" align="center">
+            <span class="glyphicon glyphicon-none"></span>
+          </td>
+        {{/readme}}
+        <td><span class="label label-default">{{last_commit_time}}</span></td>
+        <td><span class="label label-default">{{distro}}</span></td>
         <td><a href="{{url}}">{{name}}</a></td>
-        <td>sometime</td>
-        <td>sure, why not?</td>
+        <td><a href="/r/{{repo_name}}/{{instance}}">{{instance}}</a></td>
+        <td>
+          {{description}}
+        </td>
       </tr>
   {{/entries}}
 </script>
 {% endraw %}
+          {% comment %}<div class="truncate">{% endcomment %}
+            {% comment %}<div class="spacer">{{description}}</div>{% endcomment %}
+            {% comment %}<div class="content">{{description}}</div>{% endcomment %}
+            {% comment %}<span>&nbsp;</span>{% endcomment %}
+          {% comment %}</div>{% endcomment %}
 
 <script src="/js/lunr.min.js" type="text/javascript" charset="utf-8"></script>
 <script src="/js/mustache.js" type="text/javascript" charset="utf-8"></script>

@@ -11,15 +11,18 @@ layout: default
     </ol>
   </div>
   <div class="row">
+    {% include distro_switch.html %}
+  </div>
+  <div class="row">
+    &nbsp;
+  </div>
+  <div class="row">
     <div class="well well-sm">
       <div class="top-buffer">
         <h3><img style="width: 50px; margin-right: 5px;" src="/assets/package.png">{{page.package_name}} <small>package</small></h3>
       </div>
       <div class="top-buffer">
         {% for tag in page.package_instances.tags %}<span class="label label-default">{{ tag }}</span> {% endfor %}
-      </div>
-      <div class="top-buffer">
-        {% include distro_switch.html %}
       </div>
       {% for distro in page.all_distros %}
         {% if page.available_distros[distro] %}
