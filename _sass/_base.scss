@@ -189,6 +189,12 @@ blockquote {
 }
 
 
+pre {
+  overflow: scroll;
+  word-break: normal;
+  word-wrap: normal;
+}
+
 
 /**
  * Code formatting

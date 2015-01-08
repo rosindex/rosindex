@@ -363,7 +363,7 @@ class GitScraper < Jekyll::Generator
     puts " - uri: " << uri
 
     # get the version shortname if it's a branch
-    version_name = version.to_s.split('/')[-1]
+    version_name = version.name.split('/')[-1]
 
     # check out this branch
     puts " - checking out " << version.name+" from " << repo.uri << " for instance: " << repo.id << " distro: " << distro
