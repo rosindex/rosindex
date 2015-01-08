@@ -59,6 +59,13 @@ div.panel-body {
   padding: 5px;
 }
 
+div pre {
+  overflow: scroll;
+  word-break: normal;
+  word-wrap: normal;
+}
+
+
 
 /**
  * Reset some basic elements
@@ -111,7 +118,7 @@ ul, ol, dl, figure,
  */
 img {
     max-width: 100%;
-    vertical-align: middle;
+    /*vertical-align: middle;*/
 }
 
 
@@ -186,13 +193,6 @@ blockquote {
     > :last-child {
         margin-bottom: 0;
     }
-}
-
-
-pre {
-  overflow: scroll;
-  word-break: normal;
-  word-wrap: normal;
 }
 
 
