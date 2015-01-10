@@ -20,7 +20,178 @@ require 'colorize'
 require 'typhoeus'
 require 'pandoc-ruby'
 
+require 'mercurial-ruby'
+
 $fetched_uris = {}
+
+# TODO: create superlight vcs wrapper
+# TODO: re-work the checkout layout so that it doesn't use remotes via path: _checkout/<<repo>>/<<repo_id>>
+#
+# features:
+#   - update from remote
+#   - list branches
+#   - list tags
+#   - checkout specific branch / tag
+#   - get latest commit date
+
+class VCS
+  # This represents a remote repository
+  attr_accessor :local_path, :type
+  def initialize(local_path, type)
+    @local_path = local_path
+    @type = type
+    @uri = nil
+  end
+
+  def uri_ok?()
+    # make sure it is defined
+    if @uri.nil? then return false end
+
+    # make sure the uri actually exists
+    resp = Typhoeus.get(@uri, followlocation: true, nosignal: true)
+    if resp.code == 404
+      puts ("ERROR: "+resp.code.to_s+" Bad URI: " + @uri).red
+      return false
+    end
+    return true
+  end
+end
+
+class GIT < VCS
+  def initialize(local_path)
+    super(local_path, 'git')
+
+    @g = nil
+    @origin = nil
+
+    if File.exist?(@local_path)
+      @g = Rugged::Repository.new(@local_path)
+      puts " - opened repository at " << @local_path
+    else
+      @g = Rugged::Repository.init_at(@local_path)
+      puts " - initialized new repository at " << @local_path
+    end
+  end
+
+  def set_uri(uri)
+    @uri = uri
+    @origin = @g.remotes['origin']
+
+    if @origin.nil? and self.uri_ok?
+      puts " - adding remote for " << @uri << " to " << @local_path
+      @origin = @g.remotes.create('origin', @uri)
+    end
+  end
+
+  def valid?()
+    return (not @origin.nil?)
+  end
+
+  def fetch()
+    # fetch the remote
+    unless $fetched_uris.key?(@uri)
+      if true or (File.mtime(File.join(@local_path,'.git')) < (Time.now() - (60*60*24)))
+        puts " - fetching remote from: " + @uri
+        @g.fetch(@origin)
+      else
+        puts " - not fetching remote "
+      end
+      # this is no longer useful now that repos are all independent on disk
+      #$fetched_uris[@uri] = true
+    end
+  end
+
+  def checkout(version)
+    begin
+      puts " --- checking out " << version.name.to_s << " from remote: " << version.remote_name.to_s << " uri: " << @uri
+      @g.checkout(version)
+    rescue
+      puts " --- resetting hard to " << version.name.to_s
+      @g.reset(version.name, :hard)
+    end
+  end
+
+  def get_last_commit_time()
+    return @g.last_commit.time.strftime('%F')
+  end
+
+  def get_version(distro, explicit_version = nil)
+    # get the version if it's a branch
+    @g.branches.each() do |branch|
+      # get the branch shortname
+      branch_name = branch.name.split('/')[-1]
+
+      # detached branches are those checked out by the system but not given names
+      if branch.name.include? 'detached' then next end
+      if branch.remote_name != 'origin' then next end
+
+      # NOTE: no longer need to check remote names #if branch.remote_name != repo.id then next end
+
+      #puts " -- examining branch " << branch.name << " trunc: " << branch_name << " from remote: " << branch.remote_name
+      #puts " - should have " << distro << " version " << explicit_version.to_s
+
+      # save the branch as the version if it matches either the explicit
+      # version or the distro name
+      if explicit_version
+        if branch_name == explicit_version
+          return branch, branch_name
+        end
+      elsif branch_name.include? distro
+        return branch, branch_name
+      end
+    end
+
+    # get the version if it's a tag
+    @g.tags.each do |tag|
+      tag_name = tag.to_s
+
+      # save the tag if it matches either the explicit version or the distro name
+      if explicit_version
+        if tag_name == explicit_version
+          return tag, tag_name
+        end
+      elsif tag_name.include? distro
+        return tag, tag_name
+      end
+    end
+
+    return nil, nil
+  end
+end
+
+class HG < VCS
+  def init(local_path, uri)
+    super(local_path, uri, 'hg')
+  end
+end
+
+class SVN < VCS
+  def init(local_path, uri)
+    super(local_path, uri, 'svn')
+  end
+end
+
+def get_vcs(local_path, vcs_type=nil, uri = nil)
+
+  vcs = nil
+
+  case vcs_type
+  when 'git'
+    vcs = GIT.new(local_path)
+  when 'hg'
+    vcs = HG.new(local_path)
+  when 'svn'
+    vcs =  SVN.new(local_path)
+  else
+    puts ("Unsupported VCS type: "+vcs.to_s).red
+  end
+
+  if not uri.nil? and not vcs.nil?
+    vcs.set_uri(uri)
+  end
+
+  return vcs
+end
 
 def rst_to_md(rst)
   return PandocRuby.convert(rst, :from => :rst, :to => :markdown)
@@ -127,20 +298,24 @@ class RepoSnapshot < Liquid::Drop
   end
 end
 
+def get_id(uri)
+  # combines the domain name and path, hyphenated
+  p_uri = URI(uri)
+  return (p_uri.host.split('.').reject{|v| if v.length < 3 or v == 'com' or v == 'org' or v == 'edu' then v end} + p_uri.path.split(%r{[./]}).reject{|v| if v.length == 0 then true end}[0,2]).join('-')
+end
+
 class Repo < Liquid::Drop
   # This represents a remote repository
-  attr_accessor :name, :id, :uri, :purpose, :snapshots, :tags
-  def initialize(name, type, uri, purpose)
+  attr_accessor :name, :id, :uri, :purpose, :snapshots, :tags, :type
+  def initialize(id, name, type, uri, purpose)
+    # unique identifier
+    @id = id
+
     # non-unique identifier for this repo
     @name = name
 
     # the uri for cloning this repo
     @uri = uri
-
-    # unique identifier for this repo instance
-    # combines the domain name and path, hyphenated
-    p_uri = URI(uri)
-    @id = (p_uri.host.split('.').reject{|v| if v.length < 3 or v == 'com' or v == 'org' or v == 'edu' then v end} + p_uri.path.split(%r{[./]}).reject{|v| if v.length == 0 then true end}[0,2]).join('-')
 
     # the version control system type
     @type = type
@@ -223,65 +398,23 @@ class GitScraper < Jekyll::Generator
 
     puts "Getting remotes for for "+repo_instances.name
 
-    # open or initialize this repo
-    local_path = File.join(site.config['checkout_path'], repo_instances.name)
-    #g = if File.exist?(local_path) then Git.open(local_path) else Git.init(local_path) end
-    g = if File.exist?(local_path) then Rugged::Repository.new(local_path) else Rugged::Repository.init_at(local_path) end
-
     # add / fetch all the instances
     repo_instances.instances.each do |id, repo|
 
-      uri = repo.uri
-      repo.snapshots.each do |distro, version|
+      # open or initialize this repo
+      local_path = File.join(site.config['checkout_path'], repo_instances.name, id)
 
-        # make sure there's an actual uri
-        unless uri
-          #puts ("WARNING: No URI: " + details.inspect).yellow
-          next
-        end
-
-        # make sure the uri actually exists before adding it
-        resp = Typhoeus.get(uri, followlocation: true, nosignal: true)
-        if resp.code == 404
-          puts ("ERROR: "+resp.code.to_s+" Bad URI: " + uri).red
-          next
-        end
-
-        # find the remote if it already exists under a different name
-        new_remote = true
-        remote = nil
-        g.remotes.each do |r|
-          #puts "remote url: " << r.url
-          if r.url == uri
-            remote = r
-            new_remote = false
-            break
-          end
-        end
-
-        # add the remote if it isn't found
-        # note that a single authority can have multiple uris
-        if new_remote
-          puts " - adding remote "+id+" from: " + uri.to_s
-          remote = g.remotes.create(id, uri)
-        end
-
-        unless remote
-          puts ("ERROR: failed to add remote").red
-          next
-        end
-
-        # fetch the remote
-        unless $fetched_uris.key?(uri)
-          if true or new_remote or (File.mtime(File.join(local_path,'.git')) < (Time.now() - (60*60*24)))
-            puts " - fetching remote "+repo.name+": "+id+" from: " + remote.url
-            g.fetch(remote)
-          else
-            puts " - not fetching remote "+repo.name+": "+id
-          end
-          $fetched_uris[uri] = true
-        end
+      # make sure there's an actual uri
+      unless repo.uri
+        puts ("WARNING: No URI for " + id).yellow
+        next
       end
+
+      # open or create a repo
+      vcs = get_vcs(local_path, repo.type, repo.uri)
+
+      # fetch the repo
+      vcs.fetch()
     end
   end
 
@@ -351,45 +484,33 @@ class GitScraper < Jekyll::Generator
   end
 
   # scrape a version of a repository for packages and their contents
-  def scrape_version(site, repo, distro, snapshot, local_path, g, version)
+  def scrape_version(site, repo, distro, snapshot, vcs, version)
 
-    # extract info (including packages) from each version of this repo
-    uri = repo.uri
-
-    unless uri
+    unless repo.uri
       puts ("WARNING: no URI for "+repo.name+" "+repo.id+" "+distro).yellow
       return
     end
-    puts " - uri: " << uri
-
-    # get the version shortname if it's a branch
-    version_name = version.name.split('/')[-1]
 
     # check out this branch
-    puts " - checking out " << version.name+" from " << repo.uri << " for instance: " << repo.id << " distro: " << distro
-    begin
-      g.checkout(version)
-    rescue
-      g.reset(version.name, :hard)
-    end
+    vcs.checkout(version)
 
     # initialize this snapshot data
     data = snapshot.data = {
       # get the uri for resolving raw links (for imgages, etc)
-      'raw_uri' => get_raw_uri(uri, version_name),
+      'raw_uri' => get_raw_uri(repo.uri, snapshot.version),
       # get the date of the last modification
-      'last_commit_time' => g.last_commit.time.strftime('%F'),
+      'last_commit_time' => vcs.get_last_commit_time(),
       'readme' => nil,
       'readme_rendered' => nil}
 
     # load the repo readme for this branch if it exists
     data['readme_rendered'], data['readme'] = get_readme(
       site,
-      local_path,
+      vcs.local_path,
       data['raw_uri'])
 
     # get all packages from the repo
-    packages = find_packages(site, distro, snapshot.data, local_path)
+    packages = find_packages(site, distro, snapshot.data, vcs.local_path)
 
     # add the discovered packages to the index
     packages.each do |package_name, package_data|
@@ -418,9 +539,10 @@ class GitScraper < Jekyll::Generator
   def scrape_repo(site, repo)
 
     # open or initialize this repo
-    local_path = File.join(site.config['checkout_path'], repo.name)
-    #g = if File.exist?(local_path) then Git.open(local_path) else Git.init(local_path) end
-    g = if File.exist?(local_path) then Rugged::Repository.new(local_path) else Rugged::Repository.init_at(local_path) end
+    local_path = File.join(site.config['checkout_path'], repo.name, repo.id)
+
+    # get the repo
+    vcs = get_vcs(local_path, repo.type)
 
     # get versions suitable for checkout for each distro
     repo.snapshots.each do |distro, snapshot|
@@ -429,61 +551,18 @@ class GitScraper < Jekyll::Generator
       explicit_version = snapshot.version
 
       if explicit_version
-        puts " - looking for version " << explicit_version << " for distro " << distro
+        puts " -- looking for version " << explicit_version << " for distro " << distro
       else
-        puts " - no explicit version for distro " << distro
+        puts " -- no explicit version for distro " << distro << " looking for implicit version "
       end
 
       # get the version
-      version = nil
-
-      # get the version if it's a branch
-      g.branches.each() do |branch|
-        # get the branch shortname
-        branch_name = branch.name.split('/')[-1]
-
-        # detached branches are those checked out by the system but not given names
-        if branch.to_s.include? 'detached' then next end
-        if branch.remote_name != repo.id then next end
-
-        #puts " -- examining branch " << branch.name << " trunc: " << branch_name << " from remote: " << branch.remote_name
-        #puts " - should have " << distro << " version " << explicit_version.to_s
-
-        # save the branch as the version if it matches either the explicit
-        # version or the distro name
-        if explicit_version
-          if branch_name == explicit_version
-            version = branch
-            break
-          end
-        elsif branch_name.include? distro
-          snapshot.version = branch_name
-          version = branch
-          break
-        end
-      end
-
-      # get the version if it's a tag
-      g.tags.each do |tag|
-        tag_name = tag.to_s
-
-        # save the tag if it matches either the explicit version or the distro name
-        if explicit_version
-          if tag_name == explicit_version
-            version = tag
-            break
-          end
-        elsif tag_name.include? distro
-          snapshot.version = tag_name
-          version = tag
-          break
-        end
-      end
+      version, snapshot.version = vcs.get_version(distro, explicit_version)
 
       # scrape the data (packages etc)
       if version
         puts (" --- scraping version for " << repo.name << " instance: " << repo.id << " distro: " << distro).blue
-        scrape_version(site, repo, distro, snapshot, local_path, g, version)
+        scrape_version(site, repo, distro, snapshot, vcs, version)
       else
         puts (" --- no version for " << repo.name << " instance: " << repo.id << " distro: " << distro).yellow
       end
@@ -533,23 +612,20 @@ class GitScraper < Jekyll::Generator
 
         source_uri = nil
         source_version = nil
+        source_type = nil
 
         # only index if it has a source repo
         if repo_data.has_key?('source')
-          if repo_data['source']['type'] == 'git'
-            source_uri = repo_data['source']['url'].to_s
-            source_version = repo_data['source']['version'].to_s
-          else
-            puts (" -- Can't handle repo type: " + repo_data['source']['type']).red
-            next
-          end
+          source_uri = repo_data['source']['url'].to_s
+          source_type = repo_data['source']['type'].to_s
+          source_version = repo_data['source']['version'].to_s
         else
           # TODO: get source repo from release repo here
           next
         end
 
         # create a new repo structure for this remote
-        repo = Repo.new(repo_name, "git", source_uri, 'Official in '+distro)
+        repo = Repo.new(get_id(source_uri), repo_name, source_type, source_uri, 'Official in '+distro)
         if @all_repos.key?(repo.id)
           repo = @all_repos[repo.id]
         else
@@ -579,13 +655,13 @@ class GitScraper < Jekyll::Generator
       repo_name = File.basename(repo_filename, File.extname(repo_filename)).to_s
       repo_data = YAML.load_file(repo_filename)
 
-      puts " - Adding repositories for " << repo_name 
+      puts " - Adding repositories for " << repo_name
 
       # add all the instances
       repo_data['instances'].each do |instance|
 
         # create a new repo structure for this remote
-        repo = Repo.new(repo_name, "git", instance['uri'], instance['purpose'])
+        repo = Repo.new(get_id(instance['uri']), repo_name, instance['type'], instance['uri'], instance['purpose'])
 
         puts " -- Added repo for " << repo.name << " instance: " << repo.id << " from uri " << repo.uri.to_s
 

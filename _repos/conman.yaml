@@ -1,10 +1,12 @@
 instances:
-  - uri: 'https://github.com/jbohren/conman'
+  - uri: 'https://github.com/jbohren/conman.git'
+    type: git
     default: true
     purpose: 'original'
     distros:
       hydro: { default: true, version: 'master' }
-  - uri: 'https://github.com/RCPRG-ros-pkg/conman'
+  - uri: 'https://github.com/RCPRG-ros-pkg/conman.git'
+    type: git
     purpose: 'experimentation'
     distros:
       hydro: { version: 'master' }
