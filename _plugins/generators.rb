@@ -34,13 +34,21 @@ $fetched_uris = {}
 #   - checkout specific branch / tag
 #   - get latest commit date
 
+class AnomalyLogger
+  @@anomalies = []
+
+  def record(repo, snapshot, message):
+    @@anomalies << {'repo' => repo, 'snapshot' => snapshot, 'message' => message}
+  end
+end
+
 class VCS
   # This represents a remote repository
-  attr_accessor :local_path, :type
-  def initialize(local_path, type)
+  attr_accessor :local_path, :uri, :type
+  def initialize(local_path, uri, type)
     @local_path = local_path
+    @uri = uri
     @type = type
-    @uri = nil
   end
 
   def uri_ok?()
@@ -48,9 +56,12 @@ class VCS
     if @uri.nil? then return false end
 
     # make sure the uri actually exists
-    resp = Typhoeus.get(@uri, followlocation: true, nosignal: true)
+    resp = Typhoeus.get(@uri, followlocation: true, nosignal: true, connecttimeout: 3.0)
     if resp.code == 404
-      puts ("ERROR: "+resp.code.to_s+" Bad URI: " + @uri).red
+      puts ("ERROR: Code "+resp.code.to_s+" bad URI: " + @uri).red
+      return false
+    elsif resp.timed_out?
+      puts ("ERROR: Timed out URI: " + @uri).red
       return false
     end
     return true
@@ -58,28 +69,25 @@ class VCS
 end
 
 class GIT < VCS
-  def initialize(local_path)
-    super(local_path, 'git')
+  def initialize(local_path, uri)
+    super(local_path, uri, 'git')
 
-    @g = nil
+    @r = nil
     @origin = nil
 
     if File.exist?(@local_path)
-      @g = Rugged::Repository.new(@local_path)
-      puts " - opened repository at " << @local_path
+      @r = Rugged::Repository.new(@local_path)
+      puts " - opened git repository at: " << @local_path << " from uri: " << @uri
     else
-      @g = Rugged::Repository.init_at(@local_path)
-      puts " - initialized new repository at " << @local_path
+      @r = Rugged::Repository.init_at(@local_path)
+      puts " - initialized new git repository at: " << @local_path << " from uri: " << @uri
     end
-  end
 
-  def set_uri(uri)
-    @uri = uri
-    @origin = @g.remotes['origin']
+    @origin = @r.remotes['origin']
 
     if @origin.nil? and self.uri_ok?
       puts " - adding remote for " << @uri << " to " << @local_path
-      @origin = @g.remotes.create('origin', @uri)
+      @origin = @r.remotes.create('origin', @uri)
     end
   end
 
@@ -92,7 +100,7 @@ class GIT < VCS
     unless $fetched_uris.key?(@uri)
       if true or (File.mtime(File.join(@local_path,'.git')) < (Time.now() - (60*60*24)))
         puts " - fetching remote from: " + @uri
-        @g.fetch(@origin)
+        @r.fetch(@origin)
       else
         puts " - not fetching remote "
       end
@@ -104,20 +112,20 @@ class GIT < VCS
   def checkout(version)
     begin
       puts " --- checking out " << version.name.to_s << " from remote: " << version.remote_name.to_s << " uri: " << @uri
-      @g.checkout(version)
+      @r.checkout(version)
     rescue
       puts " --- resetting hard to " << version.name.to_s
-      @g.reset(version.name, :hard)
+      @r.reset(version.name, :hard)
     end
   end
 
   def get_last_commit_time()
-    return @g.last_commit.time.strftime('%F')
+    return @r.last_commit.time.strftime('%F')
   end
 
   def get_version(distro, explicit_version = nil)
     # get the version if it's a branch
-    @g.branches.each() do |branch|
+    @r.branches.each() do |branch|
       # get the branch shortname
       branch_name = branch.name.split('/')[-1]
 
@@ -142,7 +150,7 @@ class GIT < VCS
     end
 
     # get the version if it's a tag
-    @g.tags.each do |tag|
+    @r.tags.each do |tag|
       tag_name = tag.to_s
 
       # save the tag if it matches either the explicit version or the distro name
@@ -160,8 +168,84 @@ class GIT < VCS
 end
 
 class HG < VCS
-  def init(local_path, uri)
+  def initialize(local_path, uri)
     super(local_path, uri, 'hg')
+
+    @r = nil
+    @origin = nil
+
+    if self.uri_ok?
+      if File.exist?(@local_path)
+        @r = Mercurial::Repository.open(@local_path)
+        puts " - opened hg repository at: " << @local_path << " from uri: " << @uri
+      else
+        @r = Mercurial::Repository.clone(@uri, @local_path, {})
+        puts " - initialized new hg repository at: " << @local_path << " from uri: " << @uri
+      end
+    else
+      puts ("ERROR: could not reach hg repository at uri: " + @uri).red
+    end
+  end
+
+  def valid?()
+    return (not @r.nil?)
+  end
+
+  def fetch()
+    # fetch the remote
+    if self.valid?
+      @r.pull()
+    end
+  end
+
+  def checkout(version)
+    if self.valid?
+      puts " --- checking out " << version.to_s << " uri: " << @uri
+      @r.shell.hg(['update ?', version.name])
+    else
+    end
+  end
+
+  def get_last_commit_time()
+    if self.valid?
+      return @r.commits.tip.date.strftime('%F')
+    else
+      return nil
+    end
+  end
+
+  def get_version(distro, explicit_version = nil)
+    # get the version if it's a branch
+    @r.branches.each() do |branch|
+      # get the branch shortname
+      branch_name = branch.name
+
+      # save the branch as the version if it matches either the explicit
+      # version or the distro name
+      if explicit_version
+        if branch_name == explicit_version
+          return branch, branch_name
+        end
+      elsif branch_name.include? distro
+        return branch, branch_name
+      end
+    end
+
+    # get the version if it's a tag
+    @r.tags.all.each do |tag|
+      tag_name = tag.name
+
+      # save the tag if it matches either the explicit version or the distro name
+      if explicit_version
+        if tag_name == explicit_version
+          return tag, tag_name
+        end
+      elsif tag_name.include? distro
+        return tag, tag_name
+      end
+    end
+
+    return nil, nil
   end
 end
 
@@ -171,26 +255,29 @@ class SVN < VCS
   end
 end
 
-def get_vcs(local_path, vcs_type=nil, uri = nil)
+def get_vcs(local_path, uri, vcs_type=nil)
 
   vcs = nil
 
   case vcs_type
   when 'git'
-    vcs = GIT.new(local_path)
+    puts "Getting git repo"
+    vcs = GIT.new(local_path, uri)
   when 'hg'
-    vcs = HG.new(local_path)
+    puts "Getting hg repo"
+    vcs = HG.new(local_path, uri)
   when 'svn'
-    vcs =  SVN.new(local_path)
+    puts "Getting svn repo"
+    vcs =  SVN.new(local_path, uri)
   else
     puts ("Unsupported VCS type: "+vcs.to_s).red
   end
 
-  if not uri.nil? and not vcs.nil?
-    vcs.set_uri(uri)
+  if vcs.valid?
+    return vcs
+  else
+    return nil
   end
-
-  return vcs
 end
 
 def rst_to_md(rst)
@@ -396,10 +483,12 @@ class GitScraper < Jekyll::Generator
 
   def update_local(site, repo_instances)
 
-    puts "Getting remotes for for "+repo_instances.name
+    puts "Updating repo for "+repo_instances.name
 
     # add / fetch all the instances
     repo_instances.instances.each do |id, repo|
+
+      puts "Updating repo instance "+repo.id
 
       # open or initialize this repo
       local_path = File.join(site.config['checkout_path'], repo_instances.name, id)
@@ -411,7 +500,8 @@ class GitScraper < Jekyll::Generator
       end
 
       # open or create a repo
-      vcs = get_vcs(local_path, repo.type, repo.uri)
+      vcs = get_vcs(local_path, repo.uri, repo.type)
+      unless (not vcs.nil? and vcs.valid?) then next end
 
       # fetch the repo
       vcs.fetch()
@@ -542,7 +632,8 @@ class GitScraper < Jekyll::Generator
     local_path = File.join(site.config['checkout_path'], repo.name, repo.id)
 
     # get the repo
-    vcs = get_vcs(local_path, repo.type)
+    vcs = get_vcs(local_path, repo.uri, repo.type)
+    unless vcs.valid? then return end
 
     # get versions suitable for checkout for each distro
     repo.snapshots.each do |distro, snapshot|
@@ -669,7 +760,7 @@ class GitScraper < Jekyll::Generator
         $all_distros.each do |distro|
 
           # get the explicit version identifier for this distro
-          explicit_version = if instance['distros'].key?(distro) and instance['distros'][distro].key?('version') then instance['distros'][distro]['version'] else nil end
+          explicit_version = if instance.key?('distros') and instance['distros'].key?(distro) and instance['distros'][distro].key?('version') then instance['distros'][distro]['version'] else nil end
 
           # add the specific version from this instance
           repo.snapshots[distro].version = explicit_version
