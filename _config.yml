@@ -28,6 +28,11 @@ highlighter: pygments
 checkout_threads: 1
 checkout_path: _checkout
 
+# domains which are broken
+domain_blacklist:
+  - 'kforge.ros.org'
+  - 'code.in.tum.de'
+
 exclude:
   - _ruby_libs
   - _checkout

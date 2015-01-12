@@ -18,12 +18,36 @@ layout: default
   </div>
   <div class="row">
     <div class="well well-sm">
-      <div class="top-buffer">
-        <h3><img style="width: 50px; margin-right: 5px;" src="/assets/package.png">{{page.package_name}} <small>package</small></h3>
+      {% for distro in page.all_distros %}
+        {% if page.available_distros[distro] %}
+          <div class="top-buffer distro distro-{{distro}}">
+            <h5>
+              <a href="/r/{{ page.package_instances.snapshots[distro].repo.name }}/{{ page.package_instances.snapshots[distro].repo.id }}">
+                <img style="width: 30px; margin-left: 10px; margin-right: 5px;" src="/assets/repo.png">
+                {{ page.package_instances.snapshots[distro].repo.name }}
+                <small>repo</small>
+              </a>
+            </h5>
+            {% for tag in page.package_instances.tags %}<span class="label label-default">{{ tag }}</span> {% endfor %}
+          </div>
+        {% endif %}
+      {% endfor %}
+      <div class="">
+        <h3 style="margin-top: 5px"><img style="width: 50px; margin-right: 5px;" src="/assets/package.png">{{page.package_name}} <small>package</small></h3>
       </div>
-      <div class="top-buffer">
-        {% for tag in page.package_instances.tags %}<span class="label label-default">{{ tag }}</span> {% endfor %}
-      </div>
+      {% for distro in page.all_distros %}
+        {% if page.available_distros[distro] %}
+          <div class="top-buffer distro distro-{{distro}}">
+            <div class="btn-group" role="group" aria-label="...">
+              <a href="http://docs.ros.org/{{distro}}/api/{{page.package_name}}/html/" type="button" class="btn btn-default"><span class="glyphicon glyphicon-file"></span> API</a>
+              <a href="{{ page.package_instances.snapshots[distro].repo.uri }}" type="button" class="btn btn-default"><span class="glyphicon glyphicon-leaf"></span> Source</a>
+              <a href="http://answers.ros.org/questions/scope:all/sort:activity-desc/tags:{{page.package_name}}/page:1/" type="button" class="btn btn-default"><span class="glyphicon glyphicon-question-sign"></span> Answers</a>
+              <a href="http://wiki.ros.org/{{page.package_name}}" type="button" class="btn btn-default"><span class="glyphicon glyphicon-info-sign"></span> ROS Wiki</a>
+              <a type="button" class="btn inactive btn-default"><span class="glyphicon glyphicon-fire"></span> CI</a>
+            </div>
+          </div>
+        {% endif %}
+      {% endfor %}
       {% for distro in page.all_distros %}
         {% if page.available_distros[distro] %}
           <div class="top-buffer distro distro-{{distro}}">
@@ -52,6 +76,8 @@ layout: default
           <div class="panel panel-default">
             <div class="panel-heading">Metadata</div>
             <div class="panel-body">
+              {{ package.data.description}}
+
               version: {{ package.data.version }}
               <br>
               maintainers: {{ package.data.maintainers }}

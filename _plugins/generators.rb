@@ -22,8 +22,22 @@ require 'pandoc-ruby'
 
 require 'mercurial-ruby'
 require File.expand_path('../_ruby_libs/svn_wc/lib/svn_wc', File.dirname(__FILE__))
+require 'svn/core'
 
 $fetched_uris = {}
+
+def cleanup_uri(uri)
+  if uri.nil? then return uri end
+
+  p_uri = URI(uri)
+
+  # googlecode uris need to be http and not https otherwise *boom*
+  if p_uri.hostname.include? 'googlecode'
+    p_uri.scheme = 'http'
+  end
+
+  return p_uri.to_s
+end
 
 class AnomalyLogger
   @@anomalies = []
@@ -57,14 +71,18 @@ class VCS
 
     # make sure the uri actually exists
     resp = Typhoeus.get(@uri, followlocation: true, nosignal: true, connecttimeout: 3.0)
-    if resp.code == 404
+    if resp.code == 404 or resp.code == 403
       puts ("ERROR: Code "+resp.code.to_s+" bad URI: " + @uri).red
       return false
     elsif resp.timed_out?
       puts ("ERROR: Timed out URI: " + @uri).red
       return false
+    elsif resp.success?
+      return true
     end
-    return true
+
+    puts ("ERROR: Bad URI: " + @uri).red
+    return false
   end
 end
 
@@ -99,8 +117,12 @@ class GIT < VCS
     # fetch the remote
     unless $fetched_uris.key?(@uri)
       if true or (File.mtime(File.join(@local_path,'.git')) < (Time.now() - (60*60*24)))
-        puts " - fetching remote from: " + @uri
-        @r.fetch(@origin)
+        begin
+          puts " - fetching remote from: " + @uri
+          @r.fetch(@origin)
+        rescue
+          puts ("ERROR: could not fetch git repository from uri: " + @uri).red
+        end
       else
         puts " - not fetching remote "
       end
@@ -175,7 +197,7 @@ class HG < VCS
     @origin = nil
 
     if self.uri_ok?
-      if File.exist?(@local_path)
+      if File.exist?(@local_path) and File.exist?(File.join(@local_path,'.hg'))
         @r = Mercurial::Repository.open(@local_path)
         puts " - opened hg repository at: " << @local_path << " from uri: " << @uri
       else
@@ -257,17 +279,21 @@ class SVN < VCS
     @origin = nil
 
     yconf = {
-      'svn_repo_master' => uri,
-      'svn_repo_working_copy' => local_path 
+      'svn_repo_master' => Svn::Core.uri_canonicalize(uri),
+      'svn_repo_working_copy' => local_path
     }
 
     if self.uri_ok?
-      if File.exist?(@local_path)
+      if File.exist?(File.join(@local_path,'.svn'))
         @r = SvnWc::RepoAccess.new(YAML::dump(yconf), do_checkout=false, force=false)
         puts " - opened svn repository at: " << @local_path << " from uri: " << @uri
       else
-        @r = SvnWc::RepoAccess.new(YAML::dump(yconf), do_checkout=true, force=true)
-        puts " - initialized new svn repository at: " << @local_path << " from uri: " << @uri
+        begin
+          @r = SvnWc::RepoAccess.new(YAML::dump(yconf), do_checkout=true, force=true)
+          puts " - initialized new svn repository at: " << @local_path << " from uri: " << @uri
+        rescue
+          puts ('ERROR: could not initialize new svn repo from uri: ' + @uri).red
+        end
       end
     else
       puts ("ERROR: could not reach hg repository at uri: " + @uri).red
@@ -345,13 +371,13 @@ def get_vcs(local_path, uri, vcs_type=nil)
 
   case vcs_type
   when 'git'
-    puts "Getting git repo"
+    puts "Getting git repo: " + uri.to_s
     vcs = GIT.new(local_path, uri)
   when 'hg'
-    puts "Getting hg repo"
+    puts "Getting hg repo: " + uri.to_s
     vcs = HG.new(local_path, uri)
   when 'svn'
-    puts "Getting svn repo"
+    puts "Getting svn repo: " + uri.to_s
     vcs =  SVN.new(local_path, uri)
   else
     puts ("Unsupported VCS type: "+vcs.to_s).red
@@ -425,6 +451,9 @@ def get_raw_uri(uri_s, branch)
   when 'github.com'
     uri_split = File.split(uri.path)
     return 'https://raw.githubusercontent.com/%s/%s/%s' % [uri_split[0], uri_split[1], branch]
+  when 'bitbucket.org'
+    uri_split = File.split(uri.path)
+    return 'https://bitbucket.org/%s/%s/raw/%s' % [uri_split[0], uri_split[1], branch]
   end
 
   return ''
@@ -580,6 +609,11 @@ class GitScraper < Jekyll::Generator
       # make sure there's an actual uri
       unless repo.uri
         puts ("WARNING: No URI for " + id).yellow
+        next
+      end
+
+      if @domain_blacklist.include? URI(repo.uri).hostname
+        puts ("ERROR: Repo instance " + id + " has a blacklisted hostname: " + repo.uri.to_s).yellow
         next
       end
 
@@ -757,6 +791,8 @@ class GitScraper < Jekyll::Generator
     # construct list of known ros distros
     $all_distros = site.config['distros'] + site.config['old_distros']
 
+    @domain_blacklist = site.config['domain_blacklist']
+
     # the global index of repos
     @all_repos = Hash.new
     # the list of repo instances by name
@@ -781,8 +817,6 @@ class GitScraper < Jekyll::Generator
           if not @repo_names.has_key?(repo_name) and site.config['max_repos'] > 0 and @repo_names.length > site.config['max_repos'] then next end
 
           puts " - "+repo_name
-          puts repo_data.inspect
-
 
           source_uri = nil
           source_version = nil
@@ -799,12 +833,16 @@ class GitScraper < Jekyll::Generator
             source_version = repo_data['doc']['version'].to_s
           elsif repo_data.has_key?('release')
             # TODO: get the release repo to get the upstream repo
+            # NOTE: also, sometimes people use the release repo as the "doc" repo
             puts ("ERROR: No source or doc information for repo: " + repo_name + " in rosidstro file: " + rosdistro_filename).red
             next
           else
             puts ("ERROR: No source, doc, or release information for repo: " + repo_name+ " in rosidstro file: " + rosdistro_filename).red
             next
           end
+
+          # cleanup uri
+          source_uri = cleanup_uri(source_uri)
 
           # create a new repo structure for this remote
           repo = Repo.new(get_id(source_uri), repo_name, source_type, source_uri, 'Official in '+distro)
@@ -832,7 +870,7 @@ class GitScraper < Jekyll::Generator
       puts "Examining doc path: " << doc_path
 
       Dir.glob(File.join(doc_path,'*.rosinstall')) do |rosinstall_filename|
-        puts 'Indexing rosinstall repo data file: ' << rosinstall_filename 
+        puts 'Indexing rosinstall repo data file: ' << rosinstall_filename
         rosinstall_data = YAML.load_file(rosinstall_filename)
         rosinstall_data.each do |rosinstall_entry|
           rosinstall_entry.each do |repo_type, repo_data|
@@ -849,6 +887,11 @@ class GitScraper < Jekyll::Generator
             repo_name = repo_data['local-name'].to_s
             repo_uri = repo_data['uri'].to_s
             repo_version = repo_data['version'].to_s
+
+            # cleanup uri
+            repo_uri = cleanup_uri(repo_uri)
+
+            if not @repo_names.has_key?(repo_name) and site.config['max_repos'] > 0 and @repo_names.length > site.config['max_repos'] then next end
 
             # create a new repo structure for this remote
             repo = Repo.new(get_id(repo_uri), repo_name, repo_type, repo_uri, 'Official in '+distro)
@@ -889,8 +932,10 @@ class GitScraper < Jekyll::Generator
       # add all the instances
       repo_data['instances'].each do |instance|
 
+        uri = cleanup_uri(instance['uri'])
+
         # create a new repo structure for this remote
-        repo = Repo.new(get_id(instance['uri']), repo_name, instance['type'], instance['uri'], instance['purpose'])
+        repo = Repo.new(get_id(uri), repo_name, instance['type'], uri, instance['purpose'])
 
         puts " -- Added repo for " << repo.name << " instance: " << repo.id << " from uri " << repo.uri.to_s
 
