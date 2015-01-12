@@ -5,6 +5,11 @@ Reads `rosdistro` files to get lists of released and unreleased ROS
 repositories. For all repositories with source links, it adds them
 to a known repositories index. 
 
+Files are read from two places in `rosdistro`:
+
+ * `_rosdistro/<<DISTRO>>/distribution.yaml`
+ * `_rosdistro/doc/<<DISTRO>>/*.rosinstall`
+
 ROS packages are uniquely located in rosdistro by a distribution (groovy,
 hydro, indigo) and a repository identifier. In a given distribution, package
 names are unique.

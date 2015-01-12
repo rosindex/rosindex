@@ -781,8 +781,8 @@ class GitScraper < Jekyll::Generator
           if not @repo_names.has_key?(repo_name) and site.config['max_repos'] > 0 and @repo_names.length > site.config['max_repos'] then next end
 
           puts " - "+repo_name
+          puts repo_data.inspect
 
-          # TODO: get the release repo to get the upstream repo
 
           source_uri = nil
           source_version = nil
@@ -793,8 +793,16 @@ class GitScraper < Jekyll::Generator
             source_uri = repo_data['source']['url'].to_s
             source_type = repo_data['source']['type'].to_s
             source_version = repo_data['source']['version'].to_s
+          elsif repo_data.has_key?('doc')
+            source_uri = repo_data['doc']['url'].to_s
+            source_type = repo_data['doc']['type'].to_s
+            source_version = repo_data['doc']['version'].to_s
+          elsif repo_data.has_key?('release')
+            # TODO: get the release repo to get the upstream repo
+            puts ("ERROR: No source or doc information for repo: " + repo_name + " in rosidstro file: " + rosdistro_filename).red
+            next
           else
-            # TODO: get source repo from release repo here
+            puts ("ERROR: No source, doc, or release information for repo: " + repo_name+ " in rosidstro file: " + rosdistro_filename).red
             next
           end
 
@@ -865,8 +873,6 @@ class GitScraper < Jekyll::Generator
         end
       end
     end
-
-    return
 
     # add additional repo instances to the main dict
     Dir.glob(File.join(site.config['repos_path'],'*.yaml')) do |repo_filename|
