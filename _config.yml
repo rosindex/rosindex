@@ -25,7 +25,7 @@ redcarpet:
 
 highlighter: pygments
 
-checkout_threads: 1
+checkout_threads: 3
 checkout_path: _checkout
 
 # domains which are broken

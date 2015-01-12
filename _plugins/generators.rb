@@ -751,7 +751,7 @@ class GitScraper < Jekyll::Generator
 
     # get the repo
     vcs = get_vcs(local_path, repo.uri, repo.type)
-    unless vcs.valid? then return end
+    unless (not vcs.nil? and vcs.valid?) then return end
 
     # get versions suitable for checkout for each distro
     repo.snapshots.each do |distro, snapshot|
@@ -909,7 +909,7 @@ class GitScraper < Jekyll::Generator
 
             # store this repo in the name index
             @repo_names[repo.name].instances[repo.id] = repo
-            unless @repo_names.key?(repo.name)
+            if @repo_names[repo.name].default.nil?
               @repo_names[repo.name].default = repo
             end
           end
@@ -955,7 +955,7 @@ class GitScraper < Jekyll::Generator
 
         # store this repo in the name index
         @repo_names[repo.name].instances[repo.id] = repo
-        if instance['default'] or @repo_names[repo.name].default == nil
+        if instance['default'] or @repo_names[repo.name].default.nil?
           @repo_names[repo.name].default = repo
         end
       end
