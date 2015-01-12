@@ -29,6 +29,7 @@ checkout_threads: 1
 checkout_path: _checkout
 
 exclude:
+  - _ruby_libs
   - _checkout
   - node_modules
   - Rakefile

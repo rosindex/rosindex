@@ -4,6 +4,6 @@
 [submodule "_deploy"]
 	path = _deploy
 	url = git@github.com:rosindex/rosindex.github.io.git
-[submodule "_plugins/lib/svn_wc"]
-	path = _plugins/lib/svn_wc
+[submodule "_ruby_libs/svn_wc"]
+	path = _ruby_libs/svn_wc
 	url = https://github.com/jbohren-forks/svn_wc

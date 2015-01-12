@@ -21,7 +21,7 @@ require 'typhoeus'
 require 'pandoc-ruby'
 
 require 'mercurial-ruby'
-#require File.expand_path('lib/svn_wc/lib/svn_wc', File.dirname(__FILE__))
+require File.expand_path('../_ruby_libs/svn_wc/lib/svn_wc', File.dirname(__FILE__))
 
 $fetched_uris = {}
 
@@ -773,63 +773,100 @@ class GitScraper < Jekyll::Generator
 
       # read in the rosdistro distribution file
       rosdistro_filename = File.join(site.config['rosdistro_path'],distro,'distribution.yaml')
-      unless File.exist?(rosdistro_filename) then next end
-      distro_data = YAML.load_file(rosdistro_filename)
+      if File.exist?(rosdistro_filename)
+        distro_data = YAML.load_file(rosdistro_filename)
+        distro_data['repositories'].each do |repo_name, repo_data|
 
-      distro_data['repositories'].each do |repo_name, repo_data|
+          # limit repos if requested
+          if not @repo_names.has_key?(repo_name) and site.config['max_repos'] > 0 and @repo_names.length > site.config['max_repos'] then next end
 
-        # limit repos if requested
-        if not @repo_names.has_key?(repo_name) and site.config['max_repos'] > 0 and @repo_names.length > site.config['max_repos'] then next end
+          puts " - "+repo_name
 
-        puts " - "+repo_name
+          # TODO: get the release repo to get the upstream repo
 
-        # TODO: get the release repo to get the upstream repo
+          source_uri = nil
+          source_version = nil
+          source_type = nil
 
-        source_uri = nil
-        source_version = nil
-        source_type = nil
+          # only index if it has a source repo
+          if repo_data.has_key?('source')
+            source_uri = repo_data['source']['url'].to_s
+            source_type = repo_data['source']['type'].to_s
+            source_version = repo_data['source']['version'].to_s
+          else
+            # TODO: get source repo from release repo here
+            next
+          end
 
-        # only index if it has a source repo
-        if repo_data.has_key?('source')
-          source_uri = repo_data['source']['url'].to_s
-          source_type = repo_data['source']['type'].to_s
-          source_version = repo_data['source']['version'].to_s
-        else
-          # TODO: get source repo from release repo here
-          next
+          # create a new repo structure for this remote
+          repo = Repo.new(get_id(source_uri), repo_name, source_type, source_uri, 'Official in '+distro)
+          if @all_repos.key?(repo.id)
+            repo = @all_repos[repo.id]
+          else
+            puts " -- Adding repo for " << repo.name << " instance: " << repo.id << " from uri " << repo.uri.to_s
+            # store this repo in the unique index
+            @all_repos[repo.id] = repo
+          end
+
+          # add the specific version from this instance
+          repo.snapshots[distro].version = source_version
+          repo.snapshots[distro].released = repo_data.key?('release')
+
+          # store this repo in the name index
+          @repo_names[repo.name].instances[repo.id] = repo
+          @repo_names[repo.name].default = repo
         end
-
-        # create a new repo structure for this remote
-        repo = Repo.new(get_id(source_uri), repo_name, source_type, source_uri, 'Official in '+distro)
-        if @all_repos.key?(repo.id)
-          repo = @all_repos[repo.id]
-        else
-          puts " -- Adding repo for " << repo.name << " instance: " << repo.id << " from uri " << repo.uri.to_s
-          # store this repo in the unique index
-          @all_repos[repo.id] = repo
-        end
-
-        # add the specific version from this instance
-        repo.snapshots[distro].version = source_version
-        repo.snapshots[distro].released = repo_data.key?('release')
-
-        # store this repo in the name index
-        @repo_names[repo.name].default = repo
-        @repo_names[repo.name].instances[repo.id] = repo
-
       end
 
       # read in the old documentation index file (if it exists)
-      doc_path = File.join(site.config['rosdistro_path'],'doc',distro,'distribution.yaml')
+      doc_path = File.join(site.config['rosdistro_path'],'doc',distro)
 
-      Dir.glob(File.join(site.config['repos_path'],'*.rosinstall')) do |rosinstall_filename|
-        rosinstall_data = YAML.load_file(rosinstall_data)
-        rosinstall_data.each do |repo_data|
-          puts << 'not indexing rosinstall repo data file: ' << rosinstall_filename 
+      puts "Examining doc path: " << doc_path
+
+      Dir.glob(File.join(doc_path,'*.rosinstall')) do |rosinstall_filename|
+        puts 'Indexing rosinstall repo data file: ' << rosinstall_filename 
+        rosinstall_data = YAML.load_file(rosinstall_filename)
+        rosinstall_data.each do |rosinstall_entry|
+          rosinstall_entry.each do |repo_type, repo_data|
+
+            if repo_data.nil? then next end
+            if repo_type == 'bzr'
+              puts ("ERROR: fools trying to use bazaar: " + rosinstall_filename).red
+              next
+            end
+
+            #puts repo_type.inspect
+            #puts repo_data.inspect
+
+            repo_name = repo_data['local-name'].to_s
+            repo_uri = repo_data['uri'].to_s
+            repo_version = repo_data['version'].to_s
+
+            # create a new repo structure for this remote
+            repo = Repo.new(get_id(repo_uri), repo_name, repo_type, repo_uri, 'Official in '+distro)
+            if @all_repos.key?(repo.id)
+              repo = @all_repos[repo.id]
+            else
+              puts " -- Adding repo for " << repo.name << " instance: " << repo.id << " from uri " << repo.uri.to_s
+              # store this repo in the unique index
+              @all_repos[repo.id] = repo
+            end
+
+            # add the specific version from this instance
+            repo.snapshots[distro].version = repo_version
+            repo.snapshots[distro].released = repo_data.key?('release')
+
+            # store this repo in the name index
+            @repo_names[repo.name].instances[repo.id] = repo
+            unless @repo_names.key?(repo.name)
+              @repo_names[repo.name].default = repo
+            end
+          end
         end
       end
-
     end
+
+    return
 
     # add additional repo instances to the main dict
     Dir.glob(File.join(site.config['repos_path'],'*.yaml')) do |repo_filename|
