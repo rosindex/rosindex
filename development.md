@@ -80,4 +80,15 @@ When viewing the tab for a given ROS distribution, the user can see additional
 metadata about the package, as well as in which repository that package is
 located.
 
+## Building ROSIndex
+
+System Requirements:
+
+* ruby 1.9
+* subversion 1.8
+  * with SWIG ruby bindings and serf (`./configure --with-serf`)
+* git
+* mercurial
+
+Ruby Requirements:
 

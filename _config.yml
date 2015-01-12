@@ -36,6 +36,7 @@ exclude:
 
 rosdistro_path: _rosdistro
 repos_path: _repos
+index_old_doc_paths: false
 
 # ROS distros to look for
 distros:

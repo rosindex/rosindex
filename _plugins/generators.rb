@@ -21,29 +21,29 @@ require 'typhoeus'
 require 'pandoc-ruby'
 
 require 'mercurial-ruby'
+#require File.expand_path('lib/svn_wc/lib/svn_wc', File.dirname(__FILE__))
 
 $fetched_uris = {}
-
-# TODO: create superlight vcs wrapper
-# TODO: re-work the checkout layout so that it doesn't use remotes via path: _checkout/<<repo>>/<<repo_id>>
-#
-# features:
-#   - update from remote
-#   - list branches
-#   - list tags
-#   - checkout specific branch / tag
-#   - get latest commit date
 
 class AnomalyLogger
   @@anomalies = []
 
-  def record(repo, snapshot, message):
+  def record(repo, snapshot, message)
     @@anomalies << {'repo' => repo, 'snapshot' => snapshot, 'message' => message}
   end
 end
 
 class VCS
-  # This represents a remote repository
+  # This represents a working copy of a remote repository
+  # superlight abstract vcs wrapper
+  #
+  # features:
+  #   - update from remote
+  #   - list branches
+  #   - list tags
+  #   - checkout specific branch / tag
+  #   - get latest commit date
+
   attr_accessor :local_path, :uri, :type
   def initialize(local_path, uri, type)
     @local_path = local_path
@@ -250,10 +250,94 @@ class HG < VCS
 end
 
 class SVN < VCS
-  def init(local_path, uri)
+  def initialize(local_path, uri)
     super(local_path, uri, 'svn')
+
+    @r = nil
+    @origin = nil
+
+    yconf = {
+      'svn_repo_master' => uri,
+      'svn_repo_working_copy' => local_path 
+    }
+
+    if self.uri_ok?
+      if File.exist?(@local_path)
+        @r = SvnWc::RepoAccess.new(YAML::dump(yconf), do_checkout=false, force=false)
+        puts " - opened svn repository at: " << @local_path << " from uri: " << @uri
+      else
+        @r = SvnWc::RepoAccess.new(YAML::dump(yconf), do_checkout=true, force=true)
+        puts " - initialized new svn repository at: " << @local_path << " from uri: " << @uri
+      end
+    else
+      puts ("ERROR: could not reach hg repository at uri: " + @uri).red
+    end
+  end
+
+  def valid?()
+    return (not @r.nil?)
+  end
+
+  def fetch()
+    # fetch the remote
+    # noop
+  end
+
+  def checkout(version)
+    if self.valid? and version == 'HEAD'
+      puts " --- checking out " << version.to_s << " uri: " << @uri
+      @r.update()
+    else
+    end
+  end
+
+  def get_last_commit_time()
+    if self.valid?
+      return @r.info[:last_changed_date].strftime('%F')
+    else
+      return nil
+    end
+  end
+
+  def get_version(distro, explicit_version = nil)
+    # NOTE: for svn we don't support branch discovery because _don't use svn_
+    if explicit_version == 'HEAD'
+      return 'HEAD', 'HEAD'
+    else
+      return nil, nil
+    end
   end
 end
+
+class GITSVN < GIT
+  # we hates the subversionses
+  # so use git instead!
+  # this uses git-svn to clone an svn repo
+  def initialize(local_path, uri)
+    if self.uri_ok?
+      unless File.exist?(@local_path)
+        # TODO
+        puts " - opened svn repository at: " << @local_path << " from uri: " << @uri
+      else
+        # TODO
+        puts " - initialized new svn repository at: " << @local_path << " from uri: " << @uri
+      end
+    else
+      puts ("ERROR: could not reach hg repository at uri: " + @uri).red
+    end
+
+    super(local_path, uri)
+  end
+
+  def get_version(distro, explicit_version = nil)
+    if explicit_version == 'HEAD'
+      return super(distro, explicit_version = 'master')
+    else
+      return nil, nil
+    end
+  end
+end
+
 
 def get_vcs(local_path, uri, vcs_type=nil)
 
@@ -734,6 +818,17 @@ class GitScraper < Jekyll::Generator
         @repo_names[repo.name].instances[repo.id] = repo
 
       end
+
+      # read in the old documentation index file (if it exists)
+      doc_path = File.join(site.config['rosdistro_path'],'doc',distro,'distribution.yaml')
+
+      Dir.glob(File.join(site.config['repos_path'],'*.rosinstall')) do |rosinstall_filename|
+        rosinstall_data = YAML.load_file(rosinstall_data)
+        rosinstall_data.each do |repo_data|
+          puts << 'not indexing rosinstall repo data file: ' << rosinstall_filename 
+        end
+      end
+
     end
 
     # add additional repo instances to the main dict
