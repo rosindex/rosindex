@@ -1420,8 +1420,10 @@ class StatsPage < Jekyll::Page
 
       dputs package_name.to_s + " " + overlap.to_s
 
-      if overlap.length > 1
-        distro_overlaps[overlap] = distro_overlaps[overlap] + 1
+      package_overlaps = (2..$all_distros.length).flat_map{|n| overlap.combination(n).to_a}
+
+      package_overlaps.each do |o|
+        distro_overlaps[o] = distro_overlaps[o] + 1
       end
     end
 
