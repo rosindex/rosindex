@@ -1,4 +1,7 @@
+---
 layout: page
+title: Development
+permalink: /development/
 ---
 
 Reads `rosdistro` files to get lists of released and unreleased ROS

@@ -33,6 +33,8 @@ domain_blacklist:
   - 'kforge.ros.org'
   - 'code.in.tum.de'
 
+no_update: true
+
 exclude:
   - _ruby_libs
   - _checkout

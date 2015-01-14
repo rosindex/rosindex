@@ -7,3 +7,6 @@
 [submodule "_ruby_libs/svn_wc"]
 	path = _ruby_libs/svn_wc
 	url = https://github.com/jbohren-forks/svn_wc
+[submodule "js/venn.js"]
+	path = js/venn.js
+	url = https://github.com/benfred/venn.js

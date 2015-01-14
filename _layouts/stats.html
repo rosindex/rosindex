@@ -1,0 +1,46 @@
+---
+layout: default
+---
+<div class="container-fluid" style="margin:20px">
+  <div class="row">
+    <ol class="breadcrumb">
+      <li><a href="/">Home</a></li>
+      <li class="active">Statistics</li>
+    </ol>
+  </div>
+  <div class="row">
+    &nbsp;
+  </div>
+  <div class="row">
+    <div class="panel panel-default">
+      <div class="panel-heading"><h3 class="panel-title">Known Packages</h3></div>
+      <div class="panel-body">
+        <div class="simple_example text-center"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="http://d3js.org/d3.v2.min.js"></script>
+<script src="/js/venn.js/venn.js"></script>
+<script src="/js/mds.js"></script>
+<script src="/js/numeric-1.2.6.js"></script>
+<script>
+// define sets and set set intersections
+var sets = [
+    {% for distro in page.distro_counts %}
+      {label: "{{distro[0]}}", size: {{distro[1]}}}, 
+    {% endfor %}
+  ],
+  overlaps = [
+    {% for ol in page.distro_overlaps %}
+      {sets: {{ol[0]}}, size: {{ol[1]}}},
+    {% endfor %}
+  ];
+
+// get positions for each set
+sets = venn.venn(sets, overlaps, {layoutFunction: venn.classicMDSLayout});
+
+// draw the diagram in the 'simple_example' div
+venn.drawD3Diagram(d3.select(".simple_example"), sets, 500, 300);
+</script>

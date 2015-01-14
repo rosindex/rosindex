@@ -25,6 +25,13 @@ require File.expand_path('../_ruby_libs/svn_wc/lib/svn_wc', File.dirname(__FILE_
 require 'svn/core'
 
 $fetched_uris = {}
+$debug = false
+
+def dputs(s)
+  if $debug
+    puts s
+  end
+end
 
 def cleanup_uri(uri)
   if uri.nil? then return uri end
@@ -84,6 +91,15 @@ class VCS
     puts ("ERROR: Bad URI: " + @uri).red
     return false
   end
+
+  def hash
+    return [local_path].hash
+  end
+
+  def eql?(other)
+    return other.local_path == @local_path
+  end
+
 end
 
 class GIT < VCS
@@ -92,19 +108,21 @@ class GIT < VCS
 
     @r = nil
     @origin = nil
+    @remote_head = nil
 
     if File.exist?(@local_path)
       @r = Rugged::Repository.new(@local_path)
-      puts " - opened git repository at: " << @local_path << " from uri: " << @uri
+      dputs " - opened git repository at: " << @local_path << " from uri: " << @uri
     else
       @r = Rugged::Repository.init_at(@local_path)
-      puts " - initialized new git repository at: " << @local_path << " from uri: " << @uri
+      dputs " - initialized new git repository at: " << @local_path << " from uri: " << @uri
     end
 
     @origin = @r.remotes['origin']
 
     if @origin.nil? and self.uri_ok?
-      puts " - adding remote for " << @uri << " to " << @local_path
+      # add remote
+      dputs " - adding remote for " << @uri << " to " << @local_path
       @origin = @r.remotes.create('origin', @uri)
     end
   end
@@ -118,13 +136,13 @@ class GIT < VCS
     unless $fetched_uris.key?(@uri)
       if true or (File.mtime(File.join(@local_path,'.git')) < (Time.now() - (60*60*24)))
         begin
-          puts " - fetching remote from: " + @uri
+          dputs " - fetching remote from: " + @uri
           @r.fetch(@origin)
         rescue
           puts ("ERROR: could not fetch git repository from uri: " + @uri).red
         end
       else
-        puts " - not fetching remote "
+        dputs " - not fetching remote "
       end
       # this is no longer useful now that repos are all independent on disk
       #$fetched_uris[@uri] = true
@@ -132,11 +150,14 @@ class GIT < VCS
   end
 
   def checkout(version)
+
+    if version.nil? then return end
+
     begin
-      puts " --- checking out " << version.name.to_s << " from remote: " << version.remote_name.to_s << " uri: " << @uri
+      dputs " --- checking out " << version.name.to_s << " from remote: " << version.remote_name.to_s << " uri: " << @uri
       @r.checkout(version)
     rescue
-      puts " --- resetting hard to " << version.name.to_s
+      dputs " --- resetting hard to " << version.name.to_s
       @r.reset(version.name, :hard)
     end
   end
@@ -146,6 +167,21 @@ class GIT < VCS
   end
 
   def get_version(distro, explicit_version = nil)
+
+    # remote head
+    if explicit_version == 'REMOTE_HEAD'
+      @r.branches.each() do |branch|
+        branch.remote.ls.each do |remote_ref|
+          if remote_ref[:local] == false and remote_ref[:name] == 'HEAD'
+            branch_name = branch.name.split('/')[-1]
+            return remote_ref[:oid], branch_name
+          end
+        end
+      end
+
+      return nil, nil
+    end
+
     # get the version if it's a branch
     @r.branches.each() do |branch|
       # get the branch shortname
@@ -157,7 +193,7 @@ class GIT < VCS
 
       # NOTE: no longer need to check remote names #if branch.remote_name != repo.id then next end
 
-      #puts " -- examining branch " << branch.name << " trunc: " << branch_name << " from remote: " << branch.remote_name
+      #dputs " -- examining branch " << branch.name << " trunc: " << branch_name << " from remote: " << branch.remote_name
       #puts " - should have " << distro << " version " << explicit_version.to_s
 
       # save the branch as the version if it matches either the explicit
@@ -199,10 +235,10 @@ class HG < VCS
     if self.uri_ok?
       if File.exist?(@local_path) and File.exist?(File.join(@local_path,'.hg'))
         @r = Mercurial::Repository.open(@local_path)
-        puts " - opened hg repository at: " << @local_path << " from uri: " << @uri
+        dputs " - opened hg repository at: " << @local_path << " from uri: " << @uri
       else
         @r = Mercurial::Repository.clone(@uri, @local_path, {})
-        puts " - initialized new hg repository at: " << @local_path << " from uri: " << @uri
+        dputs " - initialized new hg repository at: " << @local_path << " from uri: " << @uri
       end
     else
       puts ("ERROR: could not reach hg repository at uri: " + @uri).red
@@ -222,8 +258,8 @@ class HG < VCS
 
   def checkout(version)
     if self.valid?
-      puts " --- checking out " << version.to_s << " uri: " << @uri
-      @r.shell.hg(['update ?', version.name])
+      dputs " --- checking out " << version.to_s << " uri: " << @uri
+      @r.shell.hg(['update ?', version])
     else
     end
   end
@@ -237,6 +273,11 @@ class HG < VCS
   end
 
   def get_version(distro, explicit_version = nil)
+    # get remote head
+    if explicit_version == 'REMOTE_HEAD'
+      return 'default', 'default'
+    end
+
     # get the version if it's a branch
     @r.branches.each() do |branch|
       # get the branch shortname
@@ -246,10 +287,10 @@ class HG < VCS
       # version or the distro name
       if explicit_version
         if branch_name == explicit_version
-          return branch, branch_name
+          return branch.name, branch_name
         end
       elsif branch_name.include? distro
-        return branch, branch_name
+        return branch.name, branch_name
       end
     end
 
@@ -260,10 +301,10 @@ class HG < VCS
       # save the tag if it matches either the explicit version or the distro name
       if explicit_version
         if tag_name == explicit_version
-          return tag, tag_name
+          return tag.name, tag_name
         end
       elsif tag_name.include? distro
-        return tag, tag_name
+        return tag.name, tag_name
       end
     end
 
@@ -286,11 +327,11 @@ class SVN < VCS
     if self.uri_ok?
       if File.exist?(File.join(@local_path,'.svn'))
         @r = SvnWc::RepoAccess.new(YAML::dump(yconf), do_checkout=false, force=false)
-        puts " - opened svn repository at: " << @local_path << " from uri: " << @uri
+        dputs " - opened svn repository at: " << @local_path << " from uri: " << @uri
       else
         begin
           @r = SvnWc::RepoAccess.new(YAML::dump(yconf), do_checkout=true, force=true)
-          puts " - initialized new svn repository at: " << @local_path << " from uri: " << @uri
+          dputs " - initialized new svn repository at: " << @local_path << " from uri: " << @uri
         rescue
           puts ('ERROR: could not initialize new svn repo from uri: ' + @uri).red
         end
@@ -311,24 +352,32 @@ class SVN < VCS
 
   def checkout(version)
     if self.valid? and version == 'HEAD'
-      puts " --- checking out " << version.to_s << " uri: " << @uri
-      @r.update()
+      dputs " --- checking out " << version.to_s << " uri: " << @uri << " in path: " << @local_path
+      #@r.update(version) WTF libsvn supermemleak
+      system('cd "'+@local_path+'" svn up -r'+version)
     else
     end
   end
 
   def get_last_commit_time()
     if self.valid?
-      return @r.info[:last_changed_date].strftime('%F')
-    else
-      return nil
+      begin
+        return @r.info[:last_changed_date].strftime('%F')
+      rescue
+        puts ('ERROR: could not get last changed date for repo in '+@local_path).red
+      end
     end
+    return nil
   end
 
   def get_version(distro, explicit_version = nil)
     # NOTE: for svn we don't support branch discovery because _don't use svn_
-    if explicit_version == 'HEAD'
-      return 'HEAD', 'HEAD'
+    if not explicit_version.nil?
+      if explicit_version == 'REMOTE_HEAD'
+        return 'HEAD', 'HEAD'
+      else
+        return explicit_version, explicit_version
+      end
     else
       return nil, nil
     end
@@ -343,10 +392,10 @@ class GITSVN < GIT
     if self.uri_ok?
       unless File.exist?(@local_path)
         # TODO
-        puts " - opened svn repository at: " << @local_path << " from uri: " << @uri
+        dputs " - opened svn repository at: " << @local_path << " from uri: " << @uri
       else
         # TODO
-        puts " - initialized new svn repository at: " << @local_path << " from uri: " << @uri
+        dputs " - initialized new svn repository at: " << @local_path << " from uri: " << @uri
       end
     else
       puts ("ERROR: could not reach hg repository at uri: " + @uri).red
@@ -364,23 +413,30 @@ class GITSVN < GIT
   end
 end
 
+# global structures so we don't have to re-clone / re-checkout things
+$gits = Hash.new {|h,k| h[k]=GIT.new(k.local_path, k.uri)}
+$hgs = Hash.new {|h,k| h[k]=HG.new(k.local_path, k.uri)}
+$svns = Hash.new {|h,k| h[k]=SVN.new(k.local_path, k.uri)}
 
-def get_vcs(local_path, uri, vcs_type=nil)
+def get_vcs(repo)
 
   vcs = nil
 
-  case vcs_type
+  case repo.type
   when 'git'
-    puts "Getting git repo: " + uri.to_s
-    vcs = GIT.new(local_path, uri)
+    dputs "Getting git repo: " + repo.uri.to_s
+    #vcs = $gits[repo]
+    vcs = GIT.new(repo.local_path, repo.uri)
   when 'hg'
-    puts "Getting hg repo: " + uri.to_s
-    vcs = HG.new(local_path, uri)
+    dputs "Getting hg repo: " + repo.uri.to_s
+    #vcs = $hgs[repo]
+    vcs = HG.new(repo.local_path, repo.uri)
   when 'svn'
-    puts "Getting svn repo: " + uri.to_s
-    vcs =  SVN.new(local_path, uri)
+    dputs "Getting svn repo: " + repo.uri.to_s
+    #vcs = $svns[repo]
+    vcs = SVN.new(repo.local_path, repo.uri)
   else
-    puts ("Unsupported VCS type: "+vcs.to_s).red
+    dputs ("Unsupported VCS type: "+repo.type.to_s).red
   end
 
   if vcs.valid?
@@ -506,22 +562,25 @@ end
 
 class Repo < Liquid::Drop
   # This represents a remote repository
-  attr_accessor :name, :id, :uri, :purpose, :snapshots, :tags, :type
-  def initialize(id, name, type, uri, purpose)
+  attr_accessor :name, :id, :uri, :purpose, :snapshots, :tags, :type, :local_path
+  def initialize(name, type, uri, purpose, checkout_path)
     # unique identifier
-    @id = id
+    @id = get_id(uri)
 
     # non-unique identifier for this repo
     @name = name
 
     # the uri for cloning this repo
-    @uri = uri
+    @uri = cleanup_uri(uri)
 
     # the version control system type
     @type = type
 
     # a brief description of this remote
     @purpose = purpose
+
+    # the local path to this repo
+    @local_path = File.join(checkout_path, @name, @id)
 
     # hash distro -> RepoSnapshot
     # each entry in this hash represents the preferred version for a given distro in this repo
@@ -604,7 +663,7 @@ class GitScraper < Jekyll::Generator
       puts "Updating repo instance "+repo.id
 
       # open or initialize this repo
-      local_path = File.join(site.config['checkout_path'], repo_instances.name, id)
+      local_path = File.join(@checkout_path, repo_instances.name, id)
 
       # make sure there's an actual uri
       unless repo.uri
@@ -613,12 +672,12 @@ class GitScraper < Jekyll::Generator
       end
 
       if @domain_blacklist.include? URI(repo.uri).hostname
-        puts ("ERROR: Repo instance " + id + " has a blacklisted hostname: " + repo.uri.to_s).yellow
+        puts ("ERROR: Repo instance " + id + " has a blacklisted hostname: " + repo.uri.to_s).red
         next
       end
 
       # open or create a repo
-      vcs = get_vcs(local_path, repo.uri, repo.type)
+      vcs = get_vcs(repo)
       unless (not vcs.nil? and vcs.valid?) then next end
 
       # fetch the repo
@@ -634,7 +693,7 @@ class GitScraper < Jekyll::Generator
     Find.find(local_path) do |path|
       if FileTest.directory?(path)
         # skip certain paths
-        if File.basename(path)[0] == ?. or File.exist?(File.join(path,'CATKIN_IGNORE'))
+        if (File.basename(path)[0] == ?.) or File.exist?(File.join(path,'CATKIN_IGNORE'))
           Find.prune
         end
 
@@ -653,7 +712,7 @@ class GitScraper < Jekyll::Generator
           # extract package manifest info
           package_name = REXML::XPath.first(package_doc, "/package/name/text()").to_s.rstrip.lstrip
 
-          puts " -- adding package " << package_name
+          dputs " -- adding package " << package_name
 
           package_info = {
             'name' => package_name,
@@ -692,15 +751,12 @@ class GitScraper < Jekyll::Generator
   end
 
   # scrape a version of a repository for packages and their contents
-  def scrape_version(site, repo, distro, snapshot, vcs, version)
+  def scrape_version(site, repo, distro, snapshot, vcs)
 
     unless repo.uri
       puts ("WARNING: no URI for "+repo.name+" "+repo.id+" "+distro).yellow
       return
     end
-
-    # check out this branch
-    vcs.checkout(version)
 
     # initialize this snapshot data
     data = snapshot.data = {
@@ -737,7 +793,7 @@ class GitScraper < Jekyll::Generator
 
       # add this package as the default for this distro
       if @repo_names[repo.name].default
-        puts " --- Setting repo instance " << repo.id << "as default for package " << package_name << " in distro " << distro
+        dputs " --- Setting repo instance " << repo.id << "as default for package " << package_name << " in distro " << distro
         @package_names[package_name].repos[distro] = repo
         @package_names[package_name].snapshots[distro] =  package
       end
@@ -746,11 +802,13 @@ class GitScraper < Jekyll::Generator
 
   def scrape_repo(site, repo)
 
-    # open or initialize this repo
-    local_path = File.join(site.config['checkout_path'], repo.name, repo.id)
+    if @domain_blacklist.include? URI(repo.uri).hostname
+      puts ("ERROR: Repo instance " + repo.id + " has a blacklisted hostname: " + repo.uri.to_s).red
+      return
+    end
 
-    # get the repo
-    vcs = get_vcs(local_path, repo.uri, repo.type)
+    # open or initialize this repo
+    vcs = get_vcs(repo)
     unless (not vcs.nil? and vcs.valid?) then return end
 
     # get versions suitable for checkout for each distro
@@ -759,10 +817,10 @@ class GitScraper < Jekyll::Generator
       # get explicit version (this is either set or nil)
       explicit_version = snapshot.version
 
-      if explicit_version
-        puts " -- looking for version " << explicit_version << " for distro " << distro
+      if explicit_version.nil?
+        dputs " -- no explicit version for distro " << distro << " looking for implicit version "
       else
-        puts " -- no explicit version for distro " << distro << " looking for implicit version "
+        dputs " -- looking for version " << explicit_version.to_s << " for distro " << distro
       end
 
       # get the version
@@ -771,7 +829,11 @@ class GitScraper < Jekyll::Generator
       # scrape the data (packages etc)
       if version
         puts (" --- scraping version for " << repo.name << " instance: " << repo.id << " distro: " << distro).blue
-        scrape_version(site, repo, distro, snapshot, vcs, version)
+
+        # check out this branch
+        vcs.checkout(version)
+
+        scrape_version(site, repo, distro, snapshot, vcs)
       else
         puts (" --- no version for " << repo.name << " instance: " << repo.id << " distro: " << distro).yellow
       end
@@ -782,10 +844,10 @@ class GitScraper < Jekyll::Generator
   def generate(site)
 
     # create the checkout path if necessary
-    checkout_path = site.config['checkout_path']
-    puts "checkout path: " + checkout_path
-    unless File.exist?(checkout_path)
-      FileUtils.mkpath(checkout_path)
+    @checkout_path = site.config['checkout_path']
+    puts "checkout path: " + @checkout_path
+    unless File.exist?(@checkout_path)
+      FileUtils.mkpath(@checkout_path)
     end
 
     # construct list of known ros distros
@@ -841,22 +903,24 @@ class GitScraper < Jekyll::Generator
             next
           end
 
-          # cleanup uri
-          source_uri = cleanup_uri(source_uri)
-
           # create a new repo structure for this remote
-          repo = Repo.new(get_id(source_uri), repo_name, source_type, source_uri, 'Official in '+distro)
+          repo = Repo.new(
+            repo_name,
+            source_type,
+            source_uri,
+            'Official in '+distro,
+            @checkout_path)
+
           if @all_repos.key?(repo.id)
             repo = @all_repos[repo.id]
           else
-            puts " -- Adding repo for " << repo.name << " instance: " << repo.id << " from uri " << repo.uri.to_s
+            dputs " -- Adding repo for " << repo.name << " instance: " << repo.id << " from uri " << repo.uri.to_s
             # store this repo in the unique index
             @all_repos[repo.id] = repo
           end
 
           # add the specific version from this instance
-          repo.snapshots[distro].version = source_version
-          repo.snapshots[distro].released = repo_data.key?('release')
+          repo.snapshots[distro] = RepoSnapshot.new(source_version, distro, repo_data.key?('release'))
 
           # store this repo in the name index
           @repo_names[repo.name].instances[repo.id] = repo
@@ -877,35 +941,39 @@ class GitScraper < Jekyll::Generator
 
             if repo_data.nil? then next end
             if repo_type == 'bzr'
-              puts ("ERROR: fools trying to use bazaar: " + rosinstall_filename).red
+              puts ("ERROR: some fools trying to use bazaar: " + rosinstall_filename).red
               next
             end
 
             #puts repo_type.inspect
             #puts repo_data.inspect
 
+            # extract the garbage
             repo_name = repo_data['local-name'].to_s
             repo_uri = repo_data['uri'].to_s
-            repo_version = repo_data['version'].to_s
+            repo_version = if repo_data.key?('version') then repo_data['version'].to_s else 'REMOTE_HEAD' end
 
-            # cleanup uri
-            repo_uri = cleanup_uri(repo_uri)
-
+            # limit number of repos indexed if in devel mode
             if not @repo_names.has_key?(repo_name) and site.config['max_repos'] > 0 and @repo_names.length > site.config['max_repos'] then next end
 
             # create a new repo structure for this remote
-            repo = Repo.new(get_id(repo_uri), repo_name, repo_type, repo_uri, 'Official in '+distro)
+            repo = Repo.new(
+              repo_name,
+              repo_type,
+              repo_uri,
+              'Official in '+distro,
+              @checkout_path)
+
             if @all_repos.key?(repo.id)
               repo = @all_repos[repo.id]
             else
-              puts " -- Adding repo for " << repo.name << " instance: " << repo.id << " from uri " << repo.uri.to_s
+              dputs " -- Adding repo for " << repo.name << " instance: " << repo.id << " from uri " << repo.uri.to_s
               # store this repo in the unique index
               @all_repos[repo.id] = repo
             end
 
             # add the specific version from this instance
-            repo.snapshots[distro].version = repo_version
-            repo.snapshots[distro].released = repo_data.key?('release')
+            repo.snapshots[distro] = RepoSnapshot.new(repo_version, distro, false)
 
             # store this repo in the name index
             @repo_names[repo.name].instances[repo.id] = repo
@@ -932,12 +1000,17 @@ class GitScraper < Jekyll::Generator
       # add all the instances
       repo_data['instances'].each do |instance|
 
-        uri = cleanup_uri(instance['uri'])
-
         # create a new repo structure for this remote
-        repo = Repo.new(get_id(uri), repo_name, instance['type'], uri, instance['purpose'])
+        repo = Repo.new(
+          repo_name,
+          instance['type'],
+          instance['uri'],
+          instance['purpose'],
+          @checkout_path)
 
-        puts " -- Added repo for " << repo.name << " instance: " << repo.id << " from uri " << repo.uri.to_s
+        uri = repo.uri
+
+        dputs " -- Added repo for " << repo.name << " instance: " << repo.id << " from uri " << repo.uri.to_s
 
         # add distro versions for instance
         $all_distros.each do |distro|
@@ -1133,6 +1206,9 @@ class GitScraper < Jekyll::Generator
 
     # add this file as a static site file
     site.static_files << SearchIndexFile.new(site, site.dest, "/", index_filename)
+
+    # create stats page
+    site.pages << StatsPage.new(site, @package_names)
   end
 
   def strip_stopwords(text)
@@ -1314,6 +1390,40 @@ class PackageInstancePage < Jekyll::Page
 
     self.data['available_distros'], self.data['available_older_distros'], self.data['n_available_older_distros'] = get_available_distros(site, instance.snapshots)
     self.data['all_distros'] = site.config['distros'] + site.config['old_distros']
+  end
+end
+
+class StatsPage < Jekyll::Page
+  def initialize(site, package_names)
+
+    @site = site
+    @base = site.source
+    @dir = 'stats'
+    @name = 'index.html'
+
+    self.process(@name)
+    self.read_yaml(File.join(@base, '_layouts'),'stats.html')
+
+    distro_counts = Hash[$all_distros.collect { |d| [d, 0] }]
+    distro_overlaps = Hash[(2..$all_distros.length).flat_map{|n| (0..$all_distros.length-1).to_a.combination(n).to_a}.collect { |s| [s, 0] }]
+
+    package_names.each do |package_name, package_instances|
+      overlap = []
+      #package_instances.snapshots.reject.with_index{|dr, i| dr[1].nil? || dr[1].version.nil? }
+      package_instances.snapshots.each.with_index do |s,i|
+        if not s[1].nil? and not s[1].version.nil?
+          overlap << i
+          distro_counts[s[0]] = distro_counts[s[0]] + 1
+        end
+      end
+      puts package_name.to_s + " " + overlap.to_s
+      if overlap.length > 1
+        distro_overlaps[overlap] = distro_overlaps[overlap] + 1
+      end
+    end
+
+    self.data['distro_counts'] = distro_counts
+    self.data['distro_overlaps'] = Hash[distro_overlaps.collect{|s,c| [s.inspect, c]}]
   end
 end
 
