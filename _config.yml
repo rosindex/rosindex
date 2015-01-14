@@ -55,7 +55,6 @@ old_distros:
   - 'fuerte'
   - 'electric'
   - 'diamondback'
-  - 'c-turtle'
 
 # package list page
 packages_per_page: 50

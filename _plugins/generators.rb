@@ -1404,6 +1404,7 @@ class StatsPage < Jekyll::Page
     self.process(@name)
     self.read_yaml(File.join(@base, '_layouts'),'stats.html')
 
+    # compute venn diagram model
     distro_counts = Hash[$all_distros.collect { |d| [d, 0] }]
     distro_overlaps = Hash[(2..$all_distros.length).flat_map{|n| (0..$all_distros.length-1).to_a.combination(n).to_a}.collect { |s| [s, 0] }]
 
@@ -1416,7 +1417,9 @@ class StatsPage < Jekyll::Page
           distro_counts[s[0]] = distro_counts[s[0]] + 1
         end
       end
-      puts package_name.to_s + " " + overlap.to_s
+
+      dputs package_name.to_s + " " + overlap.to_s
+
       if overlap.length > 1
         distro_overlaps[overlap] = distro_overlaps[overlap] + 1
       end
