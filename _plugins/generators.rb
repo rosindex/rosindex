@@ -27,6 +27,7 @@ require 'svn/core'
 $fetched_uris = {}
 $debug = false
 
+# Debug puts
 def dputs(s)
   if $debug
     puts s
@@ -53,6 +54,8 @@ class AnomalyLogger
     @@anomalies << {'repo' => repo, 'snapshot' => snapshot, 'message' => message}
   end
 end
+
+# Version control systems
 
 class VCS
   # This represents a working copy of a remote repository
@@ -413,11 +416,6 @@ class GITSVN < GIT
   end
 end
 
-# global structures so we don't have to re-clone / re-checkout things
-$gits = Hash.new {|h,k| h[k]=GIT.new(k.local_path, k.uri)}
-$hgs = Hash.new {|h,k| h[k]=HG.new(k.local_path, k.uri)}
-$svns = Hash.new {|h,k| h[k]=SVN.new(k.local_path, k.uri)}
-
 def get_vcs(repo)
 
   vcs = nil
@@ -425,15 +423,12 @@ def get_vcs(repo)
   case repo.type
   when 'git'
     dputs "Getting git repo: " + repo.uri.to_s
-    #vcs = $gits[repo]
     vcs = GIT.new(repo.local_path, repo.uri)
   when 'hg'
     dputs "Getting hg repo: " + repo.uri.to_s
-    #vcs = $hgs[repo]
     vcs = HG.new(repo.local_path, repo.uri)
   when 'svn'
     dputs "Getting svn repo: " + repo.uri.to_s
-    #vcs = $svns[repo]
     vcs = SVN.new(repo.local_path, repo.uri)
   else
     dputs ("Unsupported VCS type: "+repo.type.to_s).red
@@ -446,6 +441,7 @@ def get_vcs(repo)
   end
 end
 
+# Converts RST to Markdown
 def rst_to_md(rst)
   return PandocRuby.convert(rst, :from => :rst, :to => :markdown)
 end
@@ -515,6 +511,12 @@ def get_raw_uri(uri_s, branch)
   return ''
 end
 
+def get_id(uri)
+  # combines the domain name and path, hyphenated
+  p_uri = URI(uri)
+  return (p_uri.host.split('.').reject{|v| if v.length < 3 or v == 'com' or v == 'org' or v == 'edu' then v end} + p_uri.path.split(%r{[./]}).reject{|v| if v.length == 0 then true end}[0,2]).join('-')
+end
+
 class PackageSnapshot < Liquid::Drop
   # This represents a snapshot of a ROS package found in a repo snapshot
   attr_accessor :name, :repo, :snapshot, :version, :data
@@ -552,12 +554,6 @@ class RepoSnapshot < Liquid::Drop
     # these are all the packages in this repo snapshot
     @packages = {}
   end
-end
-
-def get_id(uri)
-  # combines the domain name and path, hyphenated
-  p_uri = URI(uri)
-  return (p_uri.host.split('.').reject{|v| if v.length < 3 or v == 'com' or v == 'org' or v == 'edu' then v end} + p_uri.path.split(%r{[./]}).reject{|v| if v.length == 0 then true end}[0,2]).join('-')
 end
 
 class Repo < Liquid::Drop
@@ -625,6 +621,39 @@ class PackageInstances < Liquid::Drop
     # hash instance_id -> Repo
     # each repo in this hash contains the package in question, even if it's not a preferred snapshot
     @instances = {}
+  end
+end
+
+class RosIndexDB
+  attr_accessor :all_repos, :repo_names, :package_names
+  def initialize
+    # the global index of repos
+    @all_repos = Hash.new
+    # the list of repo instances by name
+    @repo_names = Hash.new
+    # the list of package instances by name
+    @package_names = Hash.new
+
+    self.add_procs
+  end
+
+  def add_procs
+    @repo_names.default_proc = proc do |h, k|
+      h[k]=RepoInstances.new(k)
+    end
+
+    @package_names.default_proc = proc do |h, k|
+      h[k]=PackageInstances.new(k)
+    end
+  end
+
+  def marshal_dump
+    [Hash[@all_repos], Hash[@repo_names], Hash[@package_names]]
+  end
+
+  def marshal_load array
+    @all_repos, @repo_names, @package_names = array
+    self.add_procs
   end
 end
 
@@ -855,112 +884,68 @@ class GitScraper < Jekyll::Generator
 
     @domain_blacklist = site.config['domain_blacklist']
 
+    @db_filename = if site.config['cache_filename'] then File.join(site.source,site.config['cache_filename']) else 'rosindex.db' end
+    @use_cached = (site.config['use_cached'] and File.exist?(@db_filename))
+
+    if @use_cached
+      @db = Marshal.load(IO.read(@db_filename))
+    else
+      @db = RosIndexDB.new
+    end
+
     # the global index of repos
-    @all_repos = Hash.new
+    @all_repos = @db.all_repos
     # the list of repo instances by name
-    @repo_names = Hash.new {|h,k| h[k]=RepoInstances.new(k)}
+    @repo_names = @db.repo_names
     # the list of package instances by name
-    @package_names = Hash.new {|h,k| h[k]=PackageInstances.new(k)}
+    @package_names = @db.package_names
 
-    #blank_distro_map = Hash[$all_distros.collect { |d| [d, {}] }]
+    unless @use_cached
 
-    # get the repositories from the rosdistro files
-    $all_distros.each do |distro|
+      # get the repositories from the rosdistro files
+      $all_distros.each do |distro|
 
-      puts "processing rosdistro: "+distro
+        puts "processing rosdistro: "+distro
 
-      # read in the rosdistro distribution file
-      rosdistro_filename = File.join(site.config['rosdistro_path'],distro,'distribution.yaml')
-      if File.exist?(rosdistro_filename)
-        distro_data = YAML.load_file(rosdistro_filename)
-        distro_data['repositories'].each do |repo_name, repo_data|
+        # read in the rosdistro distribution file
+        rosdistro_filename = File.join(site.config['rosdistro_path'],distro,'distribution.yaml')
+        if File.exist?(rosdistro_filename)
+          distro_data = YAML.load_file(rosdistro_filename)
+          distro_data['repositories'].each do |repo_name, repo_data|
 
-          # limit repos if requested
-          if not @repo_names.has_key?(repo_name) and site.config['max_repos'] > 0 and @repo_names.length > site.config['max_repos'] then next end
+            # limit repos if requested
+            if not @repo_names.has_key?(repo_name) and site.config['max_repos'] > 0 and @repo_names.length > site.config['max_repos'] then next end
 
-          puts " - "+repo_name
+            puts " - "+repo_name
 
-          source_uri = nil
-          source_version = nil
-          source_type = nil
+            source_uri = nil
+            source_version = nil
+            source_type = nil
 
-          # only index if it has a source repo
-          if repo_data.has_key?('source')
-            source_uri = repo_data['source']['url'].to_s
-            source_type = repo_data['source']['type'].to_s
-            source_version = repo_data['source']['version'].to_s
-          elsif repo_data.has_key?('doc')
-            source_uri = repo_data['doc']['url'].to_s
-            source_type = repo_data['doc']['type'].to_s
-            source_version = repo_data['doc']['version'].to_s
-          elsif repo_data.has_key?('release')
-            # TODO: get the release repo to get the upstream repo
-            # NOTE: also, sometimes people use the release repo as the "doc" repo
-            puts ("ERROR: No source or doc information for repo: " + repo_name + " in rosidstro file: " + rosdistro_filename).red
-            next
-          else
-            puts ("ERROR: No source, doc, or release information for repo: " + repo_name+ " in rosidstro file: " + rosdistro_filename).red
-            next
-          end
-
-          # create a new repo structure for this remote
-          repo = Repo.new(
-            repo_name,
-            source_type,
-            source_uri,
-            'Official in '+distro,
-            @checkout_path)
-
-          if @all_repos.key?(repo.id)
-            repo = @all_repos[repo.id]
-          else
-            dputs " -- Adding repo for " << repo.name << " instance: " << repo.id << " from uri " << repo.uri.to_s
-            # store this repo in the unique index
-            @all_repos[repo.id] = repo
-          end
-
-          # add the specific version from this instance
-          repo.snapshots[distro] = RepoSnapshot.new(source_version, distro, repo_data.key?('release'))
-
-          # store this repo in the name index
-          @repo_names[repo.name].instances[repo.id] = repo
-          @repo_names[repo.name].default = repo
-        end
-      end
-
-      # read in the old documentation index file (if it exists)
-      doc_path = File.join(site.config['rosdistro_path'],'doc',distro)
-
-      puts "Examining doc path: " << doc_path
-
-      Dir.glob(File.join(doc_path,'*.rosinstall')) do |rosinstall_filename|
-        puts 'Indexing rosinstall repo data file: ' << rosinstall_filename
-        rosinstall_data = YAML.load_file(rosinstall_filename)
-        rosinstall_data.each do |rosinstall_entry|
-          rosinstall_entry.each do |repo_type, repo_data|
-
-            if repo_data.nil? then next end
-            if repo_type == 'bzr'
-              puts ("ERROR: some fools trying to use bazaar: " + rosinstall_filename).red
+            # only index if it has a source repo
+            if repo_data.has_key?('source')
+              source_uri = repo_data['source']['url'].to_s
+              source_type = repo_data['source']['type'].to_s
+              source_version = repo_data['source']['version'].to_s
+            elsif repo_data.has_key?('doc')
+              source_uri = repo_data['doc']['url'].to_s
+              source_type = repo_data['doc']['type'].to_s
+              source_version = repo_data['doc']['version'].to_s
+            elsif repo_data.has_key?('release')
+              # TODO: get the release repo to get the upstream repo
+              # NOTE: also, sometimes people use the release repo as the "doc" repo
+              puts ("ERROR: No source or doc information for repo: " + repo_name + " in rosidstro file: " + rosdistro_filename).red
+              next
+            else
+              puts ("ERROR: No source, doc, or release information for repo: " + repo_name+ " in rosidstro file: " + rosdistro_filename).red
               next
             end
-
-            #puts repo_type.inspect
-            #puts repo_data.inspect
-
-            # extract the garbage
-            repo_name = repo_data['local-name'].to_s
-            repo_uri = repo_data['uri'].to_s
-            repo_version = if repo_data.key?('version') then repo_data['version'].to_s else 'REMOTE_HEAD' end
-
-            # limit number of repos indexed if in devel mode
-            if not @repo_names.has_key?(repo_name) and site.config['max_repos'] > 0 and @repo_names.length > site.config['max_repos'] then next end
 
             # create a new repo structure for this remote
             repo = Repo.new(
               repo_name,
-              repo_type,
-              repo_uri,
+              source_type,
+              source_uri,
               'Official in '+distro,
               @checkout_path)
 
@@ -973,90 +958,147 @@ class GitScraper < Jekyll::Generator
             end
 
             # add the specific version from this instance
-            repo.snapshots[distro] = RepoSnapshot.new(repo_version, distro, false)
+            repo.snapshots[distro] = RepoSnapshot.new(source_version, distro, repo_data.key?('release'))
 
             # store this repo in the name index
             @repo_names[repo.name].instances[repo.id] = repo
-            if @repo_names[repo.name].default.nil?
-              @repo_names[repo.name].default = repo
+            @repo_names[repo.name].default = repo
+          end
+        end
+
+        # read in the old documentation index file (if it exists)
+        doc_path = File.join(site.config['rosdistro_path'],'doc',distro)
+
+        puts "Examining doc path: " << doc_path
+
+        Dir.glob(File.join(doc_path,'*.rosinstall')) do |rosinstall_filename|
+          puts 'Indexing rosinstall repo data file: ' << rosinstall_filename
+          rosinstall_data = YAML.load_file(rosinstall_filename)
+          rosinstall_data.each do |rosinstall_entry|
+            rosinstall_entry.each do |repo_type, repo_data|
+
+              if repo_data.nil? then next end
+              if repo_type == 'bzr'
+                puts ("ERROR: some fools trying to use bazaar: " + rosinstall_filename).red
+                next
+              end
+
+              #puts repo_type.inspect
+              #puts repo_data.inspect
+
+              # extract the garbage
+              repo_name = repo_data['local-name'].to_s
+              repo_uri = repo_data['uri'].to_s
+              repo_version = if repo_data.key?('version') then repo_data['version'].to_s else 'REMOTE_HEAD' end
+
+              # limit number of repos indexed if in devel mode
+              if not @repo_names.has_key?(repo_name) and site.config['max_repos'] > 0 and @repo_names.length > site.config['max_repos'] then next end
+
+              # create a new repo structure for this remote
+              repo = Repo.new(
+                repo_name,
+                repo_type,
+                repo_uri,
+                'Official in '+distro,
+                @checkout_path)
+
+              if @all_repos.key?(repo.id)
+                repo = @all_repos[repo.id]
+              else
+                dputs " -- Adding repo for " << repo.name << " instance: " << repo.id << " from uri " << repo.uri.to_s
+                # store this repo in the unique index
+                @all_repos[repo.id] = repo
+              end
+
+              # add the specific version from this instance
+              repo.snapshots[distro] = RepoSnapshot.new(repo_version, distro, false)
+
+              # store this repo in the name index
+              @repo_names[repo.name].instances[repo.id] = repo
+              if @repo_names[repo.name].default.nil?
+                @repo_names[repo.name].default = repo
+              end
             end
           end
         end
       end
-    end
 
-    # add additional repo instances to the main dict
-    Dir.glob(File.join(site.config['repos_path'],'*.yaml')) do |repo_filename|
+      # add additional repo instances to the main dict
+      Dir.glob(File.join(site.config['repos_path'],'*.yaml')) do |repo_filename|
 
-      # limit repos if requested
-      #if site.config['max_repos'] > 0 and @all_repos.length > site.config['max_repos'] then break end
+        # limit repos if requested
+        #if site.config['max_repos'] > 0 and @all_repos.length > site.config['max_repos'] then break end
 
-      # read in the repo data
-      repo_name = File.basename(repo_filename, File.extname(repo_filename)).to_s
-      repo_data = YAML.load_file(repo_filename)
+        # read in the repo data
+        repo_name = File.basename(repo_filename, File.extname(repo_filename)).to_s
+        repo_data = YAML.load_file(repo_filename)
 
-      puts " - Adding repositories for " << repo_name
+        puts " - Adding repositories for " << repo_name
 
-      # add all the instances
-      repo_data['instances'].each do |instance|
+        # add all the instances
+        repo_data['instances'].each do |instance|
 
-        # create a new repo structure for this remote
-        repo = Repo.new(
-          repo_name,
-          instance['type'],
-          instance['uri'],
-          instance['purpose'],
-          @checkout_path)
+          # create a new repo structure for this remote
+          repo = Repo.new(
+            repo_name,
+            instance['type'],
+            instance['uri'],
+            instance['purpose'],
+            @checkout_path)
 
-        uri = repo.uri
+          uri = repo.uri
 
-        dputs " -- Added repo for " << repo.name << " instance: " << repo.id << " from uri " << repo.uri.to_s
+          dputs " -- Added repo for " << repo.name << " instance: " << repo.id << " from uri " << repo.uri.to_s
 
-        # add distro versions for instance
-        $all_distros.each do |distro|
+          # add distro versions for instance
+          $all_distros.each do |distro|
 
-          # get the explicit version identifier for this distro
-          explicit_version = if instance.key?('distros') and instance['distros'].key?(distro) and instance['distros'][distro].key?('version') then instance['distros'][distro]['version'] else nil end
+            # get the explicit version identifier for this distro
+            explicit_version = if instance.key?('distros') and instance['distros'].key?(distro) and instance['distros'][distro].key?('version') then instance['distros'][distro]['version'] else nil end
 
-          # add the specific version from this instance
-          repo.snapshots[distro].version = explicit_version
-          repo.snapshots[distro].released = false
-        end
-
-        # store this repo in the unique index
-        @all_repos[repo.id] = repo
-
-        # store this repo in the name index
-        @repo_names[repo.name].instances[repo.id] = repo
-        if instance['default'] or @repo_names[repo.name].default.nil?
-          @repo_names[repo.name].default = repo
-        end
-      end
-    end
-
-    puts "Found " << @all_repos.length.to_s << " repositories corresponding to " << @repo_names.length.to_s << " repo identifiers."
-
-    # clone / fetch all the repos
-    work_q = Queue.new
-    @repo_names.each {|r| work_q.push r}
-    puts "Fetching sources with " << site.config['checkout_threads'].to_s << " threads."
-    workers = (0...site.config['checkout_threads']).map do
-      Thread.new do
-        begin
-          while ri = work_q.pop(true)
-            update_local(site, ri[1])
+            # add the specific version from this instance
+            repo.snapshots[distro].version = explicit_version
+            repo.snapshots[distro].released = false
           end
-        rescue ThreadError
+
+          # store this repo in the unique index
+          @all_repos[repo.id] = repo
+
+          # store this repo in the name index
+          @repo_names[repo.name].instances[repo.id] = repo
+          if instance['default'] or @repo_names[repo.name].default.nil?
+            @repo_names[repo.name].default = repo
+          end
         end
       end
-    end; "ok"
-    workers.map(&:join); "ok"
 
-    # scrape all the repos
-    puts "Scraping known repos..."
-    @all_repos.each do |repo_id, repo|
-      puts "Scraping " << repo.id << "..."
-      scrape_repo(site, repo)
+      puts "Found " << @all_repos.length.to_s << " repositories corresponding to " << @repo_names.length.to_s << " repo identifiers."
+
+      # clone / fetch all the repos
+      work_q = Queue.new
+      @repo_names.each {|r| work_q.push r}
+      puts "Fetching sources with " << site.config['checkout_threads'].to_s << " threads."
+      workers = (0...site.config['checkout_threads']).map do
+        Thread.new do
+          begin
+            while ri = work_q.pop(true)
+              update_local(site, ri[1])
+            end
+          rescue ThreadError
+          end
+        end
+      end; "ok"
+      workers.map(&:join); "ok"
+
+      # scrape all the repos
+      puts "Scraping known repos..."
+      @all_repos.each do |repo_id, repo|
+        puts "Scraping " << repo.id << "..."
+        scrape_repo(site, repo)
+      end
+
+      # save scraped data
+      File.open(@db_filename, 'w') {|f| f.write(Marshal.dump(@db)) }
     end
 
     # generate pages for all repos
@@ -1156,38 +1198,38 @@ class GitScraper < Jekyll::Generator
     # create lunr index data
     index = []
     @all_repos.each do |instance_id, repo|
-        repo.snapshots.each do |distro, repo_snapshot|
+      repo.snapshots.each do |distro, repo_snapshot|
 
-          if repo_snapshot.version == nil then next end
+        if repo_snapshot.version == nil then next end
 
-          repo_snapshot.packages.each do |package_name, package|
+        repo_snapshot.packages.each do |package_name, package|
 
-            if package.nil? then next end
+          if package.nil? then next end
 
-            p = package.data
+          p = package.data
 
-            readme_filtered = if p['readme'] then self.strip_stopwords(p['readme']) else "" end
+          readme_filtered = if p['readme'] then self.strip_stopwords(p['readme']) else "" end
 
-            index << {
-              'id' => index.length,
-              'baseurl' => site.config['baseurl'],
-              'url' => File.join('/p',package_name,instance_id)+"#"+distro,
-              'last_commit_time' => repo_snapshot.data['last_commit_time'],
-              'tags' => p['tags'] * " ",
-              'name' => package_name,
-              'repo_name' => repo.name,
-              'released' => if repo_snapshot.released then 'is:released' else '' end,
-              'unreleased' => if repo_snapshot.released then 'is:unreleased' else '' end,
-              'version' => p['version'],
-              'description' => p['description'],
-              'maintainers' => p['maintainers'] * " ",
-              'authors' => p['authors'] * " ",
-              'distro' => distro,
-              'instance' => repo.id,
-              'readme' => readme_filtered
-            }
+          index << {
+            'id' => index.length,
+            'baseurl' => site.config['baseurl'],
+            'url' => File.join('/p',package_name,instance_id)+"#"+distro,
+            'last_commit_time' => repo_snapshot.data['last_commit_time'],
+            'tags' => p['tags'] * " ",
+            'name' => package_name,
+            'repo_name' => repo.name,
+            'released' => if repo_snapshot.released then 'is:released' else '' end,
+            'unreleased' => if repo_snapshot.released then 'is:unreleased' else '' end,
+            'version' => p['version'],
+            'description' => p['description'],
+            'maintainers' => p['maintainers'] * " ",
+            'authors' => p['authors'] * " ",
+            'distro' => distro,
+            'instance' => repo.id,
+            'readme' => readme_filtered
+          }
 
-            puts 'indexed: ' << "#{package_name} #{instance_id} #{distro}"
+          puts 'indexed: ' << "#{package_name} #{instance_id} #{distro}"
         end
       end
     end
