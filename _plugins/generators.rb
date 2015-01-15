@@ -739,38 +739,48 @@ class GitScraper < Jekyll::Generator
           package_doc = REXML::Document.new(package_xml)
 
           # extract package manifest info
+
+          raw_uri = File.join(data['raw_uri'], relpath)
+
+          pkg_type = 'catkin'
           package_name = REXML::XPath.first(package_doc, "/package/name/text()").to_s.rstrip.lstrip
-
-          dputs " -- adding package " << package_name
-
-          package_info = {
-            'name' => package_name,
-            'distro' => distro,
-            'raw_uri' => File.join(data['raw_uri'], relpath),
-            # required package info
-            'name' => package_name,
-            'version' => REXML::XPath.first(package_doc, "/package/version/text()").to_s,
-            'license' => REXML::XPath.first(package_doc, "/package/license/text()").to_s,
-            'description' => REXML::XPath.first(package_doc, "/package/description/text()").to_s,
-            'maintainers' => REXML::XPath.each(package_doc, "/package/maintainer/text()").map { |m| m.to_s },
-            # optional package info
-            'authors' => REXML::XPath.each(package_doc, "/package/author/text()").map { |a| a.to_s },
-            # rosindex metadata
-            'tags' => REXML::XPath.each(package_doc, "/package/export/rosindex/tags/tag/text()").map { |t| t.to_s },
-            # package contents
-            'readme' => nil,
-            'readme_rendered' => nil
-          }
+          version = REXML::XPath.first(package_doc, "/package/version/text()").to_s
+          license = REXML::XPath.first(package_doc, "/package/license/text()").to_s
+          description = REXML::XPath.first(package_doc, "/package/description/text()").to_s
+          maintainers = REXML::XPath.each(package_doc, "/package/maintainer/text()").map { |m| m.to_s }
+          authors = REXML::XPath.each(package_doc, "/package/author/text()").map { |a| a.to_s }
+          tags = REXML::XPath.each(package_doc, "/package/export/rosindex/tags/tag/text()").map { |t| t.to_s }
 
           # check for readme in same directory as package.xml
-          package_info['readme_rendered'], package_info['readme'] = get_readme(
+          readme_rendered, readme = get_readme(
             site,
             pkg_dir,
             package_info['raw_uri'])
 
+          package_info = {
+            'name' => package_name,
+            'pkg_type' => pkg_type,
+            'distro' => distro,
+            'raw_uri' => raw_uri,
+            # required package info
+            'name' => package_name,
+            'version' => version,
+            'license' => license,
+            'description' => description,
+            'maintainers' => maintainers,
+            # optional package info
+            'authors' => authors,
+            # rosindex metadata
+            'tags' => tags,
+            # package contents
+            'readme' => readme,
+            'readme_rendered' => readme_rendered
+          }
+
+          dputs " -- adding package " << package_name
           packages[package_name] = package_info
 
-          # stop searching a directory after finding a package.xml
+          # stop searching a directory after finding a package
           Find.prune
         end
       end
@@ -1430,7 +1440,11 @@ class PackageInstancePage < Jekyll::Page
     self.data['instance_index_url'] = ['packages',package_instances.name].join('/')
     self.data['instance_base_url'] = ['p',package_name].join('/')
 
-    self.data['available_distros'], self.data['available_older_distros'], self.data['n_available_older_distros'] = get_available_distros(site, instance.snapshots)
+    self.data['available_distros'] = {}
+    instance.snapshots.each do |distro, snapshot|
+      self.data['available_distros'][distro] = snapshot.packages.key?(package_name)
+    end
+
     self.data['all_distros'] = site.config['distros'] + site.config['old_distros']
   end
 end
