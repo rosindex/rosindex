@@ -558,7 +558,7 @@ end
 
 class Repo < Liquid::Drop
   # This represents a remote repository
-  attr_accessor :name, :id, :uri, :purpose, :snapshots, :tags, :type, :local_path
+  attr_accessor :name, :id, :uri, :purpose, :snapshots, :tags, :type, :local_path, :local_name
   def initialize(name, type, uri, purpose, checkout_path)
     # unique identifier
     @id = get_id(uri)
@@ -575,8 +575,11 @@ class Repo < Liquid::Drop
     # a brief description of this remote
     @purpose = purpose
 
+    # the local repo name to checkout to (this is important for older rosbuild packages)
+    @local_name = name
+
     # the local path to this repo
-    @local_path = File.join(checkout_path, @name, @id)
+    @local_path = File.join(checkout_path, @name, @id, @local_name)
 
     # hash distro -> RepoSnapshot
     # each entry in this hash represents the preferred version for a given distro in this repo
@@ -749,6 +752,9 @@ class GitScraper < Jekyll::Generator
             stack_xml = IO.read(stack_xml_path)
             stack_doc = REXML::Document.new(stack_xml)
             package_name = REXML::XPath.first(stack_doc, "/stack/name/text()").to_s
+            if package_name.length == 0
+              package_name = File.basename(File.join(path))
+            end
             version = REXML::XPath.first(stack_doc, "/stack/version/text()").to_s
           else
             package_name = File.basename(File.join(path))

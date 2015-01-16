@@ -19,7 +19,7 @@ layout: default
   <div class="row">
     <div class="well well-sm">
       {% for distro in page.all_distros %}
-        {% if page.available_distros[distro] %}
+        {% if page.available_distros[distro] or page.available_older_distros[distro] %}
           <div class="top-buffer distro distro-{{distro}}">
             <h5>
               <a href="/r/{{ page.package_instances.snapshots[distro].repo.name }}/{{ page.package_instances.snapshots[distro].repo.id }}">
@@ -36,7 +36,7 @@ layout: default
         <h3 style="margin-top: 5px"><img style="width: 50px; margin-right: 5px;" src="/assets/package.png">{{page.package_name}} <small>package</small></h3>
       </div>
       {% for distro in page.all_distros %}
-        {% if page.available_distros[distro] %}
+        {% if page.available_distros[distro] or page.available_older_distros[distro] %}
           <div class="top-buffer distro distro-{{distro}}">
             <div class="btn-group" role="group" aria-label="...">
               <a href="http://docs.ros.org/{{distro}}/api/{{page.package_name}}/html/" type="button" class="btn btn-default"><span class="glyphicon glyphicon-file"></span> API</a>
@@ -49,7 +49,7 @@ layout: default
         {% endif %}
       {% endfor %}
       {% for distro in page.all_distros %}
-        {% if page.available_distros[distro] %}
+        {% if page.available_distros[distro] or page.available_older_distros[distro] %}
           <div class="top-buffer distro distro-{{distro}}">
             {% assign instance = page.package_instances.repos[distro] %}
             {% include instance_switch.html %}
@@ -61,7 +61,7 @@ layout: default
   <div class="row">
     {% for distro in page.all_distros %}
       <div class="distro distro-{{distro}}">
-        {% if page.available_distros[distro] %}
+        {% if page.available_distros[distro] or page.available_older_distros[distro] %}
           {% assign package = page.package_instances.snapshots[distro] %}
 
           <div class="panel panel-default">
