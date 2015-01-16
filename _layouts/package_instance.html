@@ -25,7 +25,7 @@ layout: default
   <div class="row">
     {% for distro in page.all_distros %}
       <div class="distro distro-{{distro}}">
-        {% if page.available_distros[distro] %}
+        {% if page.available_distros[distro] or page.available_older_distros[distro] %}
           {% assign package = page.instance.snapshots[distro].packages[page.package_name] %}
 
           <div class="panel panel-default">

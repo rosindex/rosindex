@@ -727,62 +727,86 @@ class GitScraper < Jekyll::Generator
         end
 
         # check for package.xml in this directory
-        manifest_path = File.join(path,'package.xml')
-        if File.exist?(manifest_path)
-          pkg_dir = path
+        package_xml_path = File.join(path,'package.xml')
+        manifest_xml_path = File.join(path,'manifest.xml')
+        stack_xml_path = File.join(path,'stack.xml')
 
-          # compute the relative path from the root of the repo to this directory
-          relpath = Pathname.new(File.join(*pkg_dir)).relative_path_from(Pathname.new(local_path))
+        if File.exist?(package_xml_path)
+          manifest_xml = IO.read(package_xml_path)
+          pkg_type = 'catkin'
 
           # read the package manifest
-          package_xml = IO.read(manifest_path)
-          package_doc = REXML::Document.new(package_xml)
+          manifest_doc = REXML::Document.new(manifest_xml)
+          package_name = REXML::XPath.first(manifest_doc, "/package/name/text()").to_s.rstrip.lstrip
+          version = REXML::XPath.first(manifest_doc, "/package/version/text()").to_s
 
-          # extract package manifest info
+        elsif File.exist?(manifest_xml_path)
+          manifest_xml = IO.read(manifest_xml_path)
+          pkg_type = 'rosbuild'
 
-          raw_uri = File.join(data['raw_uri'], relpath)
+          # check for a stack.xml file
+          if File.exist?(stack_xml_path)
+            stack_xml = IO.read(stack_xml_path)
+            stack_doc = REXML::Document.new(stack_xml)
+            package_name = REXML::XPath.first(stack_doc, "/stack/name/text()").to_s
+            version = REXML::XPath.first(stack_doc, "/stack/version/text()").to_s
+          else
+            package_name = File.basename(File.join(path))
+            version = "UNKNOWN"
+          end
 
-          pkg_type = 'catkin'
-          package_name = REXML::XPath.first(package_doc, "/package/name/text()").to_s.rstrip.lstrip
-          version = REXML::XPath.first(package_doc, "/package/version/text()").to_s
-          license = REXML::XPath.first(package_doc, "/package/license/text()").to_s
-          description = REXML::XPath.first(package_doc, "/package/description/text()").to_s
-          maintainers = REXML::XPath.each(package_doc, "/package/maintainer/text()").map { |m| m.to_s }
-          authors = REXML::XPath.each(package_doc, "/package/author/text()").map { |a| a.to_s }
-          tags = REXML::XPath.each(package_doc, "/package/export/rosindex/tags/tag/text()").map { |t| t.to_s }
+          # read the package manifest
+          manifest_doc = REXML::Document.new(manifest_xml)
 
-          # check for readme in same directory as package.xml
-          readme_rendered, readme = get_readme(
-            site,
-            pkg_dir,
-            package_info['raw_uri'])
-
-          package_info = {
-            'name' => package_name,
-            'pkg_type' => pkg_type,
-            'distro' => distro,
-            'raw_uri' => raw_uri,
-            # required package info
-            'name' => package_name,
-            'version' => version,
-            'license' => license,
-            'description' => description,
-            'maintainers' => maintainers,
-            # optional package info
-            'authors' => authors,
-            # rosindex metadata
-            'tags' => tags,
-            # package contents
-            'readme' => readme,
-            'readme_rendered' => readme_rendered
-          }
-
-          dputs " -- adding package " << package_name
-          packages[package_name] = package_info
-
-          # stop searching a directory after finding a package
-          Find.prune
+        else
+          next
         end
+
+        puts " ---- Found #{pkg_type} package \"#{package_name}\" in path #{path}"
+
+        # extract manifest metadata (same for manifest.xml and package.xml)
+        license = REXML::XPath.first(manifest_doc, "/package/license/text()").to_s
+        description = REXML::XPath.first(manifest_doc, "/package/description/text()").to_s
+        maintainers = REXML::XPath.each(manifest_doc, "/package/maintainer/text()").map { |m| m.to_s }
+        authors = REXML::XPath.each(manifest_doc, "/package/author/text()").map { |a| a.to_s }
+
+        # extract rosindex exports
+        tags = REXML::XPath.each(manifest_doc, "/package/export/rosindex/tags/tag/text()").map { |t| t.to_s }
+
+        # compute the relative path from the root of the repo to this directory
+        relpath = Pathname.new(File.join(*path)).relative_path_from(Pathname.new(local_path))
+
+        # extract package manifest info
+        raw_uri = File.join(data['raw_uri'], relpath)
+
+        # check for readme in same directory as package.xml
+        readme_rendered, readme = get_readme(site, path, raw_uri)
+
+        package_info = {
+          'name' => package_name,
+          'pkg_type' => pkg_type,
+          'distro' => distro,
+          'raw_uri' => raw_uri,
+          # required package info
+          'name' => package_name,
+          'version' => version,
+          'license' => license,
+          'description' => description,
+          'maintainers' => maintainers,
+          # optional package info
+          'authors' => authors,
+          # rosindex metadata
+          'tags' => tags,
+          # package contents
+          'readme' => readme,
+          'readme_rendered' => readme_rendered
+        }
+
+        dputs " -- adding package " << package_name
+        packages[package_name] = package_info
+
+        # stop searching a directory after finding a package
+        Find.prune
       end
     end
 
@@ -1469,9 +1493,15 @@ class PackageInstancePage < Jekyll::Page
     self.data['instance_base_url'] = ['p',package_name].join('/')
 
     self.data['available_distros'] = {}
+    self.data['available_older_distros'] = {}
     instance.snapshots.each do |distro, snapshot|
-      self.data['available_distros'][distro] = snapshot.packages.key?(package_name)
+      if site.config['distros'].include? distro
+        self.data['available_distros'][distro] = snapshot.packages.key?(package_name)
+      else
+        self.data['available_older_distros'][distro] = snapshot.packages.key?(package_name)
+      end
     end
+    self.data['n_available_older_distros'] = self.data['available_older_distros'].size
 
     self.data['all_distros'] = site.config['distros'] + site.config['old_distros']
   end
