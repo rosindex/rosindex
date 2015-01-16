@@ -1259,6 +1259,34 @@ class GitScraper < Jekyll::Generator
     # add this file as a static site file
     site.static_files << SearchIndexFile.new(site, site.dest, "/", index_filename)
 
+    # precompute the lunr index
+    lunr_cmd = File.join(site.source,'node_modules','lunr-index-build','bin','lunr-index-build')
+    lunr_index_fields = [
+      '-r','id',
+      '-f','baseurl',
+      '-f','instance',
+      '-f','url',
+      '-f','tags:100',
+      '-f','name:100',
+      '-f','version',
+      '-f','description:50',
+      '-f','maintainers',
+      '-f','authors',
+      '-f','distro',
+      '-f','readme',
+      '-f','released',
+      '-f','unreleased'
+    ].join(' ')
+
+
+    puts ("Precompiling lunr index...").blue
+    spawn(
+      "#{lunr_cmd} #{lunr_index_fields}",
+      :in=>File.join(site.dest,index_filename),
+      :out=>[File.join(site.dest,'index.json'),"w"])
+
+    site.static_files << SearchIndexFile.new(site, site.dest, "/", "index.json")
+
     # create stats page
     site.pages << StatsPage.new(site, @package_names)
   end

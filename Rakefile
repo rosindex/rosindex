@@ -7,21 +7,16 @@ task :default => [:devel]
 task :devel => [:"build:devel", :"serve:devel"]
 task :deploy => [:"build:deploy", :"serve:deploy"]
 
-lunr_cmd = "./node_modules/lunr-index-build/bin/lunr-index-build"
-lunr_index_fields = " -r id -f baseurl -f instance -f url -f tags:100 -f name:100 -f version -f description:50 -f maintainers -f authors -f distro -f readme -f released -f unreleased"
-
 namespace :build do
 
   task :devel do
     puts "Generating local rosindex..."
     sh "jekyll build --trace --config=_config.yml,_config_devel.yml"
-    sh lunr_cmd + " " + lunr_index_fields + " < _devel/search.json > _devel/index.json"
   end
 
   task :deploy do
     puts 'Generating deployment rosindex (this could take a while)...'
     sh "jekyll build --trace --config=_config.yml"
-    sh lunr_cmd + " " + lunr_index_fields + " < _deploy/search.json > _deploy/index.json"
   end
 
 end
