@@ -27,10 +27,10 @@ layout: default
             </tr>
           </thead>
           <tbody>
-          {% for package in page.package_instances.instances %}
+          {% for repo in page.package_instances.instances %}
             <tr>
-              <td><a href="/p/{{page.package_instances.name}}/{{package[0]}}">{{package[0] }}</a></td>
-              <td class="filterable-cell"><a href="{{package[1].repo.uri}}" class="label label-primary pull-right">{{ package[1].repo.uri }}</a></td>
+              <td><a href="/p/{{page.package_instances.name}}/{{repo[0]}}">{{repo[0] }}</a></td>
+              <td class="filterable-cell"><a href="{{repo[1].uri}}" class="label label-primary pull-right">{{ repo[1].uri }}</a></td>
             </tr>
           {% endfor %}
           </tbody>
