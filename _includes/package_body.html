@@ -1,0 +1,104 @@
+{% comment %}
+Assumes distro and package are defined
+{% endcomment %}
+
+<div class="row">
+  <div class="col-sm-8">
+    <div class="panel panel-default">
+      <div class="panel-heading"><h3 class="panel-title">Package Summary</h3></div>
+      <div class="panel-body">
+        {{ package.data.description}}
+      </div>
+      <div class="panel-heading"><h3 class="panel-title">Status</h3></div>
+      <div class="panel-body">
+        <ul class="list-inline">
+          <li>
+            {% if package.snapshot.data.last_commit_time %}
+              <span class="label label-default"><span class="glyphicon glyphicon-time"></span> {{package.snapshot.data.last_commit_time}}
+            {% else %}
+              <span class="label label-warning">UNKNOWN
+            {% endif %}</span>
+          </li>
+          <li>
+            {% if package.snapshot.released %}
+              <span class="label label-primary"><span class="glyphicon glyphicon-flash"></span> RELEASED
+            {% else %}
+              <span class="label label-default">UNRELEASED
+            {% endif %}</span>
+          </li>
+          <li>
+            {% if package.snapshot.maintainer_status %}
+              <span class="label label-success">{{package.snapshot.maintainer_status}}
+            {% else %}
+              <span class="label label-warning">UNMAINTAINED
+            {% endif %}</span>
+          </li>
+        </ul>
+      </div>
+      <div class="panel-heading"><h3 class="panel-title">Tags</h3></div>
+      <div class="panel-body">
+        {% assign n_tags = package.repo.tags.size %}
+        {% if n_tags > 0 %}
+          {% for tag in package.repo.tags %}<span class="label label-default">{{ tag }}</span> {% endfor %}
+        {% else %}
+          <em>No tags defined.</em>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-4">
+    <div class="panel panel-default">
+      <div class="panel-heading"><h4 class="panel-title">Details</h4></div>
+      <div class="panel-body">
+        <ul class="list-unstyled">
+          <li><strong>Version:</strong> {{ package.data.version }}</li>
+          <li><strong>License:</strong> {{ package.data.license }}</li>
+        </ul>
+      </div>
+      <div class="panel-heading"><h4 class="panel-title">Maintainers</h4></div>
+      <div class="panel-body">
+        <ul class="list-unstyled">
+          {% for m in package.data.maintainers %}
+            <li>{{m}}</li>
+          {% endfor %}
+        </ul>
+      </div>
+      <div class="panel-heading"><h4 class="panel-title">Authors</h4></div>
+      <div class="panel-body">
+        <ul class="list-unstyled">
+          {% for a in package.data.authors %}
+            <li>{{a}}</li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="row">
+  <div class="col-xs-12">
+    <div class="panel panel-default">
+      <div class="panel-heading">README</div>
+      <div class="panel-body">
+        {% if package.data.readme_rendered %}
+          {{ package.data.readme_rendered }}
+        {% else %}
+          <em>No README found.</em>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+<div class="row">
+  <div class="col-xs-12">
+    <div class="panel panel-default">
+      <div class="panel-heading">CHANGELOG</div>
+      <div class="panel-body">
+        {% if package.data.changelog_rendered %}
+          {{ package.data.changelog_rendered }}
+        {% else %}
+          <em>No CHANGELOG found.</em>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>

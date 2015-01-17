@@ -1,6 +1,6 @@
 <div class="well well-sm">
   <div>
-    <h3><img style="width: 50px; margin-right: 5px;" src="/assets/repo.png">{{page.repo.name}} <small>repo</small></h3>
+    <h3><a href="/r/{{page.repo.name}}"><img style="width: 50px; margin-right: 5px;" src="/assets/repo.png">{{page.repo.name}}</a> <small>repository</small></h3>
   </div>
   <div class="top-buffer">
     {% for tag in page.repo.tags %}<span class="label label-default">{{ tag }}</span> {% endfor %}

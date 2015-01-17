@@ -1507,7 +1507,7 @@ class PackageInstancePage < Jekyll::Page
         self.data['available_older_distros'][distro] = snapshot.packages.key?(package_name)
       end
     end
-    self.data['n_available_older_distros'] = self.data['available_older_distros'].size
+    self.data['n_available_older_distros'] = self.data['available_older_distros'].values.count(true)
 
     self.data['all_distros'] = site.config['distros'] + site.config['old_distros']
   end

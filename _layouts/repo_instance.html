@@ -25,12 +25,12 @@ layout: default
       <div class="distro distro-{{distro}}">
         {% if page.available_distros[distro] or page.available_older_distros[distro] %}
           <div class="panel panel-default">
-            <div class="panel-heading">Info</div>
+            <div class="panel-heading"><h3 class="panel-title">Repository Info</h3></div>
             <div class="panel-body">
               <table class="table table-condensed">
                 <tr>
-                  <td width="50%" class="text-right"><b>Source URI</b></td>
-                  <td><a class="label label-default" href="{{page.repo.uri}}">{{page.repo.uri}}</a></td>
+                  <td class="text-right"><b>Source URI</b></td>
+                  <td width="80%"><a class="label label-default" href="{{page.repo.uri}}">{{page.repo.uri}}</a></td>
                 </tr>
                 <tr>
                   {% assign date_str = page.repo.snapshots[distro].data.last_commit_time %}
@@ -41,9 +41,9 @@ layout: default
                   <td class="text-right"><b>Released</b></td>
                   <td>
                     {% if page.repo.snapshots[distro].released %}
-                      <span class="label label-success">YES
+                      <span class="label label-primary"><span class="glyphicon glyphicon-flash"></span> RELEASED
                     {% else %}
-                      <span class="label label-danger">NO
+                      <span class="label label-default">UNRELEASED
                     {% endif %}</span>
                   </td>
                 </tr>
@@ -51,7 +51,7 @@ layout: default
             </div>
           </div>
           <div class="panel panel-default">
-            <div class="panel-heading">Packages</div>
+            <div class="panel-heading"><h3 class="panel-title">Packages</h3></div>
             <div class="panel-body">
               <table class="table table-condensed table-hover table-striped">
                 <thead>
@@ -73,8 +73,8 @@ layout: default
           </div>
 
           <div class="panel panel-default">
-            <div class="panel-heading">README</div>
-            <div class="panel-body readme-{{ page.repo.type }}">
+            <div class="panel-heading"><h3 class="panel-title">README</h3></div>
+            <div class="panel-body">
               {% if page.repo.snapshots[distro].data.readme %}
                 {{ page.repo.snapshots[distro].data.readme_rendered }}
               {% else %}

@@ -2,106 +2,48 @@
 layout: default
 ---
 
-<div class="container-fluid" style="margin:20px">
-  <div class="row">
-    <ol class="breadcrumb">
-      <li><a href="/">Home</a></li>
-      <li><a href="/packages">Packages</a></li>
-      <li class="active">{{page.package_instances.name}}</li>
-    </ol>
-  </div>
-  <div class="row">
-    {% include distro_switch.html %}
-  </div>
-  <div class="row">
-    &nbsp;
-  </div>
-  <div class="row">
-    <div class="well well-sm">
-      {% for distro in page.all_distros %}
-        {% if page.available_distros[distro] or page.available_older_distros[distro] %}
-          <div class="top-buffer distro distro-{{distro}}">
-            <h5>
-              <a href="/r/{{ page.package_instances.snapshots[distro].repo.name }}/{{ page.package_instances.snapshots[distro].repo.id }}">
-                <img style="width: 30px; margin-left: 10px; margin-right: 5px;" src="/assets/repo.png">
-                {{ page.package_instances.snapshots[distro].repo.name }}
-                <small>repo</small>
-              </a>
-            </h5>
-            {% for tag in page.package_instances.tags %}<span class="label label-default">{{ tag }}</span> {% endfor %}
+<div class="container-fluid" style="margin-top: 20px">
+  <div class="container-fluid">
+    <div class="row">
+      <ol class="breadcrumb">
+        <li><a href="/">Home</a></li>
+        <li><a href="/packages">Packages</a></li>
+        <li class="active">{{page.package_instances.name}}</li>
+      </ol>
+    </div>
+    <div class="row">
+      {% include distro_switch.html %}
+    </div>
+    <div class="row">
+      &nbsp;
+    </div>
+    <div class="row">
+      <div class="well well-sm">
+        {% for distro in page.all_distros %}
+          <div class="distro distro-{{distro}}">
+            {% if page.available_distros[distro] or page.available_older_distros[distro] %}
+              {% assign package = page.package_instances.snapshots[distro] %}
+              {% assign instance = page.package_instances.repos[distro] %}
+              {% assign show_repo = false %}
+              {% include package_header.html %}
+            {% endif %}
           </div>
-        {% endif %}
-      {% endfor %}
-      <div class="">
-        <h3 style="margin-top: 5px"><img style="width: 50px; margin-right: 5px;" src="/assets/package.png">{{page.package_name}} <small>package</small></h3>
+        {% endfor %}
       </div>
-      {% for distro in page.all_distros %}
-        {% if page.available_distros[distro] or page.available_older_distros[distro] %}
-          <div class="top-buffer distro distro-{{distro}}">
-            <div class="btn-group" role="group" aria-label="...">
-              <a href="http://docs.ros.org/{{distro}}/api/{{page.package_name}}/html/" type="button" class="btn btn-default"><span class="glyphicon glyphicon-file"></span> API</a>
-              <a href="{{ page.package_instances.snapshots[distro].repo.uri }}" type="button" class="btn btn-default"><span class="glyphicon glyphicon-leaf"></span> Source</a>
-              <a href="http://answers.ros.org/questions/scope:all/sort:activity-desc/tags:{{page.package_name}}/page:1/" type="button" class="btn btn-default"><span class="glyphicon glyphicon-question-sign"></span> Answers</a>
-              <a href="http://wiki.ros.org/{{page.package_name}}" type="button" class="btn btn-default"><span class="glyphicon glyphicon-info-sign"></span> ROS Wiki</a>
-              <a type="button" class="btn inactive btn-default"><span class="glyphicon glyphicon-fire"></span> CI</a>
-            </div>
-          </div>
-        {% endif %}
-      {% endfor %}
-      {% for distro in page.all_distros %}
-        {% if page.available_distros[distro] or page.available_older_distros[distro] %}
-          <div class="top-buffer distro distro-{{distro}}">
-            {% assign instance = page.package_instances.repos[distro] %}
-            {% include instance_switch.html %}
-          </div>
-        {% endif %}
-      {% endfor %}
     </div>
   </div>
-  <div class="row">
-    {% for distro in page.all_distros %}
-      <div class="distro distro-{{distro}}">
-        {% if page.available_distros[distro] or page.available_older_distros[distro] %}
-          {% assign package = page.package_instances.snapshots[distro] %}
-
-          <div class="panel panel-default">
-            <div class="panel-heading">Repository</div>
-            <div class="panel-body">
-              repo id: {{ package.repo.id }}
-              <br>
-              repo uri: {{ package.repo.uri }}
-            </div>
-          </div>
-
-          <div class="panel panel-default">
-            <div class="panel-heading">Metadata</div>
-            <div class="panel-body">
-              {{ package.data.description}}
-
-              version: {{ package.data.version }}
-              <br>
-              maintainers: {{ package.data.maintainers }}
-              <br>
-              license: {{ package.data.license }}
-            </div>
-          </div>
-
-          <div class="panel panel-default">
-            <div class="panel-heading">README</div>
-            <div class="readme-" style="margin: 20px">
-              {% if package.data.readme_rendered %}
-                {{ package.data.readme_rendered }}
-              {% else %}
-                <em>No README found.</em>
-              {% endif %}
-            </div>
-          </div>
-        {% else %}
-          <div class="alert alert-warning" role="alert">No version for distro <strong>{{ distro }}</strong>. Known supported distros are highlighted in the buttons above.</div>
-        {% endif %}
-      </div>
-    {% endfor %}
-  </div>
 </div>
+{% for distro in page.all_distros %}
+  <div class="distro distro-{{distro}}">
+    <div class="container-fluid">
+      {% if page.available_distros[distro] or page.available_older_distros[distro] %}
+        {% assign package = page.package_instances.snapshots[distro] %}
+        {% include package_body.html %}
+      {% else %}
+        <div class="alert alert-warning" role="alert">No version for distro <strong>{{ distro }}</strong>. Known supported distros are highlighted in the buttons above.</div>
+      {% endif %}
+    </div>
+  </div>
+{% endfor %}
 
 <script src="/js/distro_switch.js"></script>

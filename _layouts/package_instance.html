@@ -2,55 +2,51 @@
 layout: default
 ---
 
-<div class="container-fluid" style="margin:20px">
-  <div class="row">
-    <ol class="breadcrumb">
-      <li><a href="/">Home</a></li>
-      <li><a href="/repos">Repos</a></li>
-      <li><a href="/r/{{page.instance.name}}/{{ page.instance.id }}">{{page.instance.name}}</a></li>
-      <li class="active">{{page.package_name}}
-      </li>
-      <!--<li class="active">{{page.instance.name}}</li>-->
-    </ol>
-  </div>
-  <div class="row">
-    {% include distro_switch.html %}
-  </div>
-  <div class="row">
-    &nbsp;
-  </div>
-  <div class="row">
-    {% include package_info.html %}
-  </div>
-  <div class="row">
-    {% for distro in page.all_distros %}
-      <div class="distro distro-{{distro}}">
-        {% if page.available_distros[distro] or page.available_older_distros[distro] %}
-          {% assign package = page.instance.snapshots[distro].packages[page.package_name] %}
-
-          <div class="panel panel-default">
-            <div class="panel-heading">Metadata</div>
-            <div>
-
-            </div>
+<div class="container-fluid" style="margin-top: 20px">
+  <div class="container-fluid">
+    <div class="row">
+      <ol class="breadcrumb">
+        <li><a href="/">Home</a></li>
+        <li><a href="/repos">Repos</a></li>
+        <li><a href="/r/{{page.instance.name}}/{{ page.instance.id }}">{{page.instance.name}}</a></li>
+        <li class="active">{{page.package_name}}
+        </li>
+        <!--<li class="active">{{page.instance.name}}</li>-->
+      </ol>
+    </div>
+    <div class="row">
+      {% include distro_switch.html %}
+    </div>
+    <div class="row">
+      &nbsp;
+    </div>
+    <div class="row">
+      <div class="well well-sm">
+        {% for distro in page.all_distros %}
+          <div class="distro distro-{{distro}}">
+            {% if page.available_distros[distro] or page.available_older_distros[distro] %}
+              {% assign package = page.instance.snapshots[distro].packages[page.package_name] %}
+              {% assign instance = page.instance %}
+              {% assign show_repo = true %}
+              {% include package_header.html %}
+            {% endif %}
           </div>
-
-          <div class="panel panel-default">
-            <div class="panel-heading">README</div>
-            <div class="panel-body readme-{{ page.repo.type }}">
-              {% if package.data.readme %}
-                {{ package.data.readme_rendered }}
-              {% else %}
-                <p class="text-warning">No README found.</p>
-              {% endif %}
-            </div>
-          </div>
-        {% else %}
-          <div class="alert alert-warning" role="alert">No version for distro <strong>{{ distro }}</strong>. Known supported distros are highlighted in the buttons above.</div>
-        {% endif %}
+        {% endfor %}
       </div>
-    {% endfor %}
+    </div>
   </div>
 </div>
+{% for distro in page.all_distros %}
+  <div class="distro distro-{{distro}}">
+    <div class="container-fluid">
+      {% if page.available_distros[distro] or page.available_older_distros[distro] %}
+        {% assign package = page.instance.snapshots[distro].packages[page.package_name] %}
+        {% include package_body.html %}
+      {% else %}
+        <div class="alert alert-warning" role="alert">No version for distro <strong>{{ distro }}</strong>. Known supported distros are highlighted in the buttons above.</div>
+      {% endif %}
+    </div>
+  </div>
+{% endfor %}
 
 <script src="/js/distro_switch.js"></script>
