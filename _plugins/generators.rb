@@ -773,8 +773,8 @@ class GitScraper < Jekyll::Generator
         # extract manifest metadata (same for manifest.xml and package.xml)
         license = REXML::XPath.first(manifest_doc, "/package/license/text()").to_s
         description = REXML::XPath.first(manifest_doc, "/package/description/text()").to_s
-        maintainers = REXML::XPath.each(manifest_doc, "/package/maintainer/text()").map { |m| m.to_s }
-        authors = REXML::XPath.each(manifest_doc, "/package/author/text()").map { |a| a.to_s }
+        maintainers = REXML::XPath.each(manifest_doc, "/package/maintainer/text()").map { |m| m.to_s.sub('@', ' <AT> ') }
+        authors = REXML::XPath.each(manifest_doc, "/package/author/text()").map { |a| a.to_sf.sub('@', ' <AT> ') }
 
         # extract rosindex exports
         tags = REXML::XPath.each(manifest_doc, "/package/export/rosindex/tags/tag/text()").map { |t| t.to_s }
