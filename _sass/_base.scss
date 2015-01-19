@@ -60,7 +60,7 @@ div.panel-body {
 }
 
 div pre {
-  overflow: scroll;
+  overflow-x: auto;
   word-break: normal;
   word-wrap: normal;
 }

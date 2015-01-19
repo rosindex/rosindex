@@ -10,28 +10,56 @@ Assumes distro and package are defined
         {{ package.data.description}}
       </div>
       <div class="panel-heading"><h3 class="panel-title">Status</h3></div>
-      <div class="panel-body">
+      <div class="panel-body" style="overflow-x: auto">
+        <table class="table table-condensed">
+          <tr>
+            <td class="text-right"><b>Source URI</b></td>
+            <td width="100%"><a class="label label-default" href="{{package.repo.uri}}">{{package.repo.uri}}</a></td>
+          </tr>
+          <tr>
+            <td style="white-space: nowrap;" class="text-right"><b>Last Updated</b></div>
+            <td>
+              {% if package.snapshot.data.last_commit_time %}
+                <span class="label label-default"><span class="glyphicon glyphicon-time"></span> {{package.snapshot.data.last_commit_time}}
+              {% else %}
+                <span class="label label-warning">UNKNOWN
+              {% endif %}</span>
+            </td>
+          </tr>
+          <tr>
+            <td class="text-right"><b>Released</b></td>
+            <td>
+              {% if package.snapshot.released %}
+                <span class="label label-primary"><span class="glyphicon glyphicon-flash"></span> RELEASED
+              {% else %}
+                <span class="label label-default">UNRELEASED
+              {% endif %}</span>
+            </td>
+          </tr>
+          <tr>
+            <td class="text-right"><b>Dev Status</b></td>
+            <td>
+              {% if package.repo.status %}
+                {% if package.repo.status == 'maintained' %}
+                  <span class="label label-primary">
+                {% elsif package.repo.status == 'developed' %}
+                  <span class="label label-success">
+                {% elsif package.repo.status == 'end-of-life' %}
+                    <span class="label label-danger">
+                {% endif %}
+                {{package.repo.status | upcase}}
+              {% else %}
+                <span class="label label-warning">UNMAINTAINED
+              {% endif %}</span>
+            </td>
+          </tr>
+        </table>
         <ul class="list-inline">
           <li>
-            {% if package.snapshot.data.last_commit_time %}
-              <span class="label label-default"><span class="glyphicon glyphicon-time"></span> {{package.snapshot.data.last_commit_time}}
-            {% else %}
-              <span class="label label-warning">UNKNOWN
-            {% endif %}</span>
           </li>
           <li>
-            {% if package.snapshot.released %}
-              <span class="label label-primary"><span class="glyphicon glyphicon-flash"></span> RELEASED
-            {% else %}
-              <span class="label label-default">UNRELEASED
-            {% endif %}</span>
           </li>
           <li>
-            {% if package.snapshot.maintainer_status %}
-              <span class="label label-success">{{package.snapshot.maintainer_status}}
-            {% else %}
-              <span class="label label-warning">UNMAINTAINED
-            {% endif %}</span>
           </li>
         </ul>
       </div>

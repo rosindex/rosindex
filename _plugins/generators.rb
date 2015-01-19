@@ -558,7 +558,7 @@ end
 
 class Repo < Liquid::Drop
   # This represents a remote repository
-  attr_accessor :name, :id, :uri, :purpose, :snapshots, :tags, :type, :local_path, :local_name
+  attr_accessor :name, :id, :uri, :purpose, :snapshots, :tags, :type, :status, :local_path, :local_name
   def initialize(name, type, uri, purpose, checkout_path)
     # unique identifier
     @id = get_id(uri)
@@ -574,6 +574,9 @@ class Repo < Liquid::Drop
 
     # a brief description of this remote
     @purpose = purpose
+
+    # maintainer status
+    @status = nil
 
     # the local repo name to checkout to (this is important for older rosbuild packages)
     @local_name = name
@@ -774,7 +777,7 @@ class GitScraper < Jekyll::Generator
         license = REXML::XPath.first(manifest_doc, "/package/license/text()").to_s
         description = REXML::XPath.first(manifest_doc, "/package/description/text()").to_s
         maintainers = REXML::XPath.each(manifest_doc, "/package/maintainer/text()").map { |m| m.to_s.sub('@', ' <AT> ') }
-        authors = REXML::XPath.each(manifest_doc, "/package/author/text()").map { |a| a.to_sf.sub('@', ' <AT> ') }
+        authors = REXML::XPath.each(manifest_doc, "/package/author/text()").map { |a| a.to_s.sub('@', ' <AT> ') }
 
         # extract rosindex exports
         tags = REXML::XPath.each(manifest_doc, "/package/export/rosindex/tags/tag/text()").map { |t| t.to_s }
@@ -986,8 +989,13 @@ class GitScraper < Jekyll::Generator
               repo_name,
               source_type,
               source_uri,
-              'Official in '+distro,
+              'Via rosdistro: '+distro,
               @checkout_path)
+
+            # get maintainer status
+            if repo_data.key?('status')
+              repo.status = repo_data['status']
+            end
 
             if @all_repos.key?(repo.id)
               repo = @all_repos[repo.id]
@@ -1039,7 +1047,7 @@ class GitScraper < Jekyll::Generator
                 repo_name,
                 repo_type,
                 repo_uri,
-                'Official in '+distro,
+                'Via rosdistro doc: '+distro,
                 @checkout_path)
 
               if @all_repos.key?(repo.id)
