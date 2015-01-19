@@ -2,92 +2,95 @@
 layout: default
 ---
 
-<div class="container-fluid" style="margin:20px">
-  <div class="row">
-    <ol class="breadcrumb">
-      <li><a href="/">Home</a></li>
-      <li><a href="/repos">Repos</a></li>
-      <li class="active">{{page.repo.name}}</li>
-      <!--<li class="active">{{page.instance.name}}</li>-->
-    </ol>
-  </div>
-  <div class="row">
-    {% include distro_switch.html %}
-  </div>
-  <div class="row">
-    &nbsp;
-  </div>
-  <div class="row">
-    {% include repo_info.html %}
-  </div>
-  <div class="row">
-    {% for distro in page.all_distros %}
-      <div class="distro distro-{{distro}}">
-        {% if page.available_distros[distro] or page.available_older_distros[distro] %}
-          <div class="panel panel-default">
-            <div class="panel-heading"><h3 class="panel-title">Repository Info</h3></div>
-            <div class="panel-body">
-              <table class="table table-condensed">
-                <tr>
-                  <td class="text-right"><b>Source URI</b></td>
-                  <td width="80%"><a class="label label-default" href="{{page.repo.uri}}">{{page.repo.uri}}</a></td>
-                </tr>
-                <tr>
-                  {% assign date_str = page.repo.snapshots[distro].data.last_commit_time %}
-                  <td class="text-right"><b>Last Updated</b></div>
-                  <td><span class="label label-default">{{ date_str }}</span></td>
-                </tr>
-                <tr>
-                  <td class="text-right"><b>Released</b></td>
-                  <td>
-                    {% if page.repo.snapshots[distro].released %}
-                      <span class="label label-primary"><span class="glyphicon glyphicon-flash"></span> RELEASED
-                    {% else %}
-                      <span class="label label-default">UNRELEASED
-                    {% endif %}</span>
-                  </td>
-                </tr>
-              </table>
-            </div>
-          </div>
-          <div class="panel panel-default">
-            <div class="panel-heading"><h3 class="panel-title">Packages</h3></div>
-            <div class="panel-body">
-              <table class="table table-condensed table-hover table-striped">
-                <thead>
-                  <tr>
-                    <th>Name</th>
-                    <th>Version</th>
-                  </tr>
-                </thead>
-                <tbody>
-                {% for p in page.repo.snapshots[distro].packages %}
-                  <tr>
-                    <td><a href="/p/{{p[1].name}}/{{page.repo.id}}">{{ p[1].name }}</a></td>
-                    <td>{{ p[1].data.version }}</td>
-                  </tr>
-                {% endfor %}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <div class="panel panel-default">
-            <div class="panel-heading"><h3 class="panel-title">README</h3></div>
-            <div class="panel-body">
-              {% if page.repo.snapshots[distro].data.readme %}
-                {{ page.repo.snapshots[distro].data.readme_rendered }}
-              {% else %}
-                <b class="text-warning">No README found.</b>
-              {% endif %}
-            </div>
-          </div>
-        {% else %}
-          <div class="alert alert-warning" role="alert">No version for distro <strong>{{ distro }}</strong>. Known supported distros are highlighted in the buttons above.</div>
-        {% endif %}
-      </div>
-    {% endfor %}
+<div class="container-fluid" style="margin-top:20px">
+  <div class="container-fluid">
+    <div class="row">
+      <ol class="breadcrumb">
+        <li><a href="/">Home</a></li>
+        <li><a href="/repos">Repos</a></li>
+        <li class="active">{{page.repo.name}}</li>
+        <!--<li class="active">{{page.instance.name}}</li>-->
+      </ol>
+    </div>
+    <div class="row">
+      {% include distro_switch.html %}
+    </div>
+    <div class="row">
+      &nbsp;
+    </div>
+    <div class="row">
+      {% include repo_info.html %}
+    </div>
   </div>
 </div>
+
+{% for distro in page.all_distros %}
+  <div class="distro distro-{{distro}}">
+    <div class="container-fluid">
+      {% if page.available_distros[distro] or page.available_older_distros[distro] %}
+        <div class="panel panel-default">
+          <div class="panel-heading"><h3 class="panel-title">Repository Info</h3></div>
+          <div class="panel-body">
+            <table class="table table-condensed">
+              <tr>
+                <td class="text-right"><b>Source URI</b></td>
+                <td width="80%"><a class="label label-default" href="{{page.repo.uri}}">{{page.repo.uri}}</a></td>
+              </tr>
+              <tr>
+                {% assign date_str = page.repo.snapshots[distro].data.last_commit_time %}
+                <td class="text-right"><b>Last Updated</b></div>
+                <td><span class="label label-default">{{ date_str }}</span></td>
+              </tr>
+              <tr>
+                <td class="text-right"><b>Released</b></td>
+                <td>
+                  {% if page.repo.snapshots[distro].released %}
+                    <span class="label label-primary"><span class="glyphicon glyphicon-flash"></span> RELEASED
+                  {% else %}
+                    <span class="label label-default">UNRELEASED
+                  {% endif %}</span>
+                </td>
+              </tr>
+            </table>
+          </div>
+        </div>
+        <div class="panel panel-default">
+          <div class="panel-heading"><h3 class="panel-title">Packages</h3></div>
+          <div class="panel-body">
+            <table class="table table-condensed table-hover table-striped">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Version</th>
+                </tr>
+              </thead>
+              <tbody>
+              {% for p in page.repo.snapshots[distro].packages %}
+                <tr>
+                  <td><a href="/p/{{p[1].name}}/{{page.repo.id}}">{{ p[1].name }}</a></td>
+                  <td>{{ p[1].data.version }}</td>
+                </tr>
+              {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="panel panel-default">
+          <div class="panel-heading"><h3 class="panel-title">README</h3></div>
+          <div class="panel-body">
+            {% if page.repo.snapshots[distro].data.readme %}
+              {{ page.repo.snapshots[distro].data.readme_rendered }}
+            {% else %}
+              <b class="text-warning">No README found.</b>
+            {% endif %}
+          </div>
+        </div>
+      {% else %}
+        <div class="alert alert-warning" role="alert">No version for distro <strong>{{ distro }}</strong>. Known supported distros are highlighted in the buttons above.</div>
+      {% endif %}
+    </div>
+  </div>
+{% endfor %}
 
 <script src="/js/distro_switch.js"></script>

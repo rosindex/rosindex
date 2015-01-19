@@ -3,19 +3,15 @@
   <tr>
     <td>
       <div id="repo-switch" class="btn-group btn-group-justified" role="group">
-        <div class="btn-group" style="width: 10%">
+        <div class="btn-group" style="width: 50px">
           <a type="button" class="btn btn-xs btn-default" data-toggle="tooltip" data-placement="left" title="View Instances" 
             href="/{{page.instance_index_url}}"><span class="glyphicon glyphicon-th"></span></a>
         </div>
         <div class="btn-group" style="width: 90%" role="group">
           <div class="dropdown">
-            <!-- TODO: add disabled when only 1 version is known -->
+            <!-- TODO: add disabled when only 1 version is known? -->
             <button class="btn btn-xs btn-default dropdown-toggle" type="button" id="dropdownMenu1" data-toggle="dropdown">
-              <span class="pull-left">
-                <span class="glyphicon glyphicon-{% if page.default_instance_id == instance.id %}star{% else %}none{% endif %}"></span>
-                  {{ instance.uri }}
-                </span>
-              <span class="pull-right"><span class="caret"></span></span>
+              <span class="pull-left"><span class="glyphicon glyphicon-{% if page.default_instance_id == instance.id %}star{% else %}none{% endif %}"></span>{{ instance.uri }}</span>&nbsp;<span class="pull-right"><span class="caret"></span></span>
             </button>
             <ul class="dropdown-menu" role="menu">
               {% for instance in page.instances %}

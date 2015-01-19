@@ -6,26 +6,47 @@ Assumes the following are defined:
  - show_repo
 {% endcomment %}
 
-{% if show_repo %}
-  <div class="top-buffer">
-    <h5>
-      <a href="/r/{{ package.repo.name }}/{{ package.repo.id }}"><img style="width: 30px; margin-left: 10px; margin-right: 5px;" src="/assets/repo.png">{{ package.repo.name }}</a>
-      <small>repository</small>
-    </h5>
-  </div>
+{% if false %}
+<table class="table">
+  <tr>
+    <td width="100px" class="text-center">
+      <img style="width: 30px" src="/assets/repo.png">
+    </td>
+    <td>
+      <h5>
+        <a href="/r/{{ package.repo.name }}/{{ package.repo.id }}">{{ package.repo.name }}</a>
+        <small>repository</small>
+      </h5>
+    </td>
+  </tr>
+</table>
 {% endif %}
-<div class="">
-  <h3 style="margin-top: 5px">
-    <a href="/p/{{package.name}}"><img style="width: 50px; margin-right: 5px;" src="/assets/package.png">{{package.name}}</a> <small>package {{package.data.version}}</small>
-  </h3>
-</div>
+<table class="table">
+  <tr>
+    <td width="100px" class="text-center">
+      <img style="width: 80px" src="/assets/package.png">
+    </td>
+    <td>
+      <h3 style="margin-top: 5px">
+        <a style="text-decoration:none" href="/p/{{package.name}}">{{package.name}}</a> <small>package from <a style="text-decoration:none" href="/r/{{ package.repo.name }}/{{ package.repo.id }}">{{ package.repo.name }}</a> repo</small>
+      </h3>
+      {% for peer in package.snapshot.packages %}
+        {% if peer[0] != package.name %}
+          <a class="label label-primary" href="/p/{{peer[0]}}/{{package.repo.id}}">{{ peer[0] }}</a>
+        {% else %}
+          <span class="label label-default">{{ peer[0] }}</span>
+        {% endif %}
+      {% endfor %}
+    </td>
+  </tr>
+</table>
 <div class="top-buffer">
   <div class="text-left">
     <div class="btn-group btn-group-justified" role="group" aria-label="...">
       <a href="http://docs.ros.org/{{distro}}/api/{{page.package_name}}/html/" type="button" class="btn btn-default {% unless package.snapshot.released %}inactive{% endunless %}"><span class="glyphicon glyphicon-file"></span> API</a>
-      <a href="{{ package.repo.uri }}" type="button" class="btn btn-default"><span class="glyphicon glyphicon-leaf"></span> Source</a>
+      <a href="{{ package.repo.uri }}" type="button" class="btn btn-default"><span class="glyphicon glyphicon-leaf"></span> SRC</a>
       <a href="http://answers.ros.org/questions/scope:all/sort:activity-desc/tags:{{page.package_name}}/page:1/" type="button" class="btn btn-default"><span class="glyphicon glyphicon-question-sign"></span> FAQ</a>
-      <a href="http://wiki.ros.org/{{page.package_name}}" type="button" class="btn btn-default"><span class="glyphicon glyphicon-info-sign"></span> ROS Wiki</a>
+      <a href="http://wiki.ros.org/{{page.package_name}}" type="button" class="btn btn-default"><span class="glyphicon glyphicon-info-sign"></span> Wiki</a>
       <a type="button" class="btn inactive btn-default"><span class="glyphicon glyphicon-fire"></span> CI</a>
     </div>
   </div>
