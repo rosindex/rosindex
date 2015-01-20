@@ -43,11 +43,11 @@ Assumes the following are defined:
 <div class="top-buffer">
   <div class="text-left">
     <div class="btn-group btn-group-justified" role="group" aria-label="...">
-      <a href="http://docs.ros.org/{{distro}}/api/{{page.package_name}}/html/" type="button" class="btn btn-default {% unless package.snapshot.released %}inactive{% endunless %}"><span class="glyphicon glyphicon-file"></span> API</a>
-      <a href="{{ package.repo.uri }}" type="button" class="btn btn-default"><span class="glyphicon glyphicon-leaf"></span> SRC</a>
-      <a href="http://answers.ros.org/questions/scope:all/sort:activity-desc/tags:{{page.package_name}}/page:1/" type="button" class="btn btn-default"><span class="glyphicon glyphicon-question-sign"></span> FAQ</a>
-      <a href="http://wiki.ros.org/{{page.package_name}}" type="button" class="btn btn-default"><span class="glyphicon glyphicon-info-sign"></span> Wiki</a>
-      <a type="button" class="btn inactive btn-default"><span class="glyphicon glyphicon-fire"></span> CI</a>
+      <a target="_blank" href="http://docs.ros.org/{{distro}}/api/{{page.package_name}}/html/" type="button" class="btn btn-default {% unless package.snapshot.released %}inactive{% endunless %}"><span class="glyphicon glyphicon-file"></span> API</a>
+      <a target="_blank" href="{{ package.repo.uri }}" type="button" class="btn btn-default"><span class="glyphicon glyphicon-leaf"></span> SRC</a>
+      <a target="_blank" href="http://answers.ros.org/questions/scope:all/sort:activity-desc/tags:{{page.package_name}}/page:1/" type="button" class="btn btn-default"><span class="glyphicon glyphicon-question-sign"></span> FAQ</a>
+      <a target="_blank" href="http://wiki.ros.org/{{page.package_name}}" type="button" class="btn btn-default"><span class="glyphicon glyphicon-info-sign"></span> Wiki</a>
+      {% comment %}<a target="_blank" type="button" class="btn inactive btn-default"><span class="glyphicon glyphicon-fire"></span> CI</a>{% endcomment %}
     </div>
   </div>
 </div>

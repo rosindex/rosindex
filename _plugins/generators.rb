@@ -463,12 +463,20 @@ def get_readme(site, path, raw_uri)
 
   rst_path = File.join(path,'README.rst')
   md_path = File.join(path,'README.md')
+  txt_a_path = File.join(path,'README.txt')
+  txt_b_path = File.join(path,'README')
 
   if File.exist?(rst_path)
     readme_rst = IO.read(rst_path)
     readme_md = rst_to_md(readme_rst)
   elsif File.exist?(md_path)
     readme_md = IO.read(md_path)
+  elsif File.exist?(txt_a_path)
+    readme_txt = IO.read(txt_a_path)
+    readme_md = '```\n' + readme_txt + '\n```'
+  elsif File.exist?(txt_b_path)
+    readme_txt = IO.read(txt_b_path)
+    readme_md = '```\n' + readme_txt + '\n```'
   end
 
   if readme_md
@@ -728,7 +736,7 @@ class GitScraper < Jekyll::Generator
     Find.find(local_path) do |path|
       if FileTest.directory?(path)
         # skip certain paths
-        if (File.basename(path)[0] == ?.) or File.exist?(File.join(path,'CATKIN_IGNORE'))
+        if (File.basename(path)[0] == ?.) or File.exist?(File.join(path,'CATKIN_IGNORE')) or File.exist?(File.join(path,'.rosindex_ignore')) 
           Find.prune
         end
 
@@ -905,7 +913,13 @@ class GitScraper < Jekyll::Generator
         # check out this branch
         vcs.checkout(version)
 
-        scrape_version(site, repo, distro, snapshot, vcs)
+        # check for ignore file
+        if  File.exist?(File.join(vcs.local_path,'.rosindex_ignore')) 
+          puts (" --- ignoring version for " << repo.name).yellow
+          snapshot.version = nil
+        else
+          scrape_version(site, repo, distro, snapshot, vcs)
+        end
       else
         puts (" --- no version for " << repo.name << " instance: " << repo.id << " distro: " << distro).yellow
       end

@@ -10,7 +10,7 @@ table.table a.label {
 
 .top-buffer { margin-top:10px; }
 
-.vcenter {
+div.vcenter {
   display: inline-block;
   vertical-align: middle;
   float: none;
@@ -63,6 +63,10 @@ div pre {
   overflow-x: auto;
   word-break: normal;
   word-wrap: normal;
+}
+
+label.control-label {
+  font-weight: bold;
 }
 
 /*h5 a:hover {*/

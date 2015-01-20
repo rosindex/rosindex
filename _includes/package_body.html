@@ -27,6 +27,17 @@ Assumes distro and package are defined
             </td>
           </tr>
           <tr>
+            <td class="text-right"><b>Build Type</b></td>
+            <td>
+              {% if package.data.pkg_type == 'catkin' %}
+                <span class="label label-info">
+              {% else %}
+                <span class="label label-default">
+              {% endif %}
+              {{package.data.pkg_type | upcase}}</span>
+            </td>
+          </tr>
+          <tr>
             <td class="text-right"><b>Released</b></td>
             <td>
               {% if package.snapshot.released %}
@@ -54,14 +65,6 @@ Assumes distro and package are defined
             </td>
           </tr>
         </table>
-        <ul class="list-inline">
-          <li>
-          </li>
-          <li>
-          </li>
-          <li>
-          </li>
-        </ul>
       </div>
       <div class="panel-heading"><h3 class="panel-title">Tags</h3></div>
       <div class="panel-body">
@@ -105,7 +108,7 @@ Assumes distro and package are defined
 <div class="row">
   <div class="col-xs-12">
     <div class="panel panel-default">
-      <div class="panel-heading">README</div>
+      <div class="panel-heading"><span class="glyphicon glyphicon-file"></span> README</div>
       <div class="panel-body">
         {% if package.data.readme_rendered %}
           {{ package.data.readme_rendered }}
@@ -119,7 +122,7 @@ Assumes distro and package are defined
 <div class="row">
   <div class="col-xs-12">
     <div class="panel panel-default">
-      <div class="panel-heading">CHANGELOG</div>
+      <div class="panel-heading"><span class="glyphicon glyphicon-list"></span> CHANGELOG</div>
       <div class="panel-body">
         {% if package.data.changelog_rendered %}
           {{ package.data.changelog_rendered }}
