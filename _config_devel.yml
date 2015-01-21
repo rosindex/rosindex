@@ -9,5 +9,5 @@ destination: _devel
 
 checkout_threads: 1
 
-use_cached: true
+use_cached: false
 cache_filename: _devel_cache.db

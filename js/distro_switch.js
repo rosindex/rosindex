@@ -1,3 +1,5 @@
+---
+---
 
 $(document).ready(function(){ 
   $('#distro-switch label').click(function (e) {
@@ -52,6 +54,10 @@ $(document).ready(function(){
   if (url.match('#')) {
     distro = url.split('#')[1].split('-')[0];
     console.log("overriding via anchor "+distro+" distro");
+  }
+
+  if(typeof distro == 'undefined') {
+    distro = "{{site.distros[0]}}";
   }
 
   $('.distro').not('.distro-'+distro).hide(0);

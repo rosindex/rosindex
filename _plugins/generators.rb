@@ -550,6 +550,20 @@ def get_raw_uri(uri_s, branch)
   return ''
 end
 
+def get_browse_uri(uri_s, branch)
+  uri = URI(uri_s)
+
+  case uri.host
+  when 'github.com'
+    uri_split = File.split(uri.path)
+    return 'https://github.com/%s/%s/blob/%s' % [uri_split[0], uri_split[1], branch]
+  when 'bitbucket.org'
+    return 'https://bitbucket.org/%s/%s/src/%s' % [uri_split[0], uri_split[1], branch]
+  end
+
+  return ''
+end
+
 def get_id(uri)
   # combines the domain name and path, hyphenated
   p_uri = URI(uri)
@@ -826,16 +840,28 @@ class GitScraper < Jekyll::Generator
 
         # extract package manifest info
         raw_uri = File.join(data['raw_uri'], relpath)
+        browse_uri = File.join(data['browse_uri'], relpath)
 
         # check for readme in same directory as package.xml
         readme_rendered, readme = get_readme(site, path, raw_uri)
         changelog_rendered, changelog = get_changelog(site, path)
+
+        # TODO
+        # look for launchfiles in this package
+        launch_files = Dir[File.join(path,'**','*.launch')]
+        # look for message files in this package
+        msg_files = Dir[File.join(path,'**','*.msg')]
+        # look for service files in this package
+        srv_files = Dir[File.join(path,'**','*.srv')]
+        # look for plugin descriptions in this package
+        # TODO: get plugin files from <exports> tag
 
         package_info = {
           'name' => package_name,
           'pkg_type' => pkg_type,
           'distro' => distro,
           'raw_uri' => raw_uri,
+          'browse_uri' => browse_uri,
           # required package info
           'name' => package_name,
           'version' => version,
@@ -851,7 +877,11 @@ class GitScraper < Jekyll::Generator
           'readme_rendered' => readme_rendered,
           # changelog
           'changelog' => changelog,
-          'changelog_rendered' => changelog_rendered
+          'changelog_rendered' => changelog_rendered,
+          # assets
+          'launch_files' => launch_files.map {|f| f.sub(File.join(local_path,relpath),'') },
+          'msg_files' => msg_files.map {|f| f.sub(File.join(local_path,relpath),'') },
+          'srv_files' => srv_files.map {|f| f.sub(File.join(local_path,relpath),'') }
         }
 
         dputs " -- adding package " << package_name
@@ -877,6 +907,7 @@ class GitScraper < Jekyll::Generator
     data = snapshot.data = {
       # get the uri for resolving raw links (for imgages, etc)
       'raw_uri' => get_raw_uri(repo.uri, snapshot.version),
+      'browse_uri' => get_browse_uri(repo.uri, snapshot.version),
       # get the date of the last modification
       'last_commit_time' => vcs.get_last_commit_time(),
       'readme' => nil,
