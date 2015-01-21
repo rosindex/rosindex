@@ -36,14 +36,109 @@ layout: default
 {% for distro in page.all_distros %}
   <div class="distro distro-{{distro}}">
     <div class="container-fluid">
-      {% if page.available_distros[distro] or page.available_older_distros[distro] %}
-        {% assign package = page.package_instances.snapshots[distro] %}
-        {% include package_body.html %}
-      {% else %}
-        <div class="alert alert-warning" role="alert">No version for distro <strong>{{ distro }}</strong>. Known supported distros are highlighted in the buttons above.</div>
-      {% endif %}
+      <ul class="nav nav-tabs" id="{{distro}}-tabs" style="margin-bottom:20px">
+        <li class="active">
+          <a href="#{{distro}}-overview" data-toggle="tab">Overview</a>
+        </li>
+        <li>
+          <a href="#{{distro}}-assets" data-toggle="tab"><span class="label label-default">0</span> Assets</a>
+        </li>
+        <li>
+          <a href="#{{distro}}-deps" data-toggle="tab"><span class="label label-default">0</span> Dependencies</a>
+        </li>
+        <li>
+        <a href="#{{distro}}-tutorials" data-toggle="tab"><span class="label label-default">0</span> Tutorials</a>
+        </li>
+      </ul>
+
+      <div class="tab-content">
+        <div class="tab-pane active" id="{{distro}}-overview">
+          {% if page.available_distros[distro] or page.available_older_distros[distro] %}
+            {% assign package = page.package_instances.snapshots[distro] %}
+          {% include package_body.html %}
+        {% else %}
+            <div class="alert alert-warning">No version for distro <strong>{{ distro }}</strong>. Known supported distros are highlighted in the buttons above.</div>
+        {% endif %}
+        </div>
+
+        <div class="tab-pane" id="{{distro}}-tutorials">
+        </div>
+
+        <div class="tab-pane" id="{{distro}}-deps">
+          <div class="panel panel-default">
+            <div class="panel-heading">
+              <h3 class="panel-title">Depends On</h3>
+            </div>
+            <div class="panel-body">
+              ...
+            </div>
+          </div>
+
+          <div class="panel panel-default">
+            <div class="panel-heading">
+              <h3 class="panel-title">Depended On By</h3>
+            </div>
+            <div class="panel-body">
+              ...
+            </div>
+          </div>
+        </div>
+
+        <div class="tab-pane" id="{{distro}}-assets">
+          <div class="panel panel-default">
+            <div class="panel-heading">
+              <h3 class="panel-title">Launchfiles</h3>
+            </div>
+            <div class="panel-body">
+              ...
+            </div>
+          </div>
+
+          <div class="panel panel-default">
+            <div class="panel-heading">
+              <h3 class="panel-title">Plugins</h3>
+            </div>
+            <div class="panel-body">
+              ...
+            </div>
+          </div>
+
+          <div class="panel panel-default">
+            <div class="panel-heading">
+              <h3 class="panel-title">Messages</h3>
+            </div>
+            <div class="panel-body">
+              ...
+            </div>
+          </div>
+
+          <div class="panel panel-default">
+            <div class="panel-heading">
+              <h3 class="panel-title">Services</h3>
+            </div>
+            <div class="panel-body">
+              ...
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 {% endfor %}
 
 <script src="/js/distro_switch.js"></script>
+
+<script>
+// Javascript to enable link to tab
+$(function() {
+  var url = document.location.toString();
+  if (url.match('#')) {
+      $('.nav-tabs a[href=#'+url.split('#')[1]+']').tab('show') ;
+  } 
+
+  // Change hash for page-reload
+  $('.nav-tabs a').on('shown', function (e) {
+      window.location.hash = e.target.hash;
+  })
+});
+</script>

@@ -32,9 +32,9 @@ Assumes the following are defined:
       </h3>
       {% for peer in package.snapshot.packages %}
         {% if peer[0] != package.name %}
-          <a class="label label-primary" href="/p/{{peer[0]}}/{{package.repo.id}}">{{ peer[0] }}</a>
+          <a class="label label-primary" href="/p/{{peer[0]}}/{{package.repo.id}}">{%if peer[1].data.readme_rendered%}<span class="glyphicon glyphicon-file"></span>{%endif%}{{ peer[0] }}</a>
         {% else %}
-          <span class="label label-default">{{ peer[0] }}</span>
+          <span class="label label-default">{%if peer[1].data.readme_rendered%}<span class="glyphicon glyphicon-file"></span>{%endif%} {{ peer[0] }}</span>
         {% endif %}
       {% endfor %}
     </td>

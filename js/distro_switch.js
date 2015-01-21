@@ -50,7 +50,7 @@ $(document).ready(function(){
 
   var url = document.location.toString();
   if (url.match('#')) {
-    distro = url.split('#')[1];
+    distro = url.split('#')[1].split('-')[0];
     console.log("overriding via anchor "+distro+" distro");
   }
 
