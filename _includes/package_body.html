@@ -114,6 +114,11 @@ Assumes distro and package are defined
           {{ package.data.readme_rendered }}
         {% else %}
           <em>No README found.</em>
+          {% if package.snapshot.data.readme_rendered %}
+            <em><a href="/r/{{package.repo.name}}/{{package.repo.id}}/#{{distro}}">See repository README.</a></em>
+          {% else %}
+            <em>No README in repository either.</em>
+          {% endif %}
         {% endif %}
       </div>
     </div>

@@ -19,6 +19,23 @@ layout: default
       </div>
     </div>
   </div>
+  <div class="row">
+    &nbsp;
+  </div>
+  <div class="row">
+    <div class="panel panel-default">
+      <div class="panel-heading"><h3 class="panel-title">Distro Activity</h3></div>
+      <div class="panel-body">
+
+      {% for hist_values in page.distro_activity %}
+        {% assign distro = hist_values[0] %}
+        <h3>{{distro}} <small>{{hist_values[1] | size}} repos</small></h3>
+        <br><br>
+        <div id="activity_hist_{{distro}}" class="text-center"></div>
+      {%endfor%}
+      </div>
+    </div>
+  </div>
 </div>
 
 <style>
@@ -131,4 +148,125 @@ diagram.svg.selectAll("path")
         tooltip.style("left", (d3.event.pageX) + "px")
                .style("top", (d3.event.pageY - 28) + "px");
     })
+</script>
+
+<style>
+.bar rect {
+  fill: #158cba;
+  shape-rendering: crispEdges;
+}
+
+.bar text {
+  fill: #fff;
+  font-size: 15px;
+}
+
+.axis path, .axis line {
+  fill: none;
+  stroke: #000;
+  shape-rendering: crispEdges;
+}
+
+.histtooltip {
+  position: absolute;
+  text-align: center;
+  width: 40px;
+  height: 24px;
+  background: #333;
+  color: #ddd;
+  padding: 2px;
+  border: 0px;
+  border-radius: 8px;
+  opacity: 0;
+}
+</style>
+
+
+<script>
+
+function makeHist(selector, values) {
+  // A formatter for counts.
+  var formatCount = d3.format(",.0f");
+
+  var margin = {top: 10, right: 30, bottom: 30, left: 30},
+      width = 650 - margin.left - margin.right,
+      height = 150 - margin.top - margin.bottom;
+
+  var max_age = 2000;
+  var x = d3.scale.linear()
+      .domain([1, max_age])
+      .range([0, width]);
+
+  // Generate a histogram using twenty uniformly-spaced bins.
+  var data = d3.layout.histogram()
+      .bins(x.ticks(30))
+      (values);
+
+  var y = d3.scale.linear()
+      .domain([0, d3.max(data, function(d) { return d.y; })])
+      .range([height, 0]);
+
+  var xAxis = d3.svg.axis()
+      .scale(x)
+      .orient("bottom");
+
+  var svg = d3.select(selector).append("svg")
+      .attr("width", width + margin.left + margin.right)
+      .attr("height", height + margin.top + margin.bottom)
+    .append("g")
+      .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+  var bar = svg.selectAll(".bar")
+      .data(data)
+    .enter().append("g")
+      .attr("class", "bar")
+      .attr("transform", function(d) { return "translate(" + x(d.x) + "," + y(d.y) + ")"; });
+  
+  var tooltip = d3.select("body").append("div")
+    .attr("class", "histtooltip");
+
+  bar.append("rect")
+      .attr("x", 1)
+      .attr("width", function(d) { return x(d.dx) - 1; })
+      .attr("height", function(d) { return height - y(d.y); })
+      .on("mouseover", function(d, i) {
+          d3.select(this).transition()
+          .style("fill-opacity", .1)
+          .style("stroke-opacity", 1);
+          tooltip.transition().style("opacity", .9);
+          tooltip.text(d.y);
+          })
+      .on("mouseout", function(d, i) {
+          d3.select(this).transition()
+          .style("fill-opacity", 1)
+          .style("stroke-opacity", 0);
+          tooltip.transition().style("opacity", 0);
+      })
+      .on("mousemove", function() {
+          tooltip.style("left", (d3.event.pageX) + "px")
+                 .style("top", (d3.event.pageY - 28) + "px");
+      });
+
+      /*
+  bar.append("text")
+      .attr("dy", ".75em")
+      .attr("y", 6)
+      .attr("x", x(data[0].dx) / 2)
+      .attr("text-anchor", "middle")
+      .text(function(d) { return formatCount(d.y); });
+      */
+
+  svg.append("g")
+      .attr("class", "x axis")
+      .attr("transform", "translate(0," + height + ")")
+      .call(xAxis);
+}
+
+{% for hist_values in page.distro_activity %}
+  {% assign distro = hist_values[0] %}
+  var values_{{distro}} = [{% for v in hist_values[1]%}
+      {{v}},{%endfor%}];
+  makeHist('#activity_hist_{{distro}}', values_{{distro}});
+{% endfor %}
+
 </script>

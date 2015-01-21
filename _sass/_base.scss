@@ -69,6 +69,18 @@ label.control-label {
   font-weight: bold;
 }
 
+table.table thead a:not(.btn) {
+  text-decoration: none;
+}
+
+.selected-sort-label {
+  color: #ff851b;
+}
+
+.unselected-sort-label {
+  color: #555555;
+}
+
 /*h5 a:hover {*/
   /*text-decoration: none;*/
 /*}*/

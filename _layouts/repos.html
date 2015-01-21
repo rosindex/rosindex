@@ -24,10 +24,34 @@ layout: default
             <thead>
               <tr>
                 <th style="text-align: center;"><span class="glyphicon glyphicon-th"></span></th>
-                <th style="text-align: center;"><span class="glyphicon glyphicon-flash"></span></th>
-                <th style="text-align: center;"><span class="glyphicon glyphicon-file"></span></th>
-                <th style="text-align: center;"><span class="glyphicon glyphicon-time"></span></th>
-                <th>Name</th>
+                <th style="text-align: center;">
+                  {% if page.sort_id == 'released' %}
+                    <span class="glyphicon glyphicon-flash selected-sort-label"></span>
+                  {% else %}
+                    <a href="/repos/page/1/released" class="unselected-sort-label glyphicon glyphicon-flash"></a>
+                  {% endif %}
+                </th>
+                <th style="text-align: center;">
+                  {% if page.sort_id == 'doc' %}
+                    <span class="glyphicon glyphicon-file selected-sort-label"></span>
+                  {% else %}
+                    <a href="/repos/page/1/doc" class="unselected-sort-label glyphicon glyphicon-file"></a>
+                  {% endif %}
+                </th>
+                <th style="text-align: center;">
+                  {% if page.sort_id == 'time' %}
+                    <span class="glyphicon glyphicon-time selected-sort-label"></span>
+                  {% else %}
+                    <a href="/repos/page/1/time" class="unselected-sort-label glyphicon glyphicon-time"></a>
+                  {% endif %}
+                </th>
+                <th style="text-align: left;">
+                  {% if page.sort_id == '' %}
+                    <span class="selected-sort-label">Name</span>
+                  {% else %}
+                    <a class="unselected-sort-label" href="/repos/page/1">Name</a>
+                  {% endif %}
+                </th>
                 <th width="100%">Packages</th>
               </tr>
             </thead>

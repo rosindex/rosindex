@@ -473,10 +473,10 @@ def get_readme(site, path, raw_uri)
     readme_md = IO.read(md_path)
   elsif File.exist?(txt_a_path)
     readme_txt = IO.read(txt_a_path)
-    readme_md = '```\n' + readme_txt + '\n```'
-  elsif File.exist?(txt_b_path)
+    readme_md = "```\n" + readme_txt + "\n```"
+  elsif File.exist?(txt_b_path) and not File.directory?(txt_b_path)
     readme_txt = IO.read(txt_b_path)
-    readme_md = '```\n' + readme_txt + '\n```'
+    readme_md = "```\n" + readme_txt + "\n```"
   end
 
   if readme_md
@@ -489,6 +489,37 @@ def get_readme(site, path, raw_uri)
   end
 
   return readme_rendered, readme_md
+end
+
+def get_changelog(site, path)
+
+  rst_path = File.join(path,'CHANGELOG.rst')
+  md_path = File.join(path,'CHANGELOG.md')
+  txt_a_path = File.join(path,'CHANGELOG.txt')
+  txt_b_path = File.join(path,'CHANGELOG')
+
+  if File.exist?(rst_path)
+    changelog_rst = IO.read(rst_path)
+    changelog_md = rst_to_md(changelog_rst)
+  elsif File.exist?(md_path)
+    changelog_md = IO.read(md_path)
+  elsif File.exist?(txt_a_path)
+    changelog_txt = IO.read(txt_a_path)
+    changelog_md = '```\n' + changelog_txt + '\n```'
+  elsif File.exist?(txt_b_path)
+    changelog_txt = IO.read(txt_b_path)
+    changelog_md = '```\n' + changelog_txt + '\n```'
+  end
+
+  if changelog_md
+    # read in the changelog and fix links
+    changelog_html = render_md(site, changelog_md)
+    changelog_rendered = '<div class="rendered-markdown">'+changelog_html+"</div>"
+  else
+    changelog_rendered = nil
+  end
+
+  return changelog_rendered, changelog_md
 end
 
 # Renders markdown to html (and apply some required tweaks)
@@ -798,6 +829,7 @@ class GitScraper < Jekyll::Generator
 
         # check for readme in same directory as package.xml
         readme_rendered, readme = get_readme(site, path, raw_uri)
+        changelog_rendered, changelog = get_changelog(site, path)
 
         package_info = {
           'name' => package_name,
@@ -814,9 +846,12 @@ class GitScraper < Jekyll::Generator
           'authors' => authors,
           # rosindex metadata
           'tags' => tags,
-          # package contents
+          # readme
           'readme' => readme,
-          'readme_rendered' => readme_rendered
+          'readme_rendered' => readme_rendered,
+          # changelog
+          'changelog' => changelog,
+          'changelog_rendered' => changelog_rendered
         }
 
         dputs " -- adding package " << package_name
@@ -937,6 +972,7 @@ class GitScraper < Jekyll::Generator
     end
 
     # construct list of known ros distros
+    $recent_distros = site.config['distros']
     $all_distros = site.config['distros'] + site.config['old_distros']
 
     @domain_blacklist = site.config['domain_blacklist']
@@ -1203,58 +1239,71 @@ class GitScraper < Jekyll::Generator
 
     # create repo list pages
     repos_per_page = site.config['repos_per_page']
-    n_repo_list_pages = @repo_names.length / repos_per_page
+    n_repo_list_pages = (@repo_names.length / repos_per_page).ceil + 1
 
     repos_alpha = @repo_names.sort_by { |name, instances| name }
+    repos_time = repos_alpha.reverse.sort_by { |name, instances| (instances.default.snapshots.reject { |d,s| not $recent_distros.include?(d) }.map {|d,s| s.data['last_commit_time'].to_s}).max }.reverse
+    repos_doc = repos_alpha.reverse.sort_by { |name, instances| -(instances.default.snapshots.count {|d,s| $recent_distros.include?(d) and not s.data['readme_rendered'].nil? }) }
+    repos_released = repos_alpha.reverse.sort_by { |name, instances| -(instances.default.snapshots.count {|d,s| $recent_distros.include?(d) and s.released}) }
 
-    (0..n_repo_list_pages).each do |page_index|
+    (1..n_repo_list_pages).each do |page_index|
 
-      p_start = page_index * repos_per_page
+      p_start = (page_index-1) * repos_per_page
       p_end = [@repo_names.length, p_start+repos_per_page].min
+
       list_alpha = repos_alpha.slice(p_start, repos_per_page)
+      list_time = repos_time.slice(p_start, repos_per_page)
+      list_doc = repos_doc.slice(p_start, repos_per_page)
+      list_released = repos_released.slice(p_start, repos_per_page)
 
-      site.pages << RepoListPage.new(
-        site,
-        n_repo_list_pages + 1,
-        page_index + 1,
-        list_alpha)
-
-      if page_index == 0
-        site.pages << RepoListPage.new(
-          site,
-          n_repo_list_pages + 1,
-          page_index + 1,
-          list_alpha,
-          true)
+      # create alpha pages
+      site.pages << RepoListPage.new( site, '', n_repo_list_pages, page_index, list_alpha)
+      if page_index == 1
+        site.pages << RepoListPage.new( site, '', n_repo_list_pages, page_index, list_alpha, true)
       end
+
+      site.pages << RepoListPage.new( site, 'time', n_repo_list_pages, page_index, list_time)
+      site.pages << RepoListPage.new( site, 'doc', n_repo_list_pages, page_index, list_doc)
+      site.pages << RepoListPage.new( site, 'released', n_repo_list_pages, page_index, list_released)
     end
 
     # create package list pages
     packages_per_page = site.config['packages_per_page']
-    n_package_list_pages = @package_names.length / packages_per_page
+    n_package_list_pages = (@package_names.length / packages_per_page).ceil + 1
 
     packages_alpha = @package_names.sort_by { |name, instances| name }
 
-    (0..n_package_list_pages).each do |page_index|
+    packages_time = packages_alpha.reverse.sort_by { |name, instances| 
+      instances.snapshots.reject { |d,s|
+        s.nil? or not $recent_distros.include?(d)}.map { |d,s|
+          s.snapshot.data['last_commit_time'].to_s}.max.to_s }.reverse
 
-      p_start = page_index * packages_per_page
+    packages_doc = packages_alpha.reverse.sort_by { |name, instances| 
+      -(instances.snapshots.count {|d,s| 
+        not s.nil? and $recent_distros.include?(d) and not s.data['readme_rendered'].nil? }) }
+
+    packages_released = packages_alpha.reverse.sort_by { 
+      |name, instances| -(instances.snapshots.count { |d,s| 
+        not s.nil? and $recent_distros.include?(d) and s.snapshot.released}) }
+
+    (1..n_package_list_pages).each do |page_index|
+
+      p_start = (page_index-1) * packages_per_page
       p_end = [@package_names.length, p_start+packages_per_page].min
+
       list_alpha = packages_alpha.slice(p_start, packages_per_page)
+      list_time = packages_time.slice(p_start, packages_per_page)
+      list_doc = packages_doc.slice(p_start, packages_per_page)
+      list_released = packages_released.slice(p_start, packages_per_page)
 
-      site.pages << PackageListPage.new(
-        site,
-        n_package_list_pages + 1,
-        page_index + 1,
-        list_alpha)
-
-      if page_index == 0
-        site.pages << PackageListPage.new(
-          site,
-          n_package_list_pages + 1,
-          page_index + 1,
-          list_alpha,
-          true)
+      site.pages << PackageListPage.new(site, '', n_package_list_pages, page_index, list_alpha)
+      if page_index == 1
+        site.pages << PackageListPage.new(site, '', n_package_list_pages, page_index, list_alpha, true)
       end
+
+      site.pages << PackageListPage.new( site, 'time', n_package_list_pages, page_index, list_time)
+      site.pages << PackageListPage.new( site, 'doc', n_package_list_pages, page_index, list_doc)
+      site.pages << PackageListPage.new( site, 'released', n_package_list_pages, page_index, list_released)
     end
 
     # create lunr index data
@@ -1340,7 +1389,7 @@ class GitScraper < Jekyll::Generator
     site.static_files << SearchIndexFile.new(site, site.dest, "/", "index.json")
 
     # create stats page
-    site.pages << StatsPage.new(site, @package_names)
+    site.pages << StatsPage.new(site, @package_names, @all_repos)
   end
 
   def strip_stopwords(text)
@@ -1410,17 +1459,19 @@ class RepoPage < Jekyll::Page
 end
 
 class PackageListPage < Jekyll::Page
-  def initialize(site, n_list_pages, page_index, list_alpha, default=false)
+  def initialize(site, sort_id, n_list_pages, page_index, list_alpha, default=false)
     @site = site
     @base = site.source
-    @dir = unless default then 'packages/page/'+page_index.to_s else 'packages' end
+    @dir = unless default then 'packages/page/'+page_index.to_s+'/'+sort_id else 'packages' end
     @name = 'index.html'
 
     self.process(@name)
     self.read_yaml(File.join(@base, '_layouts'),'packages.html')
     self.data['pager'] = {
-      'base' => 'packages'
+      'base' => 'packages',
+      'post_ns' => '/'+sort_id
     }
+    self.data['sort_id'] = sort_id
     self.data['n_list_pages'] = n_list_pages
     self.data['page_index'] = page_index
     self.data['list_alpha'] = list_alpha
@@ -1438,17 +1489,19 @@ class PackageListPage < Jekyll::Page
 end
 
 class RepoListPage < Jekyll::Page
-  def initialize(site, n_list_pages, page_index, list_alpha, default=false)
+  def initialize(site, sort_id, n_list_pages, page_index, list_alpha, default=false)
     @site = site
     @base = site.source
-    @dir = unless default then 'repos/page/'+page_index.to_s else 'repos' end
+    @dir = unless default then 'repos/page/'+page_index.to_s+'/'+sort_id else 'repos' end
     @name = 'index.html'
 
     self.process(@name)
     self.read_yaml(File.join(@base, '_layouts'),'repos.html')
     self.data['pager'] = {
-      'base' => 'repos'
+      'base' => 'repos',
+      'post_ns' => '/'+sort_id
     }
+    self.data['sort_id'] = sort_id
     self.data['n_list_pages'] = n_list_pages
     self.data['page_index'] = page_index
     self.data['list_alpha'] = list_alpha
@@ -1536,7 +1589,7 @@ class PackageInstancePage < Jekyll::Page
 end
 
 class StatsPage < Jekyll::Page
-  def initialize(site, package_names)
+  def initialize(site, package_names, all_repos)
 
     @site = site
     @base = site.source
@@ -1571,6 +1624,18 @@ class StatsPage < Jekyll::Page
 
     self.data['distro_counts'] = distro_counts
     self.data['distro_overlaps'] = Hash[distro_overlaps.collect{|s,c| [s.inspect, c]}]
+
+    # generate date-histogram data
+    self.data['distro_activity'] = {}
+    now = DateTime.now
+    $all_distros.each do |distro|
+      activity = []
+      all_repos.each do |id, repo|
+        if repo.snapshots[distro].data['last_commit_time'].nil? then next end
+        activity << (now - DateTime.parse(repo.snapshots[distro].data['last_commit_time'])).to_f
+      end
+      self.data['distro_activity'][distro] = activity
+    end
   end
 end
 

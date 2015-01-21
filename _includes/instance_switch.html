@@ -13,7 +13,8 @@
             <button class="btn btn-xs btn-default dropdown-toggle" type="button" id="dropdownMenu1" data-toggle="dropdown">
               <span class="pull-left" style="width: 100%; text-align: left">
                 <span class="pull-right"><span class="caret"></span></span> 
-                <span class="glyphicon glyphicon-{% if page.default_instance_id == instance.id %}star{% else %}none{% endif %}"></span>{{ instance.uri }}
+              <span class="glyphicon glyphicon-{% if page.default_instance_id == instance.id %}star{% else %}none{% endif %}"></span>
+                  {{ instance.id }}
               </span>
             </button>
             <ul class="dropdown-menu" role="menu">
@@ -21,7 +22,7 @@
                 <li role="presentation">
                   <a id="{{instance[0]}}" role="menuitem" tabindex="-1" href="/{{page.instance_base_url}}/{{instance[0]}}" data="{{instance[0]}}">
                     <span class="glyphicon glyphicon-{% if page.default_instance_id == instance[0] %}star{% else %}none{% endif %}"></span>
-                    {{instance[1].uri}}
+                    {{instance[1].id}}
                   </a>
                 </li>
               {% endfor %}
