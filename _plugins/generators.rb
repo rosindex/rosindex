@@ -541,7 +541,7 @@ def get_raw_uri(uri_s, branch)
   case uri.host
   when 'github.com'
     uri_split = File.split(uri.path)
-    return 'https://raw.githubusercontent.com/%s/%s/%s' % [uri_split[0], uri_split[1], branch]
+    return 'https://raw.githubusercontent.com/%s/%s/%s' % [uri_split[0], uri_split[1].rpartition('.')[0], branch]
   when 'bitbucket.org'
     uri_split = File.split(uri.path)
     return 'https://bitbucket.org/%s/%s/raw/%s' % [uri_split[0], uri_split[1], branch]
@@ -556,8 +556,9 @@ def get_browse_uri(uri_s, branch)
   case uri.host
   when 'github.com'
     uri_split = File.split(uri.path)
-    return 'https://github.com/%s/%s/blob/%s' % [uri_split[0], uri_split[1], branch]
+    return 'https://github.com/%s/%s/blob/%s' % [uri_split[0], uri_split[1].rpartition('.')[0], branch]
   when 'bitbucket.org'
+    uri_split = File.split(uri.path)
     return 'https://bitbucket.org/%s/%s/src/%s' % [uri_split[0], uri_split[1], branch]
   end
 
@@ -799,6 +800,9 @@ class GitScraper < Jekyll::Generator
           package_name = REXML::XPath.first(manifest_doc, "/package/name/text()").to_s.rstrip.lstrip
           version = REXML::XPath.first(manifest_doc, "/package/version/text()").to_s
 
+          # get dependencies
+          deps = REXML::XPath.each(manifest_doc, "/package/build_depend/text() | /package/run_depend/text() | package/depend/text()").map { |a| a.to_s }.uniq
+
         elsif File.exist?(manifest_xml_path)
           manifest_xml = IO.read(manifest_xml_path)
           pkg_type = 'rosbuild'
@@ -820,6 +824,8 @@ class GitScraper < Jekyll::Generator
           # read the package manifest
           manifest_doc = REXML::Document.new(manifest_xml)
 
+          # get dependencies
+          deps = REXML::XPath.each(manifest_doc, "string(/package/depend@package)").map { |a| a.to_s }.uniq
         else
           next
         end
@@ -870,6 +876,8 @@ class GitScraper < Jekyll::Generator
           'maintainers' => maintainers,
           # optional package info
           'authors' => authors,
+          # dependencies
+          'deps' => deps,
           # rosindex metadata
           'tags' => tags,
           # readme

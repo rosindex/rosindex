@@ -6,10 +6,15 @@ Assumes distro and package are defined
     <a href="#{{distro}}-overview" data-toggle="tab">Overview</a>
   </li>
   <li>
-    <a href="#{{distro}}-assets" data-toggle="tab"><span class="label label-default">0</span> Assets</a>
+    {% assign n_launch = package.data.launch_files | size %}
+    {% assign n_msgs = package.data.msg_files | size %}
+    {% assign n_srvs = package.data.srv_files | size %}
+    {% assign n_assets = n_launch | plus: n_srvs | plus: n_msgs %}
+    <a href="#{{distro}}-assets" data-toggle="tab"><span class="label label-{%if n_assets == 0%}default{%else%}primary{%endif%}">{{n_assets}}</span> Assets</a>
   </li>
   <li>
-    <a href="#{{distro}}-deps" data-toggle="tab"><span class="label label-default">0</span> Dependencies</a>
+  {% assign n_deps = package.data.deps | size %}
+<a href="#{{distro}}-deps" data-toggle="tab"><span class="label label-{%if n_deps == 0%}default{%else%}primary{%endif%}">{{n_deps}}</span> Dependencies</a>
   </li>
   <li>
   <a href="#{{distro}}-tutorials" data-toggle="tab"><span class="label label-default">0</span> Tutorials</a>
@@ -165,7 +170,9 @@ Assumes distro and package are defined
         <h3 class="panel-title">Depends On</h3>
       </div>
       <div class="panel-body">
-        ...
+          {% for p in package.data.deps %}
+            <li><h4><a class="label label-primary" href="/p/{{p}}#{{distro}}">{{p}}</a></h4></li>
+          {%endfor%}
       </div>
     </div>
 
@@ -189,6 +196,7 @@ Assumes distro and package are defined
           {% for f in package.data.launch_files %}
             <li><a href="{{package.data.browse_uri}}{{f}}" target="_blank">{{f}}</a></li>
           {%endfor%}
+        </ul>
       </div>
     </div>
 
@@ -197,7 +205,11 @@ Assumes distro and package are defined
         <h3 class="panel-title">Messages</h3>
       </div>
       <div class="panel-body">
-        ...
+        <ul>
+          {% for f in package.data.msg_files %}
+            <li><a href="{{package.data.browse_uri}}{{f}}" target="_blank">{{f}}</a></li>
+          {%endfor%}
+        </ul>
       </div>
     </div>
 
@@ -206,7 +218,11 @@ Assumes distro and package are defined
         <h3 class="panel-title">Services</h3>
       </div>
       <div class="panel-body">
-        ...
+        <ul>
+          {% for f in package.data.srv_files %}
+            <li><a href="{{package.data.browse_uri}}{{f}}" target="_blank">{{f}}</a></li>
+          {%endfor%}
+        </ul>
       </div>
     </div>
 
@@ -222,3 +238,17 @@ Assumes distro and package are defined
   </div>
 </div>
 
+<script>
+// Javascript to enable link to tab
+$(function() {
+  var url = document.location.toString();
+  if (url.match('#')) {
+      $('.nav-tabs a[href=#'+url.split('#')[1]+']').tab('show') ;
+  } 
+
+  // Change hash for page-reload
+  $('.nav-tabs a').on('shown', function (e) {
+      window.location.hash = e.target.hash;
+  })
+});
+</script>
