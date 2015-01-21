@@ -4,7 +4,7 @@ ROS Index
 A simple static index for known ROS packages on GitHub. It builds in jekyll
 with a plugin to pull down information from github, and uses client-side
 javascript for quick searching and to fetch additional information from GitHub
-like open tickets and active forks.
+like open tickets and active forks.  [Homepage](http://rosindex.github.io/)
 
 ## Contributing
 
