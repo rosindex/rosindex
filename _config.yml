@@ -51,10 +51,11 @@ index_old_doc_paths: false
 
 # ROS distros to look for
 distros:
+  - 'jade'
   - 'indigo'
   - 'hydro'
-  - 'groovy'
 old_distros:
+  - 'groovy'
   - 'fuerte'
   - 'electric'
   - 'diamondback'
