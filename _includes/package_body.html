@@ -194,7 +194,7 @@ Assumes distro and package are defined
       <div class="panel-body">
         <ul>
           {% for f in package.data.launch_files %}
-            <li><a href="{{package.data.browse_uri}}{{f}}" target="_blank">{{f}}</a></li>
+            <li><a href="{{package.data.browse_uri}}/{{f}}" target="_blank">{{f}}</a></li>
           {%endfor%}
         </ul>
       </div>
@@ -207,7 +207,7 @@ Assumes distro and package are defined
       <div class="panel-body">
         <ul>
           {% for f in package.data.msg_files %}
-            <li><a href="{{package.data.browse_uri}}{{f}}" target="_blank">{{f}}</a></li>
+            <li><a href="{{package.data.browse_uri}}/{{f}}" target="_blank">{{f}}</a></li>
           {%endfor%}
         </ul>
       </div>
@@ -220,7 +220,7 @@ Assumes distro and package are defined
       <div class="panel-body">
         <ul>
           {% for f in package.data.srv_files %}
-            <li><a href="{{package.data.browse_uri}}{{f}}" target="_blank">{{f}}</a></li>
+            <li><a href="{{package.data.browse_uri}}/{{f}}" target="_blank">{{f}}</a></li>
           {%endfor%}
         </ul>
       </div>

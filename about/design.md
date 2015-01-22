@@ -1,21 +1,12 @@
 ---
 layout: page
-title: Development
-permalink: /development/
+title: Design
+permalink: /about/design/
 ---
 
-Reads `rosdistro` files to get lists of released and unreleased ROS
-repositories. For all repositories with source links, it adds them
-to a known repositories index. 
+# ROS Index Design
 
-Files are read from two places in `rosdistro`:
-
- * `_rosdistro/<<DISTRO>>/distribution.yaml`
- * `_rosdistro/doc/<<DISTRO>>/*.rosinstall`
-
-ROS packages are uniquely located in rosdistro by a distribution (groovy,
-hydro, indigo) and a repository identifier. In a given distribution, package
-names are unique.
+## Index Organization
 
 ROSIndex organizes ROS source code in two ways:
 
@@ -88,15 +79,71 @@ When viewing the tab for a given ROS distribution, the user can see additional
 metadata about the package, as well as in which repository that package is
 located.
 
-## Building ROSIndex
+## Finding Sources
 
-System Requirements:
+### Official Index
 
-* ruby 1.9
-* subversion 1.8
-  * with SWIG ruby bindings and serf (`./configure --with-serf`)
-* git
-* mercurial
+The ROS Index site generator reads `rosdistro` files to get lists of released
+and unreleased ROS repositories. For all repositories with source links, it
+adds them to a known repositories index. 
 
-Ruby Requirements:
+Files are read from two places in `rosdistro`:
 
+ * `_rosdistro/<<DISTRO>>/distribution.yaml`
+ * `_rosdistro/doc/<<DISTRO>>/*.rosinstall`
+
+ROS packages are uniquely located in rosdistro by a distribution (groovy,
+hydro, indigo) and a repository identifier. In a given distribution, package
+names are unique.
+
+### Forks
+
+Unfortunately, the *rosdistro* standard, as defined in
+[REP-141](http://ros.org/reps/rep-0141.html), does not accomodate the indexing
+of *forks*. Until the standard is extended to do so, rosindex will support the
+indexing of this additional information.
+
+Forks are described in the YAML-formatted markdown files in the `_repos`
+directory which correspond to the repository names in *rosdistro*. Each
+repository fork should be given an identifying name for easy reference on the
+rosindex website.
+
+```yaml
+instances:
+  - uri: 'https://github.com/jbohren/conman.git'
+    type: git
+    default: true
+    purpose: 'original'
+    distros:
+      hydro: { default: true, version: 'master' }
+  - uri: 'https://github.com/RCPRG-ros-pkg/conman.git'
+    type: git
+    purpose: 'experimentation'
+    distros:
+      hydro: { version: 'master' }
+```
+
+## Information Collected by ROS Index
+
+### Repository Information
+
+* Repository URI
+* Release status
+* Last commit date
+
+### Package Information
+
+* All information contained in the package manifest as described by
+  [REP-127](http://www.ros.org/reps/rep-0127.html) and
+  [REP-140](http://www.ros.org/reps/rep-0140.html).
+* Last commit date
+
+### Package Contents
+
+* ROS Launchfiles
+* ROS Message files
+* ROS Service files
+
+### ROS Index Metadata
+
+See [ROS Index Metadata](/contribute/metadata) for more details.

@@ -825,7 +825,7 @@ class GitScraper < Jekyll::Generator
           manifest_doc = REXML::Document.new(manifest_xml)
 
           # get dependencies
-          deps = REXML::XPath.each(manifest_doc, "string(/package/depend@package)").map { |a| a.to_s }.uniq
+          deps = REXML::XPath.each(manifest_doc, "/package/depend/@package").map { |a| a.to_s }.uniq
         else
           next
         end
@@ -843,6 +843,7 @@ class GitScraper < Jekyll::Generator
 
         # compute the relative path from the root of the repo to this directory
         relpath = Pathname.new(File.join(*path)).relative_path_from(Pathname.new(local_path))
+        local_package_path = Pathname.new(path)
 
         # extract package manifest info
         raw_uri = File.join(data['raw_uri'], relpath)
@@ -887,9 +888,9 @@ class GitScraper < Jekyll::Generator
           'changelog' => changelog,
           'changelog_rendered' => changelog_rendered,
           # assets
-          'launch_files' => launch_files.map {|f| f.sub(File.join(local_path,relpath),'') },
-          'msg_files' => msg_files.map {|f| f.sub(File.join(local_path,relpath),'') },
-          'srv_files' => srv_files.map {|f| f.sub(File.join(local_path,relpath),'') }
+          'launch_files' => launch_files.map {|f| Pathname.new(f).relative_path_from(local_package_path).to_s },
+          'msg_files' => msg_files.map {|f| Pathname.new(f).relative_path_from(local_package_path).to_s },
+          'srv_files' => srv_files.map {|f| Pathname.new(f).relative_path_from(local_package_path).to_s }
         }
 
         dputs " -- adding package " << package_name

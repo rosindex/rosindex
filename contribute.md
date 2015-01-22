@@ -4,6 +4,8 @@ title: Contribute
 permalink: /contribute/
 ---
 
+# Contribute
+
 ## Contributing ROS Packages to ROS Index
 
 The majority of repositories listed on ROS Index are discovered via the
@@ -35,7 +37,15 @@ easier for users to run your code. In order to release your repository's
 packages, follow the tutorials for the [bloom release automation
 tool](http://wiki.ros.org/bloom) on the ROS.org Wiki.
 
-## Contributing Content to Indexed ROS Packages
+## Adding ROS Index Metadata to Indexed ROS Packages
+
+In addition to standard `README` formats, ROS Index also inspects ROS package
+manifest XML files for ROS Index-specific `<export>` tags in order to read
+additional metadata.
+
+See [ROS Index Metadata](/contribute/metadata) for documentation on these tags.
+
+## Contributing Content to Packages Maintained by others
 
 There are many documeented ROS repositories and packages out there, but
 there are even more which lack descriptions or even `README` files. One of
@@ -44,7 +54,15 @@ the indexed packages directly.
 
 For example, if you find a package without a good description or `README`,
 it's very easy to write up your own notes, and submit them as a <em>pull
-request</em> on GitHub or BitBucket.
+request</em> on GitHub or BitBucket. 
+
+For packages which are hosted on systems that don't support pull requests, or
+packages which are no longer maintained, feel free to fork those packages on
+GitHub, add documentation, and get them indexed as forks (see above for
+contributing a fork).
+
+See [Resurrecting Packages](/contribute/resurrect) for documentation on how to
+bring a package back from the dead.
 
 ## Opting out of Indexing
 
