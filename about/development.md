@@ -2,6 +2,7 @@
 layout: page
 title: Development
 permalink: /about/development/
+breadcrumbs: ['about']
 ---
 
 # ROS Index Development

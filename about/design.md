@@ -2,6 +2,7 @@
 layout: page
 title: Design
 permalink: /about/design/
+breadcrumbs: ['about']
 ---
 
 # ROS Index Design

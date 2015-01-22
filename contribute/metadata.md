@@ -2,6 +2,7 @@
 layout: page
 title: ROS Index Metadata
 permalink: /contribute/metadata/
+breadcrumbs: ['contribute']
 ---
 
 # ROS Index Metadata
