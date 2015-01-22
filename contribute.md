@@ -91,4 +91,4 @@ to be generated offline, and then uploaded to GitHub's severs.
 Since the ROS Index website is completely open-source, issues, feature
 requests, and especially pull requests are welcome.
 
-For more details on developing ROS Index, see [development](/development).
+For more details on developing ROS Index, see [development](/about/development).
