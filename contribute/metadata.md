@@ -1,7 +1,7 @@
 ---
 layout: page
 title: ROS Index Metadata
-permalink: /contribute/metadata
+permalink: /contribute/metadata/
 ---
 
 # ROS Index Metadata
@@ -39,6 +39,7 @@ a ROS package:
 The following are ROS Index metadata elements which are eithe runimplemented or
 still being designed.
 
+* **Include** -- `<include file="..."/>`
 * **Alternate README** -- `<readme>...</readme>`
 * **Tutorials** -- `<tutorials>...</tutorials>`
 * **Nodes** -- `<nodes>...</nodes>`
@@ -58,6 +59,14 @@ rosindex section would look like the following:
   <tag>real-time</tag>
 </tags>
 ```
+
+### Include Other XML File
+
+***UNIMPLEMENTED***
+
+If you don't want to put all the ROSIndex metadata into your package manifest,
+you can use an `<include/>` tag to include other XML sources from within the
+package.
 
 ### Alternate REAMDE
 

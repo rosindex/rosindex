@@ -33,7 +33,7 @@ domain_blacklist:
   - 'kforge.ros.org'
   - 'code.in.tum.de'
 
-use_cached: false
+use_cached: true
 cache_filename: _deploy_cache.db
 
 exclude:
