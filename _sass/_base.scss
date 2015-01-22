@@ -86,6 +86,14 @@ table.table thead a:not(.btn) {
   color: #555555;
 }
 
+.nav-tabs>li.better-tabs.active>a {
+  background-color: #ffffff;
+}
+
+.nav-tabs>li.better-tabs>a {
+  background-color: #eeeeee;
+}
+
 /*h5 a:hover {*/
   /*text-decoration: none;*/
 /*}*/

@@ -1,22 +1,22 @@
 {% comment %}
 Assumes distro and package are defined
 {% endcomment %}
-<ul class="nav nav-tabs" id="{{distro}}-tabs" style="margin-bottom:20px">
-  <li class="active">
+<ul class="nav nav-tabs nav-justified" id="{{distro}}-tabs" style="margin-bottom:20px">
+  <li class="better-tabs active">
     <a href="#{{distro}}-overview" data-toggle="tab">Overview</a>
   </li>
-  <li>
+  <li class="better-tabs">
     {% assign n_launch = package.data.launch_files | size %}
     {% assign n_msgs = package.data.msg_files | size %}
     {% assign n_srvs = package.data.srv_files | size %}
     {% assign n_assets = n_launch | plus: n_srvs | plus: n_msgs %}
     <a href="#{{distro}}-assets" data-toggle="tab"><span class="label label-{%if n_assets == 0%}default{%else%}primary{%endif%}">{{n_assets}}</span> Assets</a>
   </li>
-  <li>
+  <li class="better-tabs">
   {% assign n_deps = package.data.deps | size %}
 <a href="#{{distro}}-deps" data-toggle="tab"><span class="label label-{%if n_deps == 0%}default{%else%}primary{%endif%}">{{n_deps}}</span> Dependencies</a>
   </li>
-  <li>
+  <li class="better-tabs">
   <a href="#{{distro}}-tutorials" data-toggle="tab"><span class="label label-default">0</span> Tutorials</a>
   </li>
 </ul>

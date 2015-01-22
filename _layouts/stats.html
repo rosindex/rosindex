@@ -26,6 +26,9 @@ layout: default
     <div class="panel panel-default">
       <div class="panel-heading"><h3 class="panel-title">Distro Activity</h3></div>
       <div class="panel-body">
+        <p>
+        Below are histograms of repositories updated over the last 2000 days in each distro.
+        </p>
 
       {% for hist_values in page.distro_activity %}
         {% assign distro = hist_values[0] %}
