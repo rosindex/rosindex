@@ -10,3 +10,6 @@
 [submodule "js/venn.js"]
 	path = js/venn.js
 	url = https://github.com/benfred/venn.js
+[submodule "_caches"]
+	path = _caches
+	url = git@github.com:rosindex/caches.git

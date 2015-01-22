@@ -34,9 +34,10 @@ domain_blacklist:
   - 'code.in.tum.de'
 
 use_cached: true
-cache_filename: _deploy_cache.db
+cache_filename: _caches/_deploy_cache.db
 
 exclude:
+  - _caches
   - _deploy_cache.db
   - _devel_cace.db
   - _ruby_libs
