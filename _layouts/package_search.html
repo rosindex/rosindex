@@ -44,7 +44,7 @@ layout: default
               <th>Distro</th>
               <th>Name</th>
               <th>Repo</th>
-              <th>Description</th>
+              {% comment %}<th>Description</th>{% endcomment %}
             </tr>
           </thead>
           <tbody class="entries">
@@ -86,13 +86,13 @@ layout: default
         <td><span class="label label-default">{{distro}}</span></td>
         <td><a href="{{url}}">{{name}}</a></td>
         <td><a href="/r/{{repo_name}}/{{instance}}">{{instance}}</a></td>
-        <td>
-          {{description}}
-        </td>
       </tr>
   {{/entries}}
 </script>
 {% endraw %}
+        {% comment %}<td>{% endcomment %}
+          {% comment %}{{description}}{% endcomment %}
+        {% comment %}</td>{% endcomment %}
           {% comment %}<div class="truncate">{% endcomment %}
             {% comment %}<div class="spacer">{{description}}</div>{% endcomment %}
             {% comment %}<div class="content">{{description}}</div>{% endcomment %}
