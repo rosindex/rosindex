@@ -13,7 +13,7 @@ breadcrumbs: ['contribute']
 
 Catkin `package.xml` and ROSBuild `manifest.xml` files can be augmented with
 `<rosindex>` tags in the `<export>` section, which is meant for 3rd-party use.
-Adding an empty rosindex section to a `package.xml` fifle would look like the
+Adding an empty rosindex section to a `package.xml` file would look like the
 following:
 
 ```xml
@@ -39,7 +39,7 @@ a ROS package:
 
 * **Category Tags** -- `<tags>...</tags>`
 
-The following are ROS Index metadata elements which are eithe runimplemented or
+The following are ROS Index metadata elements which are either unimplemented or
 still being designed.
 
 * **Include** -- `<include file="..."/>`
@@ -71,7 +71,7 @@ If you don't want to put all the ROSIndex metadata into your package manifest,
 you can use an `<include/>` tag to include other XML sources from within the
 package.
 
-### Alternate REAMDE
+### Alternate README
 
 ***UNIMPLEMENTED***
 
