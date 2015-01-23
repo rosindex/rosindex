@@ -53,7 +53,7 @@ See [ROS Index Metadata](/contribute/metadata) for documentation on these tags.
 
 ## Contributing Content to Packages Maintained by Others
 
-There are many documeented ROS repositories and packages out there, but
+There are many documented ROS repositories and packages out there, but
 there are even more which lack descriptions or even `README` files. One of
 the best ways to contribute to ROS Index is to contribute documentation to
 the indexed packages directly. 
