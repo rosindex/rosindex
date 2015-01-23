@@ -14,6 +14,11 @@ ROS Index is a statically-generated website which is composed of four main compo
 3. HTML templates for displaying content
 4. Build-side and client-side javascript for searching the index
 
+Everything used to build ROS Index can be found on the [rosindex GitHub
+organization](http://github.com/rosindex).
+
+<a href="https://github.com/rosindex/rosindex.github.io/issues/new" target="_blank" class="btn btn-success">Post an Issue</a>
+
 {% toc 2 %}
 
 ## Building ROSIndex
@@ -28,21 +33,35 @@ ROS Index is a statically-generated website which is composed of four main compo
 
 ### Ruby Requirements
 
+* jekyll
+* fileutils
+* git
+* rexml
+* rugged
+* nokogiri
+* colorize
+* typhoeus
+* pandoc-ruby
+* mercurial-ruby
+* svn_wc
+* svn/core
+
 ### Getting the ROS Index Source
 
-#### Cloning
-
 ```
-git submodule init
-git submodule update
+git clone --recursive git@github.com:rosindex/rosindex.github.io.git
 ```
 
 ## Building
+
+To build or serve the entire website locally with a handful of ROS packages:
 
 ```
 rake build:devel
 rake serve:devel
 ```
+
+To build or serve the entire website locally with all known ROS packages:
 
 ```
 rake build:deploy
@@ -51,16 +70,11 @@ rake serve:deploy
 
 ## Deployment
 
-Since this needs to do a lot of heavy lifting to generate the site, it needs to
-be deployed from a fully-equipped environment.
+Deployment is done by simply pushing the generated site to GitHub:
 
 ```
-git checkout source
-rake build:deploy
-pushd _deploy
-git commit -am "deploy"
-git push origin master
-popd
-git commit -am "deployed"
-git push origin source
+cd _deploy
+git add .
+git commit -a --amend
+git push -f origin master
 ```

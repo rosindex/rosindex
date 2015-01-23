@@ -28,8 +28,9 @@ layout: default
     </form>
 
   </div>
+  <hr>
   <div class="row">
-    <h1 class="page-heading">Posts</h1>
+    <h1 class="page-heading">News <small>subscribe <a href="{{ "/feed.xml" | prepend: site.baseurl }}">via RSS</a></small></h1>
     <ul class="post-list">
       {% for post in site.posts %}
       <li>
@@ -39,7 +40,5 @@ layout: default
       </li>
       {% endfor %}
     </ul>
-
-    <p class="rss-subscribe">subscribe <a href="{{ "/feed.xml" | prepend: site.baseurl }}">via RSS</a></p>
   </div>
 </div>

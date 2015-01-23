@@ -70,6 +70,14 @@ div pre {
   word-wrap: normal;
 }
 
+div pre {
+  word-wrap: normal;
+}
+
+div pre code {
+  white-space: inherit;
+}
+
 label.control-label {
   font-weight: bold;
 }
@@ -225,6 +233,7 @@ img {
 /**
  * Blockquotes
  */
+/*
 blockquote {
     color: $grey-color;
     border-left: 4px solid $grey-color-light;
@@ -237,6 +246,7 @@ blockquote {
         margin-bottom: 0;
     }
 }
+*/
 
 code {
   color: #666666;
