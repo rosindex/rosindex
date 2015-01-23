@@ -15,7 +15,7 @@ centralized SVN repositories. In order to contribute documentation, a user
 could do so on the wiki, without needing access to the code. Since ROS was
 first released, however, most code has migrated to distributed version control
 systems which make it much easier for users to contribute back via pull or merge
-requests. ROS Index focueses on presenting documentation which is coupled to
+requests. ROS Index focuses on presenting documentation which is coupled to
 version-controlled code and on making this documentation aggregated in one
 place.
 
@@ -23,7 +23,7 @@ place.
 
 ## Index Organization
 
-ROSIndex organizes ROS source code in two ways:
+ROS Index organizes ROS source code in two ways:
 
  * By repository
  * By package
@@ -32,7 +32,7 @@ ROSIndex organizes ROS source code in two ways:
 
 The repository organization is simple: each repository identifier corresponds
 to a set of repository `instances`. Repository instances are different versions
-of a repository with the same name but different URIs. This enables ROSIndex
+of a repository with the same name but different URIs. This enables ROS Index
 to index forks of known repositories. Within each instance, branches and tags
 correspond to different ROS distributions. So versions of repositories can be
 organized hierarchically like so:
@@ -44,7 +44,7 @@ organized hierarchically like so:
 This gives rise to urls like:
 
 ```
-rosindex.github.io/r/<<REPOSITORY>>/<<INSTANCE>>/#<<DISTRO>>
+rosindex.github.io/r/<<REPOSITORY>>/<<INSTANCE>>/<<DISTRO>>
 ```
 
 So for the ``geometry`` repository, the default instance would be resolved by:
@@ -72,7 +72,7 @@ Specific instances of packages can be resolved by the following:
  1. repository identifier
  2. repository instance
  3. package name
- 4. ROS distribuition (branch/tag)
+ 4. ROS distribution (branch/tag)
 
 ### Package Organization
 
@@ -83,7 +83,7 @@ used for repositories doesn't fit as well. It could have the effect of obscuring
 versions of code for a newer or older distribution because it changed
 repositories.
 
-Most importantly, people want to see the documentation for *offifical* packeges.
+Most importantly, people want to see the documentation for *official* packages.
 As such, it makes sense that when browsing packages, the default instances for a
 distribution are organized like so:
 
@@ -107,7 +107,7 @@ Files are read from two places in `rosdistro`:
  * `_rosdistro/<<DISTRO>>/distribution.yaml`
  * `_rosdistro/doc/<<DISTRO>>/*.rosinstall`
 
-ROS packages are uniquely located in rosdistro by a distribution (groovy,
+ROS packages are uniquely located in `rosdistro` by a distribution (groovy,
 hydro, indigo) and a repository identifier. In a given distribution, package
 names are unique.
 
@@ -115,7 +115,7 @@ names are unique.
 
 Unfortunately, the *rosdistro* standard, as defined in
 [REP-141](http://ros.org/reps/rep-0141.html), does not accomodate the indexing
-of *forks*. Until the standard is extended to do so, rosindex will support the
+of *forks*. Until the standard is extended to do so, ROS Index will support the
 indexing of this additional information.
 
 Forks are described in the YAML-formatted markdown files in the `_repos`
@@ -155,7 +155,7 @@ instances:
 
 ### Package Contents
 
-* ROS Launchfiles
+* ROS Launch files
 * ROS Message files
 * ROS Service files
 
