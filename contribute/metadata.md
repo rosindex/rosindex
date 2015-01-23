@@ -7,6 +7,8 @@ breadcrumbs: ['contribute']
 
 # ROS Index Metadata
 
+{% toc 2 %}
+
 ## Adding Package Metadata
 
 Catkin `package.xml` and ROSBuild `manifest.xml` files can be augmented with

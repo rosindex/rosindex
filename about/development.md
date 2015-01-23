@@ -14,9 +14,11 @@ ROS Index is a statically-generated website which is composed of four main compo
 3. HTML templates for displaying content
 4. Build-side and client-side javascript for searching the index
 
+{% toc 2 %}
+
 ## Building ROSIndex
 
-### System Requirements:
+### System Requirements
 
 * ruby 1.9
 * subversion 1.8
@@ -24,7 +26,7 @@ ROS Index is a statically-generated website which is composed of four main compo
 * git
 * mercurial
 
-### Ruby Requirements:
+### Ruby Requirements
 
 ### Getting the ROS Index Source
 

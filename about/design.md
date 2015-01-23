@@ -7,6 +7,20 @@ breadcrumbs: ['about']
 
 # ROS Index Design
 
+ROS Index was developed to address the limitations of the [ROS
+Wiki](http://wiki.ros.org). The biggest issue plaguing the Wiki is the lack of
+synchronization between documentation and changing interfaces. Originally, a
+wiki system suited the ROS community well, since most ROS code was contained in
+centralized SVN repositories. In order to contribute documentation, a user
+could do so on the wiki, without needing access to the code. Since ROS was
+first released, however, most code has migrated to distributed version control
+systems which make it much easier for users to contribute back via pull or merge
+requests. ROS Index focueses on presenting documentation which is coupled to
+version-controlled code and on making this documentation aggregated in one
+place.
+
+{% toc 2 %}
+
 ## Index Organization
 
 ROSIndex organizes ROS source code in two ways:

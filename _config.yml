@@ -22,6 +22,8 @@ redcarpet:
     - fenced_code_blocks
     - autolink
     - no_intra_emphasis
+    - with_toc_data
+    - html_toc
 
 highlighter: pygments
 
@@ -47,7 +49,7 @@ exclude:
   - README.md
 
 rosdistro_path: _rosdistro
-repos_path: _repos
+repos_path: _rosforks/repos
 index_old_doc_paths: false
 
 # ROS distros to look for

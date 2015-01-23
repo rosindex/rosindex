@@ -94,6 +94,17 @@ table.table thead a:not(.btn) {
   background-color: #eeeeee;
 }
 
+/*div#toc {*/
+  /*padding-left: 0px;*/
+  /*padding-right: 0px;*/
+  /*padding-bottom: 5px;*/
+/*}*/
+
+div#toc a {
+  font-weight: bold;
+}
+
+
 /*h5 a:hover {*/
   /*text-decoration: none;*/
 /*}*/
@@ -225,6 +236,11 @@ blockquote {
     > :last-child {
         margin-bottom: 0;
     }
+}
+
+code {
+  color: #666666;
+  background-color: #ECECEC;
 }
 
 

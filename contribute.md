@@ -6,7 +6,13 @@ permalink: /contribute/
 
 # Contribute
 
-## Contributing ROS Packages to ROS Index
+There are numerous ways to contribute to ROS Index, either by adding packages,
+contributing documentation to existing packages, or adding more analytics to
+the website itself.
+
+{% toc 2 %}
+
+## Adding ROS Packages
 
 The majority of repositories listed on ROS Index are discovered via the
 `rosdistro` system. As such, the easiest way to add a repository to ROS Index
@@ -22,14 +28,14 @@ button below.
 
 <a type="button" href="/contribute/add_repo" class="btn btn-success">Add a Repository to the Index</a>
 
-### Adding a Fork of a Repository Already in rosdistro
+### Adding a Fork of an Existing Repository
 
 If you would like you get your fork of an existing repository indexed for
 documentation, click the button below.
 
 <a type="button" href="/contribute/add_fork" class="btn btn-success disabled">Add a Repository Fork to the Index</a>
 
-### Releasing Packages in a Repository for Binary Distribution
+### Releasing Binary Packages
 
 Releasing a package for binary distribution is a bit more complicated, and
 cannot be done through a web interface. It will, however, make it much
@@ -37,7 +43,7 @@ easier for users to run your code. In order to release your repository's
 packages, follow the tutorials for the [bloom release automation
 tool](http://wiki.ros.org/bloom) on the ROS.org Wiki.
 
-## Adding ROS Index Metadata to Indexed ROS Packages
+## Adding ROS Index Metadata
 
 In addition to standard `README` formats, ROS Index also inspects ROS package
 manifest XML files for ROS Index-specific `<export>` tags in order to read
@@ -45,7 +51,7 @@ additional metadata.
 
 See [ROS Index Metadata](/contribute/metadata) for documentation on these tags.
 
-## Contributing Content to Packages Maintained by others
+## Contributing Content to Packages Maintained by Others
 
 There are many documeented ROS repositories and packages out there, but
 there are even more which lack descriptions or even `README` files. One of
