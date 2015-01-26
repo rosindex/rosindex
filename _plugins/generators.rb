@@ -29,12 +29,25 @@ require 'svn/core'
 $fetched_uris = {}
 $debug = false
 
+$index_exceptions = Hash.new {|h,k| h[k] = []}
+
+class IndexException < RuntimeError
+  attr :msg, :repo
+  def initialize(msg, repo)
+    @msg = msg
+    @repo = repo
+  end
+end
+
+
 # Debug puts
 def dputs(s)
   if $debug
     puts s
   end
 end
+
+
 
 def cleanup_uri(uri)
   if uri.nil? then return uri end
@@ -417,7 +430,6 @@ class GITSVN < GIT
   end
 
   def get_version(distro, explicit_version = nil)
-    puts "looking for version: #{explicit_version}"
     if explicit_version == 'REMOTE_HEAD'
       return @r.branches['master'], 'master' # super(distro, explicit_version = 'master')
     else
@@ -845,7 +857,7 @@ class GitScraper < Jekyll::Generator
         authors = REXML::XPath.each(manifest_doc, "/package/author/text()").map { |a| a.to_s.sub('@', ' <AT> ') }
 
         # extract other standard exports
-        deprecated = REXML::XPath.first(manifest_doc, "/package/export/deprecated/text()")
+        deprecated = (not REXML::XPath.first(manifest_doc, "/package/export/deprecated/text()").nil?)
 
         # extract rosindex exports
         tags = REXML::XPath.each(manifest_doc, "/package/export/rosindex/tags/tag/text()").map { |t| t.to_s }
@@ -1458,7 +1470,6 @@ class GitScraper < Jekyll::Generator
       '-f','unreleased'
     ].join(' ')
 
-
     puts ("Precompiling lunr index...").blue
     spawn(
       "#{lunr_cmd} #{lunr_index_fields}",
@@ -1468,14 +1479,20 @@ class GitScraper < Jekyll::Generator
     site.static_files << SearchIndexFile.new(site, site.dest, "/", "index.json")
 
     # create stats page
+    puts "Generating statistics page...".blue
     site.pages << StatsPage.new(site, @package_names, @all_repos)
   end
 
   def strip_stopwords(text)
-    text = text.split.delete_if() do |x|
-      t = x.downcase.gsub(/[^a-z']/, '')
-      t.length < @min_length || @stopwords.include?(t)
-    end.join(' ')
+    begin
+      text = text.encode('UTF-16', :undef => :replace, :invalid => :replace, :replace => "??").encode('UTF-8').split.delete_if() do |x|
+        t = x.downcase.gsub(/[^a-z']/, '')
+        t.length < @min_length || @stopwords.include?(t)
+      end.join(' ')
+    rescue ArgumentError
+      puts text.encode('UTF-16', :undef => :replace, :invalid => :replace, :replace => "??").encode('UTF-8')
+      throw
+    end
   end
 end
 

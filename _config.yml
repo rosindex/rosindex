@@ -32,9 +32,9 @@ use_db_cache: true
 db_cache_filename: _caches/_deploy_cache.db
 
 # If true, this skips finding repos based on the repo sources
-skip_discover: false
+skip_discover: true
 # If true, this skips updating the known repos
-skip_update: false
+skip_update: true
 # If true, this skips scraping the cloned repos
 skip_scrape: false
 
