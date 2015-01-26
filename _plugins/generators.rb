@@ -857,7 +857,7 @@ class GitScraper < Jekyll::Generator
         authors = REXML::XPath.each(manifest_doc, "/package/author/text()").map { |a| a.to_s.sub('@', ' <AT> ') }
 
         # extract other standard exports
-        deprecated = (not REXML::XPath.first(manifest_doc, "/package/export/deprecated/text()").nil?)
+        deprecated = REXML::XPath.first(manifest_doc, "/package/export/deprecated/text()").to_s
 
         # extract rosindex exports
         tags = REXML::XPath.each(manifest_doc, "/package/export/rosindex/tags/tag/text()").map { |t| t.to_s }
@@ -1186,7 +1186,7 @@ class GitScraper < Jekyll::Generator
               if @all_repos.key?(repo.id)
                 repo = @all_repos[repo.id]
               else
-                dputs " -- Adding repo for " << repo.name << " instance: " << repo.id << " from uri " << repo.uri.to_s
+                dputs " -- Adding repo for " << repo.name << " instance: " << repo.id << " from uri: " << repo.uri.to_s
                 # store this repo in the unique index
                 @all_repos[repo.id] = repo
               end
