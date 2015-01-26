@@ -525,7 +525,7 @@ end
 
 def get_hdf(hdf_str)
   # convert some hdf garbage into a ruby structure
-  stdin, stdout, stderr = Open3.popen3('scripts/hdf2json.py')
+  stdin, stdout, stderr = Open3.popen3('_scripts/hdf2json.py')
   stdin.puts(hdf_str)
   return JSON.parse(stdout.gets)
 end
@@ -1055,16 +1055,16 @@ class GitScraper < Jekyll::Generator
 
     @domain_blacklist = site.config['domain_blacklist']
 
-    @db_filename = if site.config['cache_filename'] then File.join(site.source,site.config['cache_filename']) else 'rosindex.db' end
-    @use_db_cache = (site.config['use_db_cache'] and File.exist?(@db_filename))
+    @db_cache_filename = if site.config['db_cache_filename'] then File.join(site.source,site.config['db_cache_filename']) else 'rosindex.db' end
+    @use_db_cache = (site.config['use_db_cache'] and File.exist?(@db_cache_filename))
 
     @skip_discover = site.config['skip_discover']
     @skip_update = site.config['skip_update']
     @skip_scrape = site.config['skip_scrape']
 
     if @use_db_cache
-      puts "Reading cache: " << @db_filename
-      @db = Marshal.load(IO.read(@db_filename))
+      puts "Reading cache: " << @db_cache_filename
+      @db = Marshal.load(IO.read(@db_cache_filename))
     else
       @db = RosIndexDB.new
     end
@@ -1286,9 +1286,9 @@ class GitScraper < Jekyll::Generator
     end
 
     # backup the current db if it exists
-    if File.exist?(@db_filename) then FileUtils.mv(@db_filename, @db_filename+'.bak') end
+    if File.exist?(@db_cache_filename) then FileUtils.mv(@db_cache_filename, @db_cache_filename+'.bak') end
     # save scraped data into the cache db
-    File.open(@db_filename, 'w') {|f| f.write(Marshal.dump(@db)) }
+    File.open(@db_cache_filename, 'w') {|f| f.write(Marshal.dump(@db)) }
 
     # generate pages for all repos
     @repo_names.each do |repo_name, repo_instances|

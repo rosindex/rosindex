@@ -50,6 +50,7 @@ domain_blacklist:
   - 'code.in.tum.de'
 
 exclude:
+  - _scripts
   - _caches
   - _rosdistro
   - _rosforks
