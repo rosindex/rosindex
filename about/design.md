@@ -56,7 +56,7 @@ rosindex.github.io/r/geometry
 In this case, this would be equivalent to:
 
 ```
-rosindex.github.io/r/geometry/rosdistro
+rosindex.github.io/r/geometry/github-ros-geometry
 ```
 
 This link would resolve to the repository corresponding to the URI given in the

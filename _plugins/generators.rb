@@ -21,6 +21,8 @@ require 'typhoeus'
 require 'pandoc-ruby'
 
 require 'mercurial-ruby'
+
+# these won't be needed for long (using git-svn instead)
 require File.expand_path('../_ruby_libs/svn_wc/lib/svn_wc', File.dirname(__FILE__))
 require 'svn/core'
 
@@ -111,7 +113,6 @@ class GIT < VCS
 
     @r = nil
     @origin = nil
-    @remote_head = nil
 
     if File.exist?(@local_path)
       @r = Rugged::Repository.new(@local_path)
@@ -187,6 +188,9 @@ class GIT < VCS
 
     # get the version if it's a branch
     @r.branches.each() do |branch|
+      # ignore this special branch
+      if branch.name == 'git-svn' then next end
+
       # get the branch shortname
       branch_name = branch.name.split('/')[-1]
 
@@ -354,6 +358,7 @@ class SVN < VCS
   end
 
   def checkout(version)
+    # TODO: make it so this doesn't talk to the server unless necessary (maybe use svk underneath?)
     if self.valid? and version == 'HEAD'
       dputs " --- checking out " << version.to_s << " uri: " << @uri << " in path: " << @local_path
       #@r.update(version) WTF libsvn supermemleak
@@ -392,27 +397,36 @@ class GITSVN < GIT
   # so use git instead!
   # this uses git-svn to clone an svn repo
   def initialize(local_path, uri)
+    @local_path = local_path
+    @uri = uri
     if self.uri_ok?
-      unless File.exist?(@local_path)
+      if File.exist?(File.join(local_path,'.svn'))
+        system("mv #{local_path} #{local_path}__svn")
+      end
+      unless File.exist?(File.join(local_path,'.git'))
         # TODO
-        dputs " - opened svn repository at: " << @local_path << " from uri: " << @uri
-      else
-        # TODO
-        dputs " - initialized new svn repository at: " << @local_path << " from uri: " << @uri
+        system("git svn clone -rHEAD #{uri} #{local_path}")
+        dputs " - initialized new git-svn repository at: " << local_path << " from uri: " << uri
       end
     else
-      puts ("ERROR: could not reach hg repository at uri: " + @uri).red
+      puts ("ERROR: could not reach svn repository at uri: " + uri).red
+      return
     end
 
     super(local_path, uri)
   end
 
   def get_version(distro, explicit_version = nil)
-    if explicit_version == 'HEAD'
-      return super(distro, explicit_version = 'master')
+    puts "looking for version: #{explicit_version}"
+    if explicit_version == 'REMOTE_HEAD'
+      return @r.branches['master'], 'master' # super(distro, explicit_version = 'master')
     else
       return nil, nil
     end
+  end
+
+  def fetch
+    system('cd "'+@local_path+'" git svn rebase')
   end
 end
 
@@ -429,7 +443,7 @@ def get_vcs(repo)
     vcs = HG.new(repo.local_path, repo.uri)
   when 'svn'
     dputs "Getting svn repo: " + repo.uri.to_s
-    vcs = SVN.new(repo.local_path, repo.uri)
+    vcs = GITSVN.new(repo.local_path, repo.uri)
   else
     dputs ("Unsupported VCS type: "+repo.type.to_s).red
   end
@@ -459,67 +473,61 @@ def fix_image_links(text, raw_uri, additional_path = '')
   return readme_doc.to_s, readme_doc
 end
 
-def get_readme(site, path, raw_uri)
+def get_md_rst_txt(site, path, glob, raw_uri)
 
-  rst_path = File.join(path,'README.rst')
-  md_path = File.join(path,'README.md')
-  txt_a_path = File.join(path,'README.txt')
-  txt_b_path = File.join(path,'README')
+  file_md = nil
 
-  if File.exist?(rst_path)
-    readme_rst = IO.read(rst_path)
-    readme_md = rst_to_md(readme_rst)
-  elsif File.exist?(md_path)
-    readme_md = IO.read(md_path)
-  elsif File.exist?(txt_a_path)
-    readme_txt = IO.read(txt_a_path)
-    readme_md = "```\n" + readme_txt + "\n```"
-  elsif File.exist?(txt_b_path) and not File.directory?(txt_b_path)
-    readme_txt = IO.read(txt_b_path)
-    readme_md = "```\n" + readme_txt + "\n```"
+  file_files = Dir.glob(File.join(path,glob), File::FNM_CASEFOLD)
+  file_files.each do |file_path|
+    case File.extname(file_path)
+    when '.md'
+      file_md = IO.read(file_path)
+    when '.rst'
+      file_rst = IO.read(file_path)
+      file_md = rst_to_md(file_rst)
+    when ''
+      if not File.directory?(file_path)
+        file_txt = IO.read(file_path)
+        file_md = "```\n" + file_txt + "\n```"
+      else
+        next
+      end
+    else
+      file_txt = IO.read(file_path)
+      file_md = "```\n" + file_txt + "\n```"
+    end
+    break
   end
 
-  if readme_md
-    # read in the readme and fix links
-    readme_html = render_md(site, readme_md)
-    readme_html = '<div class="rendered-markdown">'+readme_html+"</div>"
-    readme_rendered, _ = fix_image_links(readme_html, raw_uri)
+  if file_md
+    # read in the file and fix links
+    file_html = render_md(site, file_md)
+    file_html = '<div class="rendered-markdown">'+file_html+"</div>"
+    file_rendered, _ = fix_image_links(file_html, raw_uri)
   else
-    readme_rendered = nil
+    file_rendered = nil
   end
 
-  return readme_rendered, readme_md
+  return file_rendered, file_md
 end
 
-def get_changelog(site, path)
+def get_hdf(hdf_str)
+  # convert some hdf garbage into a ruby structure
+  stdin, stdout, stderr = Open3.popen3('scripts/hdf2json.py')
+  stdin.puts(hdf_str)
+  return JSON.parse(stdout.gets)
+end
 
-  rst_path = File.join(path,'CHANGELOG.rst')
-  md_path = File.join(path,'CHANGELOG.md')
-  txt_a_path = File.join(path,'CHANGELOG.txt')
-  txt_b_path = File.join(path,'CHANGELOG')
+def get_ros_api(elem)
+  return []
+end
 
-  if File.exist?(rst_path)
-    changelog_rst = IO.read(rst_path)
-    changelog_md = rst_to_md(changelog_rst)
-  elsif File.exist?(md_path)
-    changelog_md = IO.read(md_path)
-  elsif File.exist?(txt_a_path)
-    changelog_txt = IO.read(txt_a_path)
-    changelog_md = '```\n' + changelog_txt + '\n```'
-  elsif File.exist?(txt_b_path)
-    changelog_txt = IO.read(txt_b_path)
-    changelog_md = '```\n' + changelog_txt + '\n```'
-  end
+def get_readme(site, path, raw_uri)
+  return get_md_rst_txt(site, path, "README*", raw_uri)
+end
 
-  if changelog_md
-    # read in the changelog and fix links
-    changelog_html = render_md(site, changelog_md)
-    changelog_rendered = '<div class="rendered-markdown">'+changelog_html+"</div>"
-  else
-    changelog_rendered = nil
-  end
-
-  return changelog_rendered, changelog_md
+def get_changelog(site, path, raw_uri)
+  return get_md_rst_txt(site, path, "CHANGELOG*", raw_uri)
 end
 
 # Renders markdown to html (and apply some required tweaks)
@@ -744,8 +752,6 @@ class GitScraper < Jekyll::Generator
 
   def update_local(site, repo_instances)
 
-    puts "Updating repo for "+repo_instances.name
-
     # add / fetch all the instances
     repo_instances.instances.each do |id, repo|
 
@@ -782,7 +788,7 @@ class GitScraper < Jekyll::Generator
     Find.find(local_path) do |path|
       if FileTest.directory?(path)
         # skip certain paths
-        if (File.basename(path)[0] == ?.) or File.exist?(File.join(path,'CATKIN_IGNORE')) or File.exist?(File.join(path,'.rosindex_ignore')) 
+        if (File.basename(path)[0] == ?.) or File.exist?(File.join(path,'CATKIN_IGNORE')) or File.exist?(File.join(path,'.rosindex_ignore'))
           Find.prune
         end
 
@@ -830,7 +836,7 @@ class GitScraper < Jekyll::Generator
           next
         end
 
-        puts " ---- Found #{pkg_type} package \"#{package_name}\" in path #{path}"
+        dputs " ---- Found #{pkg_type} package \"#{package_name}\" in path #{path}"
 
         # extract manifest metadata (same for manifest.xml and package.xml)
         license = REXML::XPath.first(manifest_doc, "/package/license/text()").to_s
@@ -838,8 +844,25 @@ class GitScraper < Jekyll::Generator
         maintainers = REXML::XPath.each(manifest_doc, "/package/maintainer/text()").map { |m| m.to_s.sub('@', ' <AT> ') }
         authors = REXML::XPath.each(manifest_doc, "/package/author/text()").map { |a| a.to_s.sub('@', ' <AT> ') }
 
+        # extract other standard exports
+        deprecated = REXML::XPath.first(manifest_doc, "/package/export/deprecated/text()")
+
         # extract rosindex exports
         tags = REXML::XPath.each(manifest_doc, "/package/export/rosindex/tags/tag/text()").map { |t| t.to_s }
+        nodes = REXML::XPath.each(manifest_doc, "/package/export/rosindex/nodes").map { |nodes|
+          case nodes.attributes["format"]
+          when "hdf"
+            get_hdf(nodes.text)
+          else
+            REXML::XPath.each(manifest_doc, "/package/export/rosindex/nodes/node").map { |node|
+              Hash.new({
+                'name' => REXML::XPath.first(node,'/name/text()').to_s,
+                'description' => REXML::XPath.first(node,'/description/text()').to_s,
+                'ros_api' => get_ros_api(REXML::XPath.first(node,'/description/api()'))
+              })
+            }
+          end
+        }
 
         # compute the relative path from the root of the repo to this directory
         relpath = Pathname.new(File.join(*path)).relative_path_from(Pathname.new(local_path))
@@ -851,7 +874,7 @@ class GitScraper < Jekyll::Generator
 
         # check for readme in same directory as package.xml
         readme_rendered, readme = get_readme(site, path, raw_uri)
-        changelog_rendered, changelog = get_changelog(site, path)
+        changelog_rendered, changelog = get_changelog(site, path, raw_uri)
 
         # TODO
         # look for launchfiles in this package
@@ -879,8 +902,11 @@ class GitScraper < Jekyll::Generator
           'authors' => authors,
           # dependencies
           'deps' => deps,
+          # exports
+          'deprecated' => deprecated,
           # rosindex metadata
           'tags' => tags,
+          'nodes' => nodes,
           # readme
           'readme' => readme,
           'readme_rendered' => readme_rendered,
@@ -989,7 +1015,7 @@ class GitScraper < Jekyll::Generator
         vcs.checkout(version)
 
         # check for ignore file
-        if  File.exist?(File.join(vcs.local_path,'.rosindex_ignore')) 
+        if File.exist?(File.join(vcs.local_path,'.rosindex_ignore'))
           puts (" --- ignoring version for " << repo.name).yellow
           snapshot.version = nil
         else
@@ -1018,9 +1044,14 @@ class GitScraper < Jekyll::Generator
     @domain_blacklist = site.config['domain_blacklist']
 
     @db_filename = if site.config['cache_filename'] then File.join(site.source,site.config['cache_filename']) else 'rosindex.db' end
-    @use_cached = (site.config['use_cached'] and File.exist?(@db_filename))
+    @use_db_cache = (site.config['use_db_cache'] and File.exist?(@db_filename))
 
-    if @use_cached
+    @skip_discover = site.config['skip_discover']
+    @skip_update = site.config['skip_update']
+    @skip_scrape = site.config['skip_scrape']
+
+    if @use_db_cache
+      puts "Reading cache: " << @db_filename
       @db = Marshal.load(IO.read(@db_filename))
     else
       @db = RosIndexDB.new
@@ -1033,9 +1064,8 @@ class GitScraper < Jekyll::Generator
     # the list of package instances by name
     @package_names = @db.package_names
 
-    unless @use_cached
-
-      # get the repositories from the rosdistro files
+    # get the repositories from the rosdistro files, rosdoc rosinstall files, and other sources
+    unless @skip_discover
       $all_distros.each do |distro|
 
         puts "processing rosdistro: "+distro
@@ -1060,10 +1090,11 @@ class GitScraper < Jekyll::Generator
               source_uri = repo_data['source']['url'].to_s
               source_type = repo_data['source']['type'].to_s
               source_version = repo_data['source']['version'].to_s
+              source_version = (if repo_data['source'].key?('version') and repo_data['source']['version'] != 'HEAD' then repo_data['source']['version'].to_s else 'REMOTE_HEAD' end)
             elsif repo_data.has_key?('doc')
               source_uri = repo_data['doc']['url'].to_s
               source_type = repo_data['doc']['type'].to_s
-              source_version = repo_data['doc']['version'].to_s
+              source_version = (if repo_data['doc'].key?('version') and repo_data['doc']['version'] != 'HEAD' then repo_data['doc']['version'].to_s else 'REMOTE_HEAD' end)
             elsif repo_data.has_key?('release')
               # TODO: get the release repo to get the upstream repo
               # NOTE: also, sometimes people use the release repo as the "doc" repo
@@ -1127,7 +1158,7 @@ class GitScraper < Jekyll::Generator
               # extract the garbage
               repo_name = repo_data['local-name'].to_s
               repo_uri = repo_data['uri'].to_s
-              repo_version = if repo_data.key?('version') then repo_data['version'].to_s else 'REMOTE_HEAD' end
+              repo_version = (if repo_data.key?('version') and repo_data['version'] != 'HEAD' then repo_data['version'].to_s else 'REMOTE_HEAD' end)
 
               # limit number of repos indexed if in devel mode
               if not @repo_names.has_key?(repo_name) and site.config['max_repos'] > 0 and @repo_names.length > site.config['max_repos'] then next end
@@ -1211,8 +1242,10 @@ class GitScraper < Jekyll::Generator
       end
 
       puts "Found " << @all_repos.length.to_s << " repositories corresponding to " << @repo_names.length.to_s << " repo identifiers."
+    end
 
-      # clone / fetch all the repos
+    # clone / fetch all the repos
+    unless @skip_update
       work_q = Queue.new
       @repo_names.each {|r| work_q.push r}
       puts "Fetching sources with " << site.config['checkout_threads'].to_s << " threads."
@@ -1227,17 +1260,23 @@ class GitScraper < Jekyll::Generator
         end
       end; "ok"
       workers.map(&:join); "ok"
+    end
 
-      # scrape all the repos
+    # scrape all the repos
+    unless @skip_scrape
       puts "Scraping known repos..."
       @all_repos.each do |repo_id, repo|
         puts "Scraping " << repo.id << "..."
-        scrape_repo(site, repo)
+        if site.config['scrape_whitelist'].size == 0 or site.config['scrape_whitelist'].include?(repo.id)
+          scrape_repo(site, repo)
+        end
       end
-
-      # save scraped data
-      File.open(@db_filename, 'w') {|f| f.write(Marshal.dump(@db)) }
     end
+
+    # backup the current db if it exists
+    if File.exist?(@db_filename) then FileUtils.mv(@db_filename, @db_filename+'.bak') end
+    # save scraped data into the cache db
+    File.open(@db_filename, 'w') {|f| f.write(Marshal.dump(@db)) }
 
     # generate pages for all repos
     @repo_names.each do |repo_name, repo_instances|
@@ -1313,17 +1352,17 @@ class GitScraper < Jekyll::Generator
 
     packages_alpha = @package_names.sort_by { |name, instances| name }
 
-    packages_time = packages_alpha.reverse.sort_by { |name, instances| 
+    packages_time = packages_alpha.reverse.sort_by { |name, instances|
       instances.snapshots.reject { |d,s|
         s.nil? or not $recent_distros.include?(d)}.map { |d,s|
           s.snapshot.data['last_commit_time'].to_s}.max.to_s }.reverse
 
-    packages_doc = packages_alpha.reverse.sort_by { |name, instances| 
-      -(instances.snapshots.count {|d,s| 
+    packages_doc = packages_alpha.reverse.sort_by { |name, instances|
+      -(instances.snapshots.count {|d,s|
         not s.nil? and $recent_distros.include?(d) and not s.data['readme_rendered'].nil? }) }
 
-    packages_released = packages_alpha.reverse.sort_by { 
-      |name, instances| -(instances.snapshots.count { |d,s| 
+    packages_released = packages_alpha.reverse.sort_by {
+      |name, instances| -(instances.snapshots.count { |d,s|
         not s.nil? and $recent_distros.include?(d) and s.snapshot.released}) }
 
     (1..n_package_list_pages).each do |page_index|

@@ -149,8 +149,7 @@ ROS API units we have) as well.
 See [rosindex.github.io#85](https://github.com/rosindex/rosindex.github.io/issues/85)
 
 ```xml
-<nodes>
-  <node format="cs">
+<nodes format="hdf">
     node.0 {
       name=cameracalibrator.py
       desc=`cameracalibrator.py` subscribes to ROS raw image topics, and presents a calibration window.  It can run in both monocular and stereo modes. The calibration window shows the current images from the cameras, highlighting the checkerboard.  When the user presses the '''CALIBRATE''' button, the node computes the camera calibration parameters.  When the user clicks '''COMMIT''', the node uploads these new calibration parameters to the camera driver using a service call.
@@ -178,6 +177,5 @@ See [rosindex.github.io#85](https://github.com/rosindex/rosindex.github.io/issue
         2.desc= Sets the camera info for the right camera of a stereo pair
       }
     }
-  </node>
 </nodes>
 ```

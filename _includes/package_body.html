@@ -1,6 +1,11 @@
 {% comment %}
 Assumes distro and package are defined
 {% endcomment %}
+
+{% if package.data.deprecated %}
+  <div class="alert alert-warning"><em><strong>Package Deprecated</strong></em> {{package.data.deprecated}}</div>
+{% endif %}
+
 <ul class="nav nav-tabs nav-justified" id="{{distro}}-tabs" style="margin-bottom:20px">
   <li class="better-tabs active">
     <a href="#{{distro}}-overview" data-toggle="tab">Overview</a>
