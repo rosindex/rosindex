@@ -36,7 +36,7 @@ skip_discover: true
 # If true, this skips updating the known repos
 skip_update: true
 # If true, this skips scraping the cloned repos
-skip_scrape: false
+skip_scrape: true
 
 checkout_threads: 1
 checkout_path: _checkout
