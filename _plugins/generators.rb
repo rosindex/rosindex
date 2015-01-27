@@ -429,7 +429,7 @@ class GitScraper < Jekyll::Generator
 
     # get the repositories from the rosdistro files, rosdoc rosinstall files, and other sources
     unless @skip_discover
-      $all_distros.each do |distro|
+      $all_distros.reverse_each do |distro|
 
         puts "processing rosdistro: "+distro
 
@@ -549,9 +549,7 @@ class GitScraper < Jekyll::Generator
 
               # store this repo in the name index
               @repo_names[repo.name].instances[repo.id] = repo
-              if @repo_names[repo.name].default.nil?
-                @repo_names[repo.name].default = repo
-              end
+              @repo_names[repo.name].default = repo
             end
           end
         end
@@ -631,8 +629,8 @@ class GitScraper < Jekyll::Generator
     unless @skip_scrape
       puts "Scraping known repos..."
       @all_repos.each do |repo_id, repo|
-        puts "Scraping " << repo.id << "..."
-        if site.config['scrape_whitelist'].size == 0 or site.config['scrape_whitelist'].include?(repo.id)
+        if site.config['repo_id_whitelist'].size == 0 or site.config['repo_id_whitelist'].include?(repo.id)
+          puts "Scraping " << repo.id << "..."
           scrape_repo(site, repo)
         end
       end
@@ -663,10 +661,11 @@ class GitScraper < Jekyll::Generator
 
     # create package pages
     puts "Found "+String(@package_names.length)+" packages total."
+    puts ("Generating package pages...").blue
 
     @package_names.each do |package_name, package_instances|
 
-      puts "Generating pages for package " << package_name << "..."
+      dputs "Generating pages for package " << package_name << "..."
 
       # create default package page
       site.pages << PackagePage.new(site, package_instances)
@@ -676,12 +675,13 @@ class GitScraper < Jekyll::Generator
 
       # create a page for each package instance
       package_instances.instances.each do |instance_id, instance|
-        puts "Generating page for package " << package_name << " instance " << instance_id << "..."
+        dputs "Generating page for package " << package_name << " instance " << instance_id << "..."
         site.pages << PackageInstancePage.new(site, package_instances, instance, package_name)
       end
     end
 
     # create repo list pages
+    puts ("Generating repo list pages...").blue
     repos_per_page = site.config['repos_per_page']
     n_repo_list_pages = (@repo_names.length / repos_per_page).ceil + 1
 
@@ -712,6 +712,7 @@ class GitScraper < Jekyll::Generator
     end
 
     # create package list pages
+    puts ("Generating package list pages...").blue
     packages_per_page = site.config['packages_per_page']
     n_package_list_pages = (@package_names.length / packages_per_page).ceil + 1
 

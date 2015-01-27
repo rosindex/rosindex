@@ -138,6 +138,26 @@ instances:
       hydro: { version: 'master' }
 ```
 
+## Scraping Process
+
+After creating an index of version control repositories containing ROS code,
+all of these repositories are cloned to the local system. Only Git, Mercurial,
+and SVN repositories are supported. For SVN repositories, the `git-svn` module
+is used to manage the local checkout. 
+
+At this time, checking out all known (and available) ROS code uses less than
+15GB of disk space. These clones of remote repositories persist, and are simply
+updated the next time the index is built.
+
+Each of these repositories is then scraped for information relevant to
+documentation and analysis. See the following section for details on what
+information is collected.
+
+The information collected is then written to disk as a Ruby marshalled data
+structure which can be re-loaded to rapidly experiment with data presentation.
+For details on controlling which parts of the build process are run, see
+[Development](/about/development/).
+
 ## Information Collected by ROS Index
 
 ### Repository Information

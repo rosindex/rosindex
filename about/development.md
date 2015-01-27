@@ -68,6 +68,28 @@ rake build:deploy
 rake serve:deploy
 ```
 
+### Skipping Parts of the Build
+
+The build process entails four steps:
+
+1. Generating the list of repositories
+2. Cloning / Updating the known repositories
+3. Scraping the repositories
+4. Generating the static pages
+
+Each of the first three steps can be skipped in order to save time when
+experimenting with different parts of the pipeline with the following flags in
+`_config.yml`:
+
+```yaml
+# If true, this skips finding repos based on the repo sources
+skip_discover: false
+# If true, this skips updating the known repos
+skip_update: false
+# If true, this skips scraping the cloned repos
+skip_scrape: false
+```
+
 ## Deployment
 
 Deployment is done by simply pushing the generated site to GitHub:
