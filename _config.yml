@@ -24,6 +24,7 @@ redcarpet:
     - no_intra_emphasis
     - with_toc_data
     - html_toc
+    - tables
 
 highlighter: pygments
 
@@ -32,11 +33,11 @@ use_db_cache: true
 db_cache_filename: _caches/_deploy_cache.db
 
 # If true, this skips finding repos based on the repo sources
-skip_discover: true
+skip_discover: false
 # If true, this skips updating the known repos
-skip_update: true
+skip_update: false
 # If true, this skips scraping the cloned repos
-skip_scrape: true
+skip_scrape: false
 
 checkout_threads: 1
 checkout_path: _checkout

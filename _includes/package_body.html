@@ -2,7 +2,7 @@
 Assumes distro and package are defined
 {% endcomment %}
 
-{% if package.data.deprecated %}
+{% if package.data.deprecated and package.data.deprecated != '' %}
   <div class="alert alert-warning"><h3><strong>Package Deprecated</strong></h3> {{package.data.deprecated}}</div>
 {% endif %}
 

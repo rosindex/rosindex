@@ -1,0 +1,248 @@
+# Jekyll page classes
+
+def get_available_distros(site, versions_dict)
+  # create easy-to-process lists of available distros for the switcher
+
+  available_distros = {}
+  available_older_distros = {}
+
+  site.config['distros'].each do |distro|
+    available_distros[distro] = (versions_dict[distro] != nil and versions_dict[distro].version != nil)
+  end
+
+  site.config['old_distros'].each do |distro|
+    available_older_distros[distro] = (versions_dict[distro] != nil and versions_dict[distro].version != nil)
+  end
+
+  return available_distros, available_older_distros, available_older_distros.values.count(true)
+end
+
+class RepoInstancesPage < Jekyll::Page
+  def initialize(site, repo_instances)
+    @site = site
+    @base = site.source
+    @dir = File.join('repos', repo_instances.name)
+    @name = 'index.html'
+
+    self.process(@name)
+    self.read_yaml(File.join(@base, '_layouts'),'repo_instances.html')
+    self.data['repo_instances'] = repo_instances
+  end
+end
+
+
+class RepoPage < Jekyll::Page
+  def initialize(site, instances, repo, default)
+
+    basepath = File.join('r', repo.name)
+
+    @site = site
+    @base = site.source
+    @dir = if default then basepath else File.join(basepath, repo.id) end
+    @name = 'index.html'
+
+    self.process(@name)
+    self.read_yaml(File.join(@base, '_layouts'),'repo_instance.html')
+
+    self.data['instance'] =   repo
+    self.data['repo'] =   repo
+
+    self.data['instances'] = instances.instances
+    self.data['instance_base_url'] = basepath
+    self.data['instance_index_url'] = File.join('repos', repo.name)
+    self.data['default_instance_id'] = instances.default.id
+
+    self.data['available_distros'], self.data['available_older_distros'], self.data['n_available_older_distros'] = get_available_distros(site, repo.snapshots)
+
+    self.data['all_distros'] = site.config['distros'] + site.config['old_distros']
+  end
+end
+
+class PackageListPage < Jekyll::Page
+  def initialize(site, sort_id, n_list_pages, page_index, list_alpha, default=false)
+    @site = site
+    @base = site.source
+    @dir = unless default then 'packages/page/'+page_index.to_s+'/'+sort_id else 'packages' end
+    @name = 'index.html'
+
+    self.process(@name)
+    self.read_yaml(File.join(@base, '_layouts'),'packages.html')
+    self.data['pager'] = {
+      'base' => 'packages',
+      'post_ns' => '/'+sort_id
+    }
+    self.data['sort_id'] = sort_id
+    self.data['n_list_pages'] = n_list_pages
+    self.data['page_index'] = page_index
+    self.data['list_alpha'] = list_alpha
+
+    self.data['prev_page'] = [page_index - 1, 1].max
+    self.data['next_page'] = [page_index + 1, n_list_pages].min
+
+    self.data['near_pages'] = *([1,page_index-4].max..[page_index+4, n_list_pages].min)
+    self.data['all_distros'] = site.config['distros'] + site.config['old_distros']
+
+    self.data['available_distros'] = Hash[site.config['distros'].collect { |d| [d, true] }]
+    self.data['available_older_distros'] = Hash[site.config['old_distros'].collect { |d| [d, true] }]
+    self.data['n_available_older_distros'] = site.config['old_distros'].length
+  end
+end
+
+class RepoListPage < Jekyll::Page
+  def initialize(site, sort_id, n_list_pages, page_index, list_alpha, default=false)
+    @site = site
+    @base = site.source
+    @dir = unless default then 'repos/page/'+page_index.to_s+'/'+sort_id else 'repos' end
+    @name = 'index.html'
+
+    self.process(@name)
+    self.read_yaml(File.join(@base, '_layouts'),'repos.html')
+    self.data['pager'] = {
+      'base' => 'repos',
+      'post_ns' => '/'+sort_id
+    }
+    self.data['sort_id'] = sort_id
+    self.data['n_list_pages'] = n_list_pages
+    self.data['page_index'] = page_index
+    self.data['list_alpha'] = list_alpha
+
+    self.data['prev_page'] = [page_index - 1, 1].max
+    self.data['next_page'] = [page_index + 1, n_list_pages].min
+
+    self.data['near_pages'] = *([1,page_index-4].max..[page_index+4, n_list_pages].min)
+    self.data['all_distros'] = site.config['distros'] + site.config['old_distros']
+
+    self.data['available_distros'] = Hash[site.config['distros'].collect { |d| [d, true] }]
+    self.data['available_older_distros'] = Hash[site.config['old_distros'].collect { |d| [d, true] }]
+    self.data['n_available_older_distros'] = site.config['old_distros'].length
+  end
+end
+
+class PackagePage < Jekyll::Page
+  def initialize(site, package_instances)
+    @site = site
+    @base = site.source
+    @dir = File.join('p',package_instances.name)
+    @name = 'index.html'
+
+    self.process(@name)
+    self.read_yaml(File.join(@base, '_layouts'),'package.html')
+    self.data['package_instances'] = package_instances
+    self.data['package_name'] = package_instances.name
+
+    self.data['instances'] = package_instances.instances
+
+    self.data['instance_index_url'] = File.join('packages',package_instances.name)
+    self.data['instance_base_url'] = @dir
+
+    self.data['available_distros'], self.data['available_older_distros'], self.data['n_available_older_distros'] = get_available_distros(site, package_instances.snapshots)
+
+    self.data['all_distros'] = site.config['distros'] + site.config['old_distros']
+  end
+end
+
+class PackageInstancesPage < Jekyll::Page
+  def initialize(site, package_instances)
+    @site = site
+    @base = site.source
+    @dir = File.join('packages',package_instances.name)
+    @name = 'index.html'
+
+    self.process(@name)
+    self.read_yaml(File.join(@base, '_layouts'),'package_instances.html')
+    self.data['package_instances'] = package_instances
+    self.data['package_name'] = package_instances.name
+  end
+end
+
+class PackageInstancePage < Jekyll::Page
+  def initialize(site, package_instances, instance, package_name)
+
+    @site = site
+    @base = site.source
+    @dir = File.join('p', package_name, instance.id)
+    @name = 'index.html'
+
+    self.process(@name)
+    self.read_yaml(File.join(@base, '_layouts'),'package_instance.html')
+
+    self.data['instances'] = package_instances.instances
+    self.data['instance'] = instance
+    self.data['package_name'] = package_name
+
+    self.data['instance_index_url'] = ['packages',package_instances.name].join('/')
+    self.data['instance_base_url'] = ['p',package_name].join('/')
+
+    self.data['available_distros'] = {}
+    self.data['available_older_distros'] = {}
+    instance.snapshots.each do |distro, snapshot|
+      if site.config['distros'].include? distro
+        self.data['available_distros'][distro] = snapshot.packages.key?(package_name)
+      else
+        self.data['available_older_distros'][distro] = snapshot.packages.key?(package_name)
+      end
+    end
+    self.data['n_available_older_distros'] = self.data['available_older_distros'].values.count(true)
+
+    self.data['all_distros'] = site.config['distros'] + site.config['old_distros']
+  end
+end
+
+class StatsPage < Jekyll::Page
+  def initialize(site, package_names, all_repos)
+
+    @site = site
+    @base = site.source
+    @dir = 'stats'
+    @name = 'index.html'
+
+    self.process(@name)
+    self.read_yaml(File.join(@base, '_layouts'),'stats.html')
+
+    # compute venn diagram model
+    distro_counts = Hash[$all_distros.collect { |d| [d, 0] }]
+    distro_overlaps = Hash[(2..$all_distros.length).flat_map{|n| (0..$all_distros.length-1).to_a.combination(n).to_a}.collect { |s| [s, 0] }]
+
+    package_names.each do |package_name, package_instances|
+      overlap = []
+      #package_instances.snapshots.reject.with_index{|dr, i| dr[1].nil? || dr[1].version.nil? }
+      package_instances.snapshots.each.with_index do |s,i|
+        if not s[1].nil? and not s[1].version.nil?
+          overlap << i
+          distro_counts[s[0]] = distro_counts[s[0]] + 1
+        end
+      end
+
+      dputs package_name.to_s + " " + overlap.to_s
+
+      package_overlaps = (2..$all_distros.length).flat_map{|n| overlap.combination(n).to_a}
+
+      package_overlaps.each do |o|
+        distro_overlaps[o] = distro_overlaps[o] + 1
+      end
+    end
+
+    self.data['distro_counts'] = distro_counts
+    self.data['distro_overlaps'] = Hash[distro_overlaps.collect{|s,c| [s.inspect, c]}]
+
+    # generate date-histogram data
+    self.data['distro_activity'] = {}
+    now = DateTime.now
+    $all_distros.each do |distro|
+      activity = []
+      all_repos.each do |id, repo|
+        if repo.snapshots[distro].data['last_commit_time'].nil? then next end
+        activity << (now - DateTime.parse(repo.snapshots[distro].data['last_commit_time'])).to_f
+      end
+      self.data['distro_activity'][distro] = activity
+    end
+  end
+end
+
+class SearchIndexFile < Jekyll::StaticFile
+  # Override write as the search.json index file has already been created
+  def write(dest)
+    true
+  end
+end
+
