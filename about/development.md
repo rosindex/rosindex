@@ -70,12 +70,13 @@ rake serve:deploy
 
 ### Skipping Parts of the Build
 
-The build process entails four steps:
+The build process entails four long-running steps:
 
 1. Generating the list of repositories
 2. Cloning / Updating the known repositories
 3. Scraping the repositories
 4. Generating the static pages
+5. Generating the lunr search index
 
 Each of the first three steps can be skipped in order to save time when
 experimenting with different parts of the pipeline with the following flags in
@@ -88,6 +89,8 @@ skip_discover: false
 skip_update: false
 # If true, this skips scraping the cloned repos
 skip_scrape: false
+# If true, this skips generating the search index
+skip_search_index: false
 ```
 
 ## Deployment

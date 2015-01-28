@@ -38,6 +38,8 @@ skip_discover: true
 skip_update: true
 # If true, this skips scraping the cloned repos
 skip_scrape: true
+# If true, this skips generating the search index
+skip_search_index: false
 
 checkout_threads: 1
 checkout_path: _checkout

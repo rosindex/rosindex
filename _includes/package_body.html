@@ -31,102 +31,103 @@ Assumes distro and package are defined
     <div class="row">
       <div class="col-sm-8">
         <div class="panel panel-default">
-          <div class="panel-heading"><h3 class="panel-title">Package Summary</h3></div>
+          <div class="panel-heading"><h3 class="panel-title">Package Description</h3></div>
           <div class="panel-body">
             {{ package.data.description}}
           </div>
-          <div class="panel-heading"><h3 class="panel-title">Status</h3></div>
+          <div class="panel-heading"><h4 class="panel-title">Package Summary</h4></div>
           <div class="panel-body" style="overflow-x: auto">
             <table class="table table-condensed">
               <tr>
-                <td class="text-right"><b>Source URI</b></td>
-                <td width="100%"><a class="label label-default" href="{{package.repo.uri}}">{{package.repo.uri}}</a></td>
-              </tr>
-              <tr>
-                <td style="white-space: nowrap;" class="text-right"><b>Last Updated</b></div>
+                <td style="width:100px;" class="text-right"><strong>Tags</strong></td>
                 <td>
-                  {% if package.snapshot.data.last_commit_time %}
-                    <span class="label label-default"><span class="glyphicon glyphicon-time"></span> {{package.snapshot.data.last_commit_time}}
+                  {% assign n_tags = package.repo.tags.size %}
+                  {% if n_tags > 0 %}
+                    {% for tag in package.repo.tags %}<span class="label label-default">{{ tag }}</span> {% endfor %}
                   {% else %}
-                    <span class="label label-warning">UNKNOWN
-                  {% endif %}</span>
+                    <em>No category tags.</em>
+                  {% endif %}
                 </td>
               </tr>
               <tr>
-                <td class="text-right"><b>Build Type</b></td>
+                <td class="text-right"><strong>Version</strong></td>
+                <td>{{ package.data.version }}</td>
+              </tr>
+              <tr>
+                <td class="text-right"><strong>License</strong></td>
+                <td>{{ package.data.license }}</td>
+              </tr>
+              <tr>
+                <td class="text-right"><strong>Buildtool</strong></td>
                 <td>
                   {% if package.data.pkg_type == 'catkin' %}
                     <span class="label label-info">
                   {% else %}
                     <span class="label label-default">
                   {% endif %}
-                  {{package.data.pkg_type | upcase}}</span>
+                    {{package.data.pkg_type | upcase}}</span>
                 </td>
               </tr>
               <tr>
-                <td class="text-right"><b>Released</b></td>
+                <td class="text-right"><strong>Use</strong></td>
                 <td>
-                  {% if package.snapshot.released %}
-                    <span class="label label-primary"><span class="glyphicon glyphicon-flash"></span> RELEASED
-                  {% else %}
-                    <span class="label label-default">UNRELEASED
-                  {% endif %}</span>
-                </td>
-              </tr>
-              <tr>
-                <td class="text-right"><b>Dev Status</b></td>
-                <td>
-                  {% if package.repo.status %}
-                    {% if package.repo.status == 'maintained' %}
-                      <span class="label label-primary">
-                    {% elsif package.repo.status == 'developed' %}
-                      <span class="label label-success">
-                    {% elsif package.repo.status == 'end-of-life' %}
-                        <span class="label label-danger">
-                    {% endif %}
-                    {{package.repo.status | upcase}}
-                  {% else %}
-                    <span class="label label-warning">UNMAINTAINED
-                  {% endif %}</span>
+                {% if package.data.deprecated and package.data.deprecated != '' %}
+                  <span class="label label-warning">DEPRECATED</span>
+                {%else%}
+                  <span class="label label-success">RECOMMENDED</span>
+                {%endif%}
                 </td>
               </tr>
             </table>
           </div>
-          <div class="panel-heading"><h3 class="panel-title">Tags</h3></div>
-          <div class="panel-body">
-            {% assign n_tags = package.repo.tags.size %}
-            {% if n_tags > 0 %}
-              {% for tag in package.repo.tags %}<span class="label label-default">{{ tag }}</span> {% endfor %}
-            {% else %}
-              <em>No tags defined.</em>
-            {% endif %}
+          <div class="panel-heading"><h3 class="panel-title">Repository Summary</h3></div>
+          <div class="panel-body" style="overflow-x: auto">
+            {% assign repo = package.repo %}
+            {% assign snapshot = package.snapshot %}
+            {% include repo_summary.html %}
           </div>
         </div>
       </div>
       <div class="col-sm-4">
         <div class="panel panel-default">
-          <div class="panel-heading"><h4 class="panel-title">Details</h4></div>
-          <div class="panel-body">
-            <ul class="list-unstyled">
-              <li><strong>Version:</strong> {{ package.data.version }}</li>
-              <li><strong>License:</strong> {{ package.data.license }}</li>
-            </ul>
-          </div>
           <div class="panel-heading"><h4 class="panel-title">Maintainers</h4></div>
           <div class="panel-body">
-            <ul class="list-unstyled">
-              {% for m in package.data.maintainers %}
-                <li>{{m | replace: '@', ' [AT] ' }}</li>
-              {% endfor %}
-            </ul>
+            {% assign n_maintainers = package.data.maintainers | size %}
+            {% if n_maintainers > 0 %}
+              <ul class="list-unstyled">
+                {% for m in package.data.maintainers %}
+                  <li>{{m | replace: '@', ' [AT] ' }}</li>
+                {% endfor %}
+              </ul>
+            {% else %}
+              <em>No known maintainers.</em>
+            {% endif %}
           </div>
           <div class="panel-heading"><h4 class="panel-title">Authors</h4></div>
           <div class="panel-body">
-            <ul class="list-unstyled">
-              {% for a in package.data.authors %}
-                <li>{{a | replace: '@', ' [AT] ' }}</li>
-              {% endfor %}
-            </ul>
+            {% assign n_authors = package.data.authors | size %}
+            {% if n_authors > 0 %}
+              <ul class="list-unstyled">
+                {% for a in package.data.authors %}
+                  <li>{{a | replace: '@', ' [AT] ' }}</li>
+                {% endfor %}
+              </ul>
+            {% else %}
+              <em>No additional authors.</em>
+            {% endif %}
+          </div>
+          <div class="panel-heading"><h4 class="panel-title">Additional Links</h4></div>
+          <div class="panel-body">
+            {% assign n_urls = package.data.urls | size %}
+            {% if n_urls > 0 %}
+              <ul class="list-unstyled">
+                {% for url in package.data.urls %}
+                  <li><a href="{{url.uri}}">{%if url.type%}{{url.type | capitalize}}{%else%}{{url.domain}}{%endif%}</a></li>
+                {% endfor %}
+              </ul>
+            {% else %}
+              <em>No additional links.</em>
+            {% endif %}
           </div>
         </div>
       </div>

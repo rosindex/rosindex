@@ -57,7 +57,7 @@ def get_changelog(site, path, raw_uri)
 end
 
 # Get a raw URI from a repo uri
-def get_raw_uri(uri_s, branch)
+def get_raw_uri(uri_s, type, branch)
   uri = URI(uri_s)
 
   case uri.host
@@ -67,25 +67,31 @@ def get_raw_uri(uri_s, branch)
   when 'bitbucket.org'
     uri_split = File.split(uri.path)
     return 'https://bitbucket.org/%s/%s/raw/%s' % [uri_split[0], uri_split[1], branch]
+  when 'code.google.com'
+    uri_split = File.split(uri.path)
+    return "https://#{uri_split[1]}.googlecode.com/#{type}-history/#{branch}/"
   end
 
-  return ''
+  return uri_s
 end
 
 # Get a browse URI from a repo uri
-def get_browse_uri(uri_s, branch)
+def get_browse_uri(uri_s, type, branch)
   uri = URI(uri_s)
 
   case uri.host
   when 'github.com'
     uri_split = File.split(uri.path)
-    return 'https://github.com/%s/%s/blob/%s' % [uri_split[0], uri_split[1].rpartition('.')[0], branch]
+    return 'https://github.com/%s/%s/tree/%s' % [uri_split[0], uri_split[1].rpartition('.')[0], branch]
   when 'bitbucket.org'
     uri_split = File.split(uri.path)
     return 'https://bitbucket.org/%s/%s/src/%s' % [uri_split[0], uri_split[1], branch]
+  when 'code.google.com'
+    uri_split = File.split(uri.path)
+    return "https://code.google.com/p/#{uri_split[1]}/source/browse/?name=#{branch}##{type}/"
   end
 
-  return ''
+  return uri_s
 end
 
 class GitScraper < Jekyll::Generator
@@ -206,6 +212,12 @@ class GitScraper < Jekyll::Generator
         description = REXML::XPath.first(manifest_doc, "/package/description/text()").to_s
         maintainers = REXML::XPath.each(manifest_doc, "/package/maintainer/text()").map { |m| m.to_s.sub('@', ' <AT> ') }
         authors = REXML::XPath.each(manifest_doc, "/package/author/text()").map { |a| a.to_s.sub('@', ' <AT> ') }
+        urls = REXML::XPath.each(manifest_doc, "/package/url").map { |elem|
+          {
+            'uri' => elem.text.to_s,
+            'type' => (elem.attributes['type'] or 'Website').to_s,
+          }
+        }
 
         # extract other standard exports
         deprecated = REXML::XPath.first(manifest_doc, "/package/export/deprecated/text()").to_s
@@ -218,11 +230,11 @@ class GitScraper < Jekyll::Generator
             get_hdf(nodes.text)
           else
             REXML::XPath.each(manifest_doc, "/package/export/rosindex/nodes/node").map { |node|
-              Hash.new({
+              {
                 'name' => REXML::XPath.first(node,'/name/text()').to_s,
                 'description' => REXML::XPath.first(node,'/description/text()').to_s,
-                'ros_api' => get_ros_api(REXML::XPath.first(node,'/description/api()'))
-              })
+                'ros_api' => get_ros_api(REXML::XPath.first(node,'/description/api'))
+              }
             }
           end
         }
@@ -263,6 +275,7 @@ class GitScraper < Jekyll::Generator
           'maintainers' => maintainers,
           # optional package info
           'authors' => authors,
+          'urls' => urls,
           # dependencies
           'deps' => deps,
           # exports
@@ -304,8 +317,8 @@ class GitScraper < Jekyll::Generator
     # initialize this snapshot data
     data = snapshot.data = {
       # get the uri for resolving raw links (for imgages, etc)
-      'raw_uri' => get_raw_uri(repo.uri, snapshot.version),
-      'browse_uri' => get_browse_uri(repo.uri, snapshot.version),
+      'raw_uri' => get_raw_uri(repo.uri, repo.type, snapshot.version),
+      'browse_uri' => get_browse_uri(repo.uri, repo.type, snapshot.version),
       # get the date of the last modification
       'last_commit_time' => vcs.get_last_commit_time(),
       'readme' => nil,
@@ -753,41 +766,44 @@ class GitScraper < Jekyll::Generator
 
     # create lunr index data
     index = []
-    @all_repos.each do |instance_id, repo|
-      repo.snapshots.each do |distro, repo_snapshot|
 
-        if repo_snapshot.version == nil then next end
+    unless site.config['skip_search_index']
+      @all_repos.each do |instance_id, repo|
+        repo.snapshots.each do |distro, repo_snapshot|
 
-        repo_snapshot.packages.each do |package_name, package|
+          if repo_snapshot.version == nil then next end
 
-          if package.nil? then next end
+          repo_snapshot.packages.each do |package_name, package|
 
-          p = package.data
+            if package.nil? then next end
 
-          readme_filtered = if p['readme'] then self.strip_stopwords(p['readme']) else "" end
+            p = package.data
 
-          index << {
-            'id' => index.length,
-            'baseurl' => site.config['baseurl'],
-            'url' => File.join('/p',package_name,instance_id)+"#"+distro,
-            'last_commit_time' => repo_snapshot.data['last_commit_time'],
-            'tags' => p['tags'] * " ",
-            'name' => package_name,
-            'repo_name' => repo.name,
-            'released' => if repo_snapshot.released then 'is:released' else '' end,
-            'unreleased' => if repo_snapshot.released then 'is:unreleased' else '' end,
-            'version' => p['version'],
-            'description' => p['description'],
-            'maintainers' => p['maintainers'] * " ",
-            'authors' => p['authors'] * " ",
-            'distro' => distro,
-            'instance' => repo.id,
-            'readme' => readme_filtered
-          }
+            readme_filtered = if p['readme'] then self.strip_stopwords(p['readme']) else "" end
 
-          puts 'indexed: ' << "#{package_name} #{instance_id} #{distro}"
-        end
+            index << {
+              'id' => index.length,
+              'baseurl' => site.config['baseurl'],
+              'url' => File.join('/p',package_name,instance_id)+"#"+distro,
+              'last_commit_time' => repo_snapshot.data['last_commit_time'],
+              'tags' => p['tags'] * " ",
+              'name' => package_name,
+              'repo_name' => repo.name,
+              'released' => if repo_snapshot.released then 'is:released' else '' end,
+              'unreleased' => if repo_snapshot.released then 'is:unreleased' else '' end,
+              'version' => p['version'],
+              'description' => p['description'],
+              'maintainers' => p['maintainers'] * " ",
+              'authors' => p['authors'] * " ",
+              'distro' => distro,
+              'instance' => repo.id,
+              'readme' => readme_filtered
+            }
+
+            puts 'indexed: ' << "#{package_name} #{instance_id} #{distro}"
       end
+    end
+    end
     end
 
     # generate index in the json format needed by lunr

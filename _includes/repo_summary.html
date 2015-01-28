@@ -1,0 +1,56 @@
+{% comment %}
+- repo
+- snapshot
+{% endcomment %}
+
+  <table class="table table-condensed">
+    <tr>
+      <td style="width:100px;" class="text-right"><b>Checkout URI</b></td>
+      <td><a class="label label-default" href="{{repo.uri}}">{{repo.uri}}</a></td>
+    </tr>
+    <tr>
+      <td class="text-right"><b>VCS Type</b></td>
+      <td><span class="label label-default">{{repo.type}}</span></td>
+    </tr>
+    <tr>
+      <td class="text-right"><b>VCS Version</b></td>
+      <td><span class="label label-default">{{snapshot.version}}</span></td>
+    </tr>
+    <tr>
+      <td style="white-space: nowrap;" class="text-right"><b>Last Updated</b></div>
+      <td>
+        {% if snapshot.data.last_commit_time %}
+          <span class="label label-default"><span class="glyphicon glyphicon-time"></span> {{snapshot.data.last_commit_time}}
+        {% else %}
+          <span class="label label-warning">UNKNOWN
+        {% endif %}</span>
+      </td>
+    </tr>
+    <tr>
+      <td class="text-right"><b>Dev Status</b></td>
+      <td>
+        {% if repo.status %}
+          {% if repo.status == 'maintained' %}
+            <span class="label label-primary">
+          {% elsif repo.status == 'developed' %}
+            <span class="label label-success">
+          {% elsif repo.status == 'end-of-life' %}
+              <span class="label label-danger">
+          {% endif %}
+          {{repo.status | upcase}}
+        {% else %}
+          <span class="label label-warning">UNMAINTAINED
+        {% endif %}</span>
+      </td>
+    </tr>
+    <tr>
+      <td class="text-right"><b>Released</b></td>
+      <td>
+        {% if snapshot.released %}
+          <span class="label label-primary"><span class="glyphicon glyphicon-flash"></span> RELEASED
+        {% else %}
+          <span class="label label-default">UNRELEASED
+        {% endif %}</span>
+      </td>
+    </tr>
+  </table>

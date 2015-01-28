@@ -4,22 +4,27 @@
     <div class="container-fluid" style="margin-bottom: 10px">
       <div class="row">
 
-        <!-- title -->
-        <div class="col-xs-3 col-sm-3" style="margin-top: 8px">
-          <a class="site-title" href="{{ site.baseurl }}/">{{ site.title }}</a>
-        </div>
 
-        <!-- main links -->
-        <div class="col-xs-9 col-sm-7 text-right" style="margin-top: 8px">
-          <a class="btn btn-link" href="/about">About</a>
-          <a class="btn btn-link" href="/packages">Packages</a>
-          <a class="btn btn-link" href="/repos">Repos</a>
-          <a class="btn btn-link" href="/contribute">Contribute</a>
-          <a class="btn btn-link" href="/stats">Stats</a>
+        <div class="col-sm-12 col-md-9" style="margin-top: 8px">
+          <div class="row">
+            <!-- title -->
+            <div class="col-xs-12 col-sm-3 col-md-3" style="white-space:nowrap;">
+              <a class="site-title" href="{{ site.baseurl }}/">{{ site.title }}</a> <sup><a href="https://github.com/rosindex/rosindex.github.io/issues/new" style="vertical-align:super;" class="label label-warning" target="_blank">BETA</a></sup>
+            </div>
+
+            <!-- main links -->
+            <div class="col-xs-12 col-sm-9 col-md-9 text-right">
+              <a class="btn btn-link" href="/about">About</a>
+              <a class="btn btn-link" href="/packages">Packages</a>
+              <a class="btn btn-link" href="/repos">Repos</a>
+              <a class="btn btn-link" href="/contribute">Contribute</a>
+              <a class="btn btn-link" href="/stats">Stats</a>
+            </div>
+          </div>
         </div>
 
         <!-- searchbox -->
-        <div class="col-xs-12 col-sm-2 text-right" style="margin-top: 12px">
+        <div class="col-sm-12 col-md-3" style="margin-top: 12px">
           <form action="/search/" role="form">
             <div class="input-group input-group-sm">
               <input type="text" class="form-control" name="q" placeholder="Search">

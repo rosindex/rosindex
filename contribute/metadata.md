@@ -19,6 +19,7 @@ following:
 ```xml
 <package>
   <!-- required metadata -->
+
   <!-- ... -->
 
   <export>
@@ -42,7 +43,6 @@ a ROS package:
 The following are ROS Index metadata elements which are either unimplemented or
 still being designed.
 
-* **Include** -- `<include file="..."/>`
 * **Alternate README** -- `<readme>...</readme>`
 * **Tutorials** -- `<tutorials>...</tutorials>`
 * **Nodes** -- `<nodes>...</nodes>`
@@ -67,9 +67,22 @@ rosindex section would look like the following:
 
 ***UNIMPLEMENTED***
 
-If you don't want to put all the ROSIndex metadata into your package manifest,
-you can use an `<include/>` tag to include other XML sources from within the
-package.
+If you don't want to put all the ROS Index metadata into your package manifest,
+you can use a `<rosindex file="..."/>` tag to include other XML sources from
+within the package.
+
+```xml
+<package>
+  <!-- required metadata -->
+
+  <!-- ... -->
+
+  <export>
+    <!-- Include another xml file relative to the package.xml path -->
+    <rosindex file="doc/rosindex_metadata.xml"/>
+  </export>
+</package>
+```
 
 ### Alternate README
 
@@ -85,6 +98,17 @@ specified like the following:
 ```xml
 <readme>doc/README.md</readme>
 ```
+
+Standard readme filenames include (case-insensitive):
+
+* `README`
+* `README.txt`
+* `README.md`
+* `README.rst`
+
+Plaintext files and files without extensions will not be rendered, but will be
+shown as a single preformatted block. Markdown (`.md`) and RST (`.rst`)
+documents will be rendered into HTML.
 
 ### Tutorials
 
