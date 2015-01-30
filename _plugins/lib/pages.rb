@@ -189,7 +189,7 @@ class PackageInstancePage < Jekyll::Page
 end
 
 class StatsPage < Jekyll::Page
-  def initialize(site, package_names, all_repos)
+  def initialize(site, package_names, all_repos, errors)
 
     @site = site
     @base = site.source
@@ -198,6 +198,10 @@ class StatsPage < Jekyll::Page
 
     self.process(@name)
     self.read_yaml(File.join(@base, '_layouts'),'stats.html')
+
+    self.data['n_packages'] = package_names.length
+    self.data['n_repos'] = all_repos.length
+    self.data['n_errors'] = errors.length
 
     # compute venn diagram model
     distro_counts = Hash[$all_distros.collect { |d| [d, 0] }]
@@ -246,3 +250,23 @@ class SearchIndexFile < Jekyll::StaticFile
   end
 end
 
+class ErrorsPage < Jekyll::Page
+  def initialize(site, errors)
+    @site = site
+    @base = site.source
+    @dir = File.join('stats','errors')
+    @name = 'index.html'
+
+    self.process(@name)
+    self.read_yaml(File.join(@base, '_layouts'),'errors.html')
+    self.data['errors'] = []
+
+    errors.each do |name, repo_errors|
+      repo_errors.each do |error|
+        self.data['errors'] << error.to_hash.merge({'name'=>name})
+      end
+    end
+
+    self.data['errors'].sort_by! {|e| e['name']}
+  end
+end

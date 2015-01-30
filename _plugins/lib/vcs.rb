@@ -11,6 +11,15 @@ require 'mercurial-ruby'
 # rosindex requires
 require_relative 'common'
 
+class VCSException < RuntimeError
+  attr :msg
+  def initialize(msg)
+    @msg = msg
+    puts ("ERROR: #{@msg}").red
+  end
+end
+
+
 class VCS
   # This represents a working copy of a remote repository
   # superlight abstract vcs wrapper
@@ -29,24 +38,21 @@ class VCS
     @type = type
   end
 
-  def uri_ok?()
+  def check_uri()
     # make sure it is defined
     if @uri.nil? then return false end
 
     # make sure the uri actually exists
-    resp = Typhoeus.get(@uri, followlocation: true, nosignal: true, connecttimeout: 3.0)
+    resp = Typhoeus.get(@uri, followlocation: true, nosignal: true, connecttimeout: 3.0, ssl_verifypeer: false)
     if resp.code == 404 or resp.code == 403
-      puts ("ERROR: Code "+resp.code.to_s+" bad URI: " + @uri).red
-      return false
+      raise VCSException.new("Code "+resp.code.to_s+" bad URI: " + @uri)
     elsif resp.timed_out?
-      puts ("ERROR: Timed out URI: " + @uri).red
-      return false
+      raise VCSException.new("Timed out URI: " + @uri)
     elsif resp.success?
       return true
     end
 
-    puts ("ERROR: Bad URI: " + @uri).red
-    return false
+    raise VCSException.new("Bad URI: " + @uri)
   end
 
   def hash
@@ -76,7 +82,15 @@ class GIT < VCS
 
     @origin = @r.remotes['origin']
 
-    if @origin.nil? and self.uri_ok?
+    if @origin.nil?
+
+      # check remote uri
+      begin
+        self.check_uri
+      rescue VCSException => e
+        raise VCSException.new("Could not reach git repository at uri: " + uri + ": " +e.msg)
+      end
+
       # add remote
       dputs " - adding remote for " << @uri << " to " << @local_path
       @origin = @r.remotes.create('origin', @uri)
@@ -95,7 +109,7 @@ class GIT < VCS
           dputs " - fetching remote from: " + @uri
           @r.fetch(@origin)
         rescue
-          puts ("ERROR: could not fetch git repository from uri: " + @uri).red
+          raise VCSException.new("Could not fetch git repository from uri: " + @uri)
         end
       else
         dputs " - not fetching remote "
@@ -110,10 +124,10 @@ class GIT < VCS
     if version.nil? then return end
 
     begin
-      dputs " --- checking out " << version.name.to_s << " from remote: " << version.remote_name.to_s << " uri: " << @uri
+      dputs " --- checking out " << version.to_s << " from uri: " << @uri
       @r.checkout(version)
     rescue
-      dputs " --- resetting hard to " << version.name.to_s
+      dputs " --- resetting hard to " << version.to_s
       @r.reset(version.name, :hard)
     end
   end
@@ -128,14 +142,15 @@ class GIT < VCS
     if explicit_version == 'REMOTE_HEAD'
       @r.branches.each() do |branch|
         branch.remote.ls.each do |remote_ref|
-          if remote_ref[:local] == false and remote_ref[:name] == 'HEAD'
+          #puts remote_ref.inspect
+          if remote_ref[:local?] == false and remote_ref[:name] == 'HEAD'
             branch_name = branch.name.split('/')[-1]
-            return remote_ref[:oid], branch_name
+            return branch, branch_name # remote_ref[:oid]
           end
         end
       end
 
-      return nil, nil
+      raise VCSException.new('Could not determine REMOTE HEAD for git repository.')
     end
 
     # get the version if it's a branch
@@ -191,16 +206,18 @@ class HG < VCS
     @r = nil
     @origin = nil
 
-    if self.uri_ok?
+    begin
       if File.exist?(@local_path) and File.exist?(File.join(@local_path,'.hg'))
         @r = Mercurial::Repository.open(@local_path)
         dputs " - opened hg repository at: " << @local_path << " from uri: " << @uri
       else
+        self.check_uri
+
         @r = Mercurial::Repository.clone(@uri, @local_path, {})
         dputs " - initialized new hg repository at: " << @local_path << " from uri: " << @uri
       end
-    else
-      puts ("ERROR: could not reach hg repository at uri: " + @uri).red
+    rescue Exception => e
+      raise VCSException.new("Could not reach hg repository at uri: " + uri + ": " + e.to_s)
     end
   end
 
@@ -278,18 +295,19 @@ class GITSVN < GIT
   def initialize(local_path, uri)
     @local_path = local_path
     @uri = uri
-    if self.uri_ok?
-      if File.exist?(File.join(local_path,'.svn'))
-        system("mv #{local_path} #{local_path}__svn")
+    @origin = nil
+
+    unless File.exist?(File.join(local_path,'.git'))
+      begin
+        self.check_uri
+      rescue VCSException => e
+        raise VCSException.new("Could not reach svn repository at uri: " + uri + ": " +e.msg)
       end
-      unless File.exist?(File.join(local_path,'.git'))
-        # TODO
-        system("git svn clone -rHEAD #{uri} #{local_path}")
+      if system("git svn clone -rHEAD #{uri} #{local_path}")
         dputs " - initialized new git-svn repository at: " << local_path << " from uri: " << uri
+      else
+        raise VCSException.new("Could not git-clone svn repository from uri: " + uri)
       end
-    else
-      puts ("ERROR: could not reach svn repository at uri: " + uri).red
-      return
     end
 
     super(local_path, uri)
@@ -304,32 +322,9 @@ class GITSVN < GIT
   end
 
   def fetch
-    system('cd "'+@local_path+'" git svn rebase')
-  end
-end
-
-def get_vcs(repo)
-
-  vcs = nil
-
-  case repo.type
-  when 'git'
-    dputs "Getting git repo: " + repo.uri.to_s
-    vcs = GIT.new(repo.local_path, repo.uri)
-  when 'hg'
-    dputs "Getting hg repo: " + repo.uri.to_s
-    vcs = HG.new(repo.local_path, repo.uri)
-  when 'svn'
-    dputs "Getting svn repo: " + repo.uri.to_s
-    vcs = GITSVN.new(repo.local_path, repo.uri)
-  else
-    dputs ("Unsupported VCS type: "+repo.type.to_s).red
-  end
-
-  if vcs.valid?
-    return vcs
-  else
-    return nil
+    unless system('cd "'+@local_path+'" git svn rebase')
+      raise VCSException.new("Could not update svn repository from uri: "+@uri)
+    end
   end
 end
 

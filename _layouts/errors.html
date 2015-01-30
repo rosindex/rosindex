@@ -1,0 +1,47 @@
+---
+layout: default
+---
+<div class="container-fluid" style="margin:20px">
+  <div class="row">
+    <ol class="breadcrumb">
+      <li><a href="/">Home</a></li>
+      <li><a href="/stats">Stats</a></li>
+      <li class="active">Errors</li>
+    </ol>
+  </div>
+  <div class="row">
+    &nbsp;
+  </div>
+  <div class="row">
+    <div class="panel panel-danger">
+      <div class="panel-heading"><h3 class="panel-title">Indexing Errors</h3></div>
+      <div class="panel-body" style="overflow-x:auto;">
+        {% assign n_errors = page.errors | size %}
+        {% if n_errors == 0 %}
+          <em>Hooray! No errors!</em>
+        {% else %}
+          <table class="table table-condensed table-striped">
+            <thead>
+              <tr>
+                <th>Repository</th>
+                <th>Error Message</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for err in page.errors %}
+                <tr>
+                  <td>
+                    <a href="/r/{{err.name}}">{{err.name}}</a>
+                  </td>
+                  <td>
+                    <em>{{err.msg}}</em>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {%endif%}
+      </div>
+    </div>
+  </div>
+</div>

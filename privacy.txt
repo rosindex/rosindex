@@ -23,3 +23,12 @@ For any questions regarding this policy, please don't hesitate to post questions
 on the GitHub project issues page: 
 
 https://github.com/rosindex/rosindex.github.io/issues/new
+
+
+Additional Cookie Use
+---------------------
+
+ROS Index uses cookies to better support your use of the website. The following
+additional information is stored in client-side cookies:
+
+ - preferred ROS distribution (set by clicking the distro selection buttons)

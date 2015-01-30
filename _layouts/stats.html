@@ -13,6 +13,21 @@ layout: default
   </div>
   <div class="row">
     <div class="panel panel-default">
+      <div class="panel-heading"><h3 class="panel-title">Index</h3></div>
+      <div class="panel-body" style="overflow-x:auto;">
+        <ul>
+          <li><strong>Repositories:</strong> {{page.n_repos}}</li>
+          <li><strong>Packages:</strong> {{page.n_packages}}</li>
+          <li><strong>Errors:</strong> <a href="/stats/errors">{{page.n_errors}}</a></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  <div class="row">
+    &nbsp;
+  </div>
+  <div class="row">
+    <div class="panel panel-default">
       <div class="panel-heading"><h3 class="panel-title">Known Packages</h3></div>
       <div class="panel-body" style="overflow-x:auto;">
         <div class="venn text-center"></div>

@@ -26,24 +26,6 @@ require_relative 'lib/pages'
 $fetched_uris = {}
 $debug = false
 
-$index_exceptions = Hash.new {|h,k| h[k] = []}
-
-class IndexException < RuntimeError
-  attr :msg, :repo
-  def initialize(msg, repo)
-    @msg = msg
-    @repo = repo
-  end
-end
-
-class AnomalyLogger
-  @@anomalies = []
-
-  def record(repo, snapshot, message)
-    @@anomalies << {'repo' => repo, 'snapshot' => snapshot, 'message' => message}
-  end
-end
-
 def get_ros_api(elem)
   return []
 end
@@ -124,33 +106,51 @@ class GitScraper < Jekyll::Generator
     # add / fetch all the instances
     repo_instances.instances.each do |id, repo|
 
-      puts "Updating repo instance "+repo.id
+      begin
+        unless site.config['repo_id_whitelist'].size == 0 or site.config['repo_id_whitelist'].include?(repo.id)
+          next
+        end
 
-      # open or initialize this repo
-      local_path = File.join(@checkout_path, repo_instances.name, id)
+        puts "Updating repo / instance "+repo.name+" / "+repo.id
 
-      # make sure there's an actual uri
-      unless repo.uri
-        puts ("WARNING: No URI for " + id).yellow
-        next
+        # open or initialize this repo
+        local_path = File.join(@checkout_path, repo_instances.name, id)
+
+        # make sure there's an actual uri
+        unless repo.uri
+          raise IndexException.new("No URI for repo instance " + id, id)
+        end
+
+        if @domain_blacklist.include? URI(repo.uri).hostname
+          msg = "Repo instance " + id + " has a blacklisted hostname: " + repo.uri.to_s
+          puts ('WARNING:' + msg).yellow
+          repo.errors << msg
+          next
+        end
+
+        begin
+          # open or create a repo
+          vcs = get_vcs(repo)
+          unless (not vcs.nil? and vcs.valid?) then next end
+
+          # fetch the repo
+          vcs.fetch()
+        rescue VCSException => e
+          raise IndexException.new(e.msg, id)
+        end
+
+      rescue IndexException => e
+        @errors[repo_instances.name] << e
+        repo.accessible = false
+        repo.errors << e.msg
       end
 
-      if @domain_blacklist.include? URI(repo.uri).hostname
-        puts ("ERROR: Repo instance " + id + " has a blacklisted hostname: " + repo.uri.to_s).red
-        next
-      end
-
-      # open or create a repo
-      vcs = get_vcs(repo)
-      unless (not vcs.nil? and vcs.valid?) then next end
-
-      # fetch the repo
-      vcs.fetch()
     end
   end
 
-  def find_packages(site, distro, data, local_path)
+  def find_packages(site, distro, repo, snapshot, local_path)
 
+    data = snapshot.data
     packages = {}
 
     # find packages in this branch
@@ -161,142 +161,146 @@ class GitScraper < Jekyll::Generator
           Find.prune
         end
 
-        # check for package.xml in this directory
-        package_xml_path = File.join(path,'package.xml')
-        manifest_xml_path = File.join(path,'manifest.xml')
-        stack_xml_path = File.join(path,'stack.xml')
+        begin
+          # check for package.xml in this directory
+          package_xml_path = File.join(path,'package.xml')
+          manifest_xml_path = File.join(path,'manifest.xml')
+          stack_xml_path = File.join(path,'stack.xml')
 
-        if File.exist?(package_xml_path)
-          manifest_xml = IO.read(package_xml_path)
-          pkg_type = 'catkin'
+          if File.exist?(package_xml_path)
+            manifest_xml = IO.read(package_xml_path)
+            pkg_type = 'catkin'
 
-          # read the package manifest
-          manifest_doc = REXML::Document.new(manifest_xml)
-          package_name = REXML::XPath.first(manifest_doc, "/package/name/text()").to_s.rstrip.lstrip
-          version = REXML::XPath.first(manifest_doc, "/package/version/text()").to_s
+            # read the package manifest
+            manifest_doc = REXML::Document.new(manifest_xml)
+            package_name = REXML::XPath.first(manifest_doc, "/package/name/text()").to_s.rstrip.lstrip
+            version = REXML::XPath.first(manifest_doc, "/package/version/text()").to_s
 
-          # get dependencies
-          deps = REXML::XPath.each(manifest_doc, "/package/build_depend/text() | /package/run_depend/text() | package/depend/text()").map { |a| a.to_s }.uniq
+            # get dependencies
+            deps = REXML::XPath.each(manifest_doc, "/package/build_depend/text() | /package/run_depend/text() | package/depend/text()").map { |a| a.to_s }.uniq
 
-        elsif File.exist?(manifest_xml_path)
-          manifest_xml = IO.read(manifest_xml_path)
-          pkg_type = 'rosbuild'
+          elsif File.exist?(manifest_xml_path)
+            manifest_xml = IO.read(manifest_xml_path)
+            pkg_type = 'rosbuild'
 
-          # check for a stack.xml file
-          if File.exist?(stack_xml_path)
-            stack_xml = IO.read(stack_xml_path)
-            stack_doc = REXML::Document.new(stack_xml)
-            package_name = REXML::XPath.first(stack_doc, "/stack/name/text()").to_s
-            if package_name.length == 0
+            # check for a stack.xml file
+            if File.exist?(stack_xml_path)
+              stack_xml = IO.read(stack_xml_path)
+              stack_doc = REXML::Document.new(stack_xml)
+              package_name = REXML::XPath.first(stack_doc, "/stack/name/text()").to_s
+              if package_name.length == 0
+                package_name = File.basename(File.join(path))
+              end
+              version = REXML::XPath.first(stack_doc, "/stack/version/text()").to_s
+            else
               package_name = File.basename(File.join(path))
+              version = "UNKNOWN"
             end
-            version = REXML::XPath.first(stack_doc, "/stack/version/text()").to_s
+
+            # read the package manifest
+            manifest_doc = REXML::Document.new(manifest_xml)
+
+            # get dependencies
+            deps = REXML::XPath.each(manifest_doc, "/package/depend/@package").map { |a| a.to_s }.uniq
           else
-            package_name = File.basename(File.join(path))
-            version = "UNKNOWN"
+            next
           end
 
-          # read the package manifest
-          manifest_doc = REXML::Document.new(manifest_xml)
+          dputs " ---- Found #{pkg_type} package \"#{package_name}\" in path #{path}"
 
-          # get dependencies
-          deps = REXML::XPath.each(manifest_doc, "/package/depend/@package").map { |a| a.to_s }.uniq
-        else
-          next
-        end
-
-        dputs " ---- Found #{pkg_type} package \"#{package_name}\" in path #{path}"
-
-        # extract manifest metadata (same for manifest.xml and package.xml)
-        license = REXML::XPath.first(manifest_doc, "/package/license/text()").to_s
-        description = REXML::XPath.first(manifest_doc, "/package/description/text()").to_s
-        maintainers = REXML::XPath.each(manifest_doc, "/package/maintainer/text()").map { |m| m.to_s.sub('@', ' <AT> ') }
-        authors = REXML::XPath.each(manifest_doc, "/package/author/text()").map { |a| a.to_s.sub('@', ' <AT> ') }
-        urls = REXML::XPath.each(manifest_doc, "/package/url").map { |elem|
-          {
-            'uri' => elem.text.to_s,
-            'type' => (elem.attributes['type'] or 'Website').to_s,
-          }
-        }
-
-        # extract other standard exports
-        deprecated = REXML::XPath.first(manifest_doc, "/package/export/deprecated/text()").to_s
-
-        # extract rosindex exports
-        tags = REXML::XPath.each(manifest_doc, "/package/export/rosindex/tags/tag/text()").map { |t| t.to_s }
-        nodes = REXML::XPath.each(manifest_doc, "/package/export/rosindex/nodes").map { |nodes|
-          case nodes.attributes["format"]
-          when "hdf"
-            get_hdf(nodes.text)
-          else
-            REXML::XPath.each(manifest_doc, "/package/export/rosindex/nodes/node").map { |node|
-              {
-                'name' => REXML::XPath.first(node,'/name/text()').to_s,
-                'description' => REXML::XPath.first(node,'/description/text()').to_s,
-                'ros_api' => get_ros_api(REXML::XPath.first(node,'/description/api'))
-              }
+          # extract manifest metadata (same for manifest.xml and package.xml)
+          license = REXML::XPath.first(manifest_doc, "/package/license/text()").to_s
+          description = REXML::XPath.first(manifest_doc, "/package/description/text()").to_s
+          maintainers = REXML::XPath.each(manifest_doc, "/package/maintainer/text()").map { |m| m.to_s.sub('@', ' <AT> ') }
+          authors = REXML::XPath.each(manifest_doc, "/package/author/text()").map { |a| a.to_s.sub('@', ' <AT> ') }
+          urls = REXML::XPath.each(manifest_doc, "/package/url").map { |elem|
+            {
+              'uri' => elem.text.to_s,
+              'type' => (elem.attributes['type'] or 'Website').to_s,
             }
-          end
-        }
+          }
 
-        # compute the relative path from the root of the repo to this directory
-        relpath = Pathname.new(File.join(*path)).relative_path_from(Pathname.new(local_path))
-        local_package_path = Pathname.new(path)
+          # extract other standard exports
+          deprecated = REXML::XPath.first(manifest_doc, "/package/export/deprecated/text()").to_s
 
-        # extract package manifest info
-        raw_uri = File.join(data['raw_uri'], relpath)
-        browse_uri = File.join(data['browse_uri'], relpath)
+          # extract rosindex exports
+          tags = REXML::XPath.each(manifest_doc, "/package/export/rosindex/tags/tag/text()").map { |t| t.to_s }
+          nodes = REXML::XPath.each(manifest_doc, "/package/export/rosindex/nodes").map { |nodes|
+            case nodes.attributes["format"]
+            when "hdf"
+              get_hdf(nodes.text)
+            else
+              REXML::XPath.each(manifest_doc, "/package/export/rosindex/nodes/node").map { |node|
+                {
+                  'name' => REXML::XPath.first(node,'/name/text()').to_s,
+                  'description' => REXML::XPath.first(node,'/description/text()').to_s,
+                  'ros_api' => get_ros_api(REXML::XPath.first(node,'/description/api'))
+                }
+              }
+            end
+          }
 
-        # check for readme in same directory as package.xml
-        readme_rendered, readme = get_readme(site, path, raw_uri)
-        changelog_rendered, changelog = get_changelog(site, path, raw_uri)
+          # compute the relative path from the root of the repo to this directory
+          relpath = Pathname.new(File.join(*path)).relative_path_from(Pathname.new(local_path))
+          local_package_path = Pathname.new(path)
 
-        # TODO
-        # look for launchfiles in this package
-        launch_files = Dir[File.join(path,'**','*.launch')]
-        # look for message files in this package
-        msg_files = Dir[File.join(path,'**','*.msg')]
-        # look for service files in this package
-        srv_files = Dir[File.join(path,'**','*.srv')]
-        # look for plugin descriptions in this package
-        # TODO: get plugin files from <exports> tag
+          # extract package manifest info
+          raw_uri = File.join(data['raw_uri'], relpath)
+          browse_uri = File.join(data['browse_uri'], relpath)
 
-        package_info = {
-          'name' => package_name,
-          'pkg_type' => pkg_type,
-          'distro' => distro,
-          'raw_uri' => raw_uri,
-          'browse_uri' => browse_uri,
-          # required package info
-          'name' => package_name,
-          'version' => version,
-          'license' => license,
-          'description' => description,
-          'maintainers' => maintainers,
-          # optional package info
-          'authors' => authors,
-          'urls' => urls,
-          # dependencies
-          'deps' => deps,
-          # exports
-          'deprecated' => deprecated,
-          # rosindex metadata
-          'tags' => tags,
-          'nodes' => nodes,
-          # readme
-          'readme' => readme,
-          'readme_rendered' => readme_rendered,
-          # changelog
-          'changelog' => changelog,
-          'changelog_rendered' => changelog_rendered,
-          # assets
-          'launch_files' => launch_files.map {|f| Pathname.new(f).relative_path_from(local_package_path).to_s },
-          'msg_files' => msg_files.map {|f| Pathname.new(f).relative_path_from(local_package_path).to_s },
-          'srv_files' => srv_files.map {|f| Pathname.new(f).relative_path_from(local_package_path).to_s }
-        }
+          # check for readme in same directory as package.xml
+          readme_rendered, readme = get_readme(site, path, raw_uri)
+          changelog_rendered, changelog = get_changelog(site, path, raw_uri)
 
-        dputs " -- adding package " << package_name
-        packages[package_name] = package_info
+          # TODO
+          # look for launchfiles in this package
+          launch_files = Dir[File.join(path,'**','*.launch')]
+          # look for message files in this package
+          msg_files = Dir[File.join(path,'**','*.msg')]
+          # look for service files in this package
+          srv_files = Dir[File.join(path,'**','*.srv')]
+          # look for plugin descriptions in this package
+          # TODO: get plugin files from <exports> tag
+
+          package_info = {
+            'name' => package_name,
+            'pkg_type' => pkg_type,
+            'distro' => distro,
+            'raw_uri' => raw_uri,
+            'browse_uri' => browse_uri,
+            # required package info
+            'name' => package_name,
+            'version' => version,
+            'license' => license,
+            'description' => description,
+            'maintainers' => maintainers,
+            # optional package info
+            'authors' => authors,
+            'urls' => urls,
+            # dependencies
+            'deps' => deps,
+            # exports
+            'deprecated' => deprecated,
+            # rosindex metadata
+            'tags' => tags,
+            'nodes' => nodes,
+            # readme
+            'readme' => readme,
+            'readme_rendered' => readme_rendered,
+            # changelog
+            'changelog' => changelog,
+            'changelog_rendered' => changelog_rendered,
+            # assets
+            'launch_files' => launch_files.map {|f| Pathname.new(f).relative_path_from(local_package_path).to_s },
+            'msg_files' => msg_files.map {|f| Pathname.new(f).relative_path_from(local_package_path).to_s },
+            'srv_files' => srv_files.map {|f| Pathname.new(f).relative_path_from(local_package_path).to_s }
+          }
+
+          dputs " -- adding package " << package_name
+          packages[package_name] = package_info
+        rescue REXML::ParseException => e
+          @errors[repo.name] << IndexException.new("Failed to parse package manifest: " + e.to_s)
+        end
 
         # stop searching a directory after finding a package
         Find.prune
@@ -331,7 +335,7 @@ class GitScraper < Jekyll::Generator
       data['raw_uri'])
 
     # get all packages from the repo
-    packages = find_packages(site, distro, snapshot.data, vcs.local_path)
+    packages = find_packages(site, distro, repo, snapshot, vcs.local_path)
 
     # add the discovered packages to the index
     packages.each do |package_name, package_data|
@@ -360,12 +364,18 @@ class GitScraper < Jekyll::Generator
   def scrape_repo(site, repo)
 
     if @domain_blacklist.include? URI(repo.uri).hostname
-      puts ("ERROR: Repo instance " + repo.id + " has a blacklisted hostname: " + repo.uri.to_s).red
+      msg = "Repo instance " + repo.id + " has a blacklisted hostname: " + repo.uri.to_s
+      puts ('WARNING:' + msg).yellow
+      repo.errors << msg
       return
     end
 
     # open or initialize this repo
-    vcs = get_vcs(repo)
+    begin
+      vcs = get_vcs(repo)
+    rescue VCSException => e
+      raise IndexException.new(e.msg, repo.id)
+    end
     unless (not vcs.nil? and vcs.valid?) then return end
 
     # get versions suitable for checkout for each distro
@@ -380,25 +390,30 @@ class GitScraper < Jekyll::Generator
         dputs " -- looking for version " << explicit_version.to_s << " for distro " << distro
       end
 
-      # get the version
-      version, snapshot.version = vcs.get_version(distro, explicit_version)
+      begin
+        # get the version
+        version, snapshot.version = vcs.get_version(distro, explicit_version)
 
-      # scrape the data (packages etc)
-      if version
-        puts (" --- scraping version for " << repo.name << " instance: " << repo.id << " distro: " << distro).blue
+        # scrape the data (packages etc)
+        if version
+          puts (" --- scraping version for " << repo.name << " instance: " << repo.id << " distro: " << distro).blue
 
-        # check out this branch
-        vcs.checkout(version)
+            # check out this branch
+            vcs.checkout(version)
 
-        # check for ignore file
-        if File.exist?(File.join(vcs.local_path,'.rosindex_ignore'))
-          puts (" --- ignoring version for " << repo.name).yellow
-          snapshot.version = nil
+          # check for ignore file
+          if File.exist?(File.join(vcs.local_path,'.rosindex_ignore'))
+            puts (" --- ignoring version for " << repo.name).yellow
+            snapshot.version = nil
+          else
+            scrape_version(site, repo, distro, snapshot, vcs)
+          end
         else
-          scrape_version(site, repo, distro, snapshot, vcs)
+          puts (" --- no version for " << repo.name << " instance: " << repo.id << " distro: " << distro).yellow
         end
-      else
-        puts (" --- no version for " << repo.name << " instance: " << repo.id << " distro: " << distro).yellow
+      rescue VCSException => e
+        @errors[repo.name] << IndexException.new("Could not find version for distro #{distro}: "+e.msg, repo.id)
+        repo.errors << e.msg
       end
     end
 
@@ -439,6 +454,8 @@ class GitScraper < Jekyll::Generator
     @repo_names = @db.repo_names
     # the list of package instances by name
     @package_names = @db.package_names
+    # the list of errors encountered
+    @errors = @db.errors
 
     # get the repositories from the rosdistro files, rosdoc rosinstall files, and other sources
     unless @skip_discover
@@ -452,62 +469,108 @@ class GitScraper < Jekyll::Generator
           distro_data = YAML.load_file(rosdistro_filename)
           distro_data['repositories'].each do |repo_name, repo_data|
 
-            # limit repos if requested
-            if not @repo_names.has_key?(repo_name) and site.config['max_repos'] > 0 and @repo_names.length > site.config['max_repos'] then next end
+            begin
+              # limit repos if requested
+              if not @repo_names.has_key?(repo_name) and site.config['max_repos'] > 0 and @repo_names.length > site.config['max_repos'] then next end
 
-            puts " - "+repo_name
+              puts " - "+repo_name
 
-            source_uri = nil
-            source_version = nil
-            source_type = nil
+              source_uri = nil
+              source_version = nil
+              source_type = nil
 
-            # only index if it has a source repo
-            if repo_data.has_key?('source')
-              source_uri = repo_data['source']['url'].to_s
-              source_type = repo_data['source']['type'].to_s
-              source_version = repo_data['source']['version'].to_s
-              source_version = (if repo_data['source'].key?('version') and repo_data['source']['version'] != 'HEAD' then repo_data['source']['version'].to_s else 'REMOTE_HEAD' end)
-            elsif repo_data.has_key?('doc')
-              source_uri = repo_data['doc']['url'].to_s
-              source_type = repo_data['doc']['type'].to_s
-              source_version = (if repo_data['doc'].key?('version') and repo_data['doc']['version'] != 'HEAD' then repo_data['doc']['version'].to_s else 'REMOTE_HEAD' end)
-            elsif repo_data.has_key?('release')
-              # TODO: get the release repo to get the upstream repo
-              # NOTE: also, sometimes people use the release repo as the "doc" repo
-              puts ("ERROR: No source or doc information for repo: " + repo_name + " in rosidstro file: " + rosdistro_filename).red
-              next
-            else
-              puts ("ERROR: No source, doc, or release information for repo: " + repo_name+ " in rosidstro file: " + rosdistro_filename).red
-              next
+              # only index if it has a source repo
+              if repo_data.has_key?('source')
+                source_uri = repo_data['source']['url'].to_s
+                source_type = repo_data['source']['type'].to_s
+                source_version = repo_data['source']['version'].to_s
+                source_version = (if repo_data['source'].key?('version') and repo_data['source']['version'] != 'HEAD' then repo_data['source']['version'].to_s else 'REMOTE_HEAD' end)
+              elsif repo_data.has_key?('doc')
+                source_uri = repo_data['doc']['url'].to_s
+                source_type = repo_data['doc']['type'].to_s
+                source_version = (if repo_data['doc'].key?('version') and repo_data['doc']['version'] != 'HEAD' then repo_data['doc']['version'].to_s else 'REMOTE_HEAD' end)
+              elsif repo_data.has_key?('release')
+                # TODO: get the release repo to get the upstream repo
+                # NOTE: also, sometimes people use the release repo as the "doc" repo
+
+                release_uri = cleanup_uri(repo_data['release']['url'].to_s)
+                release_repo_path = File.join(@checkout_path,'_release_repos',repo_name,get_id(release_uri))
+                # clone the release repo
+                release_repo = GIT.new(release_repo_path, release_uri)
+                release_repo.fetch()
+
+                # get the tracks file
+                tracks_file = nil
+                ['master','bloom'].each do |branch_name|
+                  branch, _ = release_repo.get_version(branch_name)
+
+                  if branch.nil? then next end
+
+                  release_repo.checkout(branch)
+
+                  begin
+                    # get the tracks file
+                    tracks_file = YAML.load_file(File.join(release_repo_path,'tracks.yaml'))
+                    break
+                  rescue
+                    next
+                  end
+                end
+
+                if tracks_file.nil?
+                  raise IndexException.new("Could not find tracks.yaml file in release repo: " + repo_name + " in rosidstro file: " + rosdistro_filename)
+                end
+
+                tracks_file['tracks'].each do |track_name, track|
+                  if track['ros_distro'] == distro
+                    source_uri = track['vcs_uri']
+                    source_type = track['vcs_type']
+                    source_version = track['last_version']
+                    break
+                  end
+                end
+
+                if source_uri.nil? or source_type.nil? or source_version.nil?
+                  raise IndexException.new("Could not determine source repo from release repo: " + repo_name + " in rosidstro file: " + rosdistro_filename)
+                end
+              else
+                raise IndexException.new("No source, doc, or release information for repo: " + repo_name+ " in rosidstro file: " + rosdistro_filename)
+              end
+
+              # create a new repo structure for this remote
+              begin
+                repo = Repo.new(
+                  repo_name,
+                  source_type,
+                  source_uri,
+                  'Via rosdistro: '+distro,
+                  @checkout_path)
+              rescue
+                raise IndexException.new("Failed to create repo from #{source_type} repo #{source_uri}: " + repo_name+ " in rosidstro file: " + rosdistro_filename)
+              end
+
+              # get maintainer status
+              if repo_data.key?('status')
+                repo.status = repo_data['status']
+              end
+
+              if @all_repos.key?(repo.id)
+                repo = @all_repos[repo.id]
+              else
+                dputs " -- Adding repo for " << repo.name << " instance: " << repo.id << " from uri " << repo.uri.to_s
+                # store this repo in the unique index
+                @all_repos[repo.id] = repo
+              end
+
+              # add the specific version from this instance
+              repo.snapshots[distro] = RepoSnapshot.new(source_version, distro, repo_data.key?('release'))
+
+              # store this repo in the name index
+              @repo_names[repo.name].instances[repo.id] = repo
+              @repo_names[repo.name].default = repo
+            rescue IndexException => e
+              @errors[repo_name] << e
             end
-
-            # create a new repo structure for this remote
-            repo = Repo.new(
-              repo_name,
-              source_type,
-              source_uri,
-              'Via rosdistro: '+distro,
-              @checkout_path)
-
-            # get maintainer status
-            if repo_data.key?('status')
-              repo.status = repo_data['status']
-            end
-
-            if @all_repos.key?(repo.id)
-              repo = @all_repos[repo.id]
-            else
-              dputs " -- Adding repo for " << repo.name << " instance: " << repo.id << " from uri " << repo.uri.to_s
-              # store this repo in the unique index
-              @all_repos[repo.id] = repo
-            end
-
-            # add the specific version from this instance
-            repo.snapshots[distro] = RepoSnapshot.new(source_version, distro, repo_data.key?('release'))
-
-            # store this repo in the name index
-            @repo_names[repo.name].instances[repo.id] = repo
-            @repo_names[repo.name].default = repo
           end
         end
 
@@ -516,7 +579,7 @@ class GitScraper < Jekyll::Generator
 
         puts "Examining doc path: " << doc_path
 
-        Dir.glob(File.join(doc_path,'*.rosinstall')) do |rosinstall_filename|
+        Dir.glob(File.join(doc_path,'*.rosinstall').to_s) do |rosinstall_filename|
 
           puts 'Indexing rosinstall repo data file: ' << rosinstall_filename
 
@@ -524,45 +587,50 @@ class GitScraper < Jekyll::Generator
           rosinstall_data.each do |rosinstall_entry|
             rosinstall_entry.each do |repo_type, repo_data|
 
-              if repo_data.nil? then next end
-              if repo_type == 'bzr'
-                puts ("ERROR: some fools trying to use bazaar: " + rosinstall_filename).red
-                next
+              begin
+                if repo_data.nil? then next end
+                #puts repo_type.inspect
+                #puts repo_data.inspect
+
+                # extract the garbage
+                repo_name = repo_data['local-name'].to_s.split(File::SEPARATOR)[-1]
+                repo_uri = repo_data['uri'].to_s
+                repo_version = (if repo_data.key?('version') and repo_data['version'] != 'HEAD' then repo_data['version'].to_s else 'REMOTE_HEAD' end)
+
+                # limit number of repos indexed if in devel mode
+                if not @repo_names.has_key?(repo_name) and site.config['max_repos'] > 0 and @repo_names.length > site.config['max_repos'] then next end
+
+                puts " - #{repo_name}"
+
+                if repo_type == 'bzr'
+                  raise IndexException.new("ERROR: some fools trying to use bazaar: " + rosinstall_filename)
+                end
+
+                # create a new repo structure for this remote
+                repo = Repo.new(
+                  repo_name,
+                  repo_type,
+                  repo_uri,
+                  'Via rosdistro doc: '+distro,
+                  @checkout_path)
+
+                if @all_repos.key?(repo.id)
+                  repo = @all_repos[repo.id]
+                else
+                  puts " -- Adding repo for " << repo.name << " instance: " << repo.id << " from uri: " << repo.uri.to_s
+                  # store this repo in the unique index
+                  @all_repos[repo.id] = repo
+                end
+
+                # add the specific version from this instance
+                repo.snapshots[distro] = RepoSnapshot.new(repo_version, distro, false)
+
+                # store this repo in the name index
+                @repo_names[repo.name].instances[repo.id] = repo
+                @repo_names[repo.name].default = repo
+              rescue IndexException => e
+                @errors[repo_name] << e
               end
-
-              #puts repo_type.inspect
-              #puts repo_data.inspect
-
-              # extract the garbage
-              repo_name = repo_data['local-name'].to_s
-              repo_uri = repo_data['uri'].to_s
-              repo_version = (if repo_data.key?('version') and repo_data['version'] != 'HEAD' then repo_data['version'].to_s else 'REMOTE_HEAD' end)
-
-              # limit number of repos indexed if in devel mode
-              if not @repo_names.has_key?(repo_name) and site.config['max_repos'] > 0 and @repo_names.length > site.config['max_repos'] then next end
-
-              # create a new repo structure for this remote
-              repo = Repo.new(
-                repo_name,
-                repo_type,
-                repo_uri,
-                'Via rosdistro doc: '+distro,
-                @checkout_path)
-
-              if @all_repos.key?(repo.id)
-                repo = @all_repos[repo.id]
-              else
-                dputs " -- Adding repo for " << repo.name << " instance: " << repo.id << " from uri: " << repo.uri.to_s
-                # store this repo in the unique index
-                @all_repos[repo.id] = repo
-              end
-
-              # add the specific version from this instance
-              repo.snapshots[distro] = RepoSnapshot.new(repo_version, distro, false)
-
-              # store this repo in the name index
-              @repo_names[repo.name].instances[repo.id] = repo
-              @repo_names[repo.name].default = repo
             end
           end
         end
@@ -623,7 +691,7 @@ class GitScraper < Jekyll::Generator
     # clone / fetch all the repos
     unless @skip_update
       work_q = Queue.new
-      @repo_names.each {|r| work_q.push r}
+      @repo_names.sort.map.each {|r| work_q.push r}
       puts "Fetching sources with " << site.config['checkout_threads'].to_s << " threads."
       workers = (0...site.config['checkout_threads']).map do
         Thread.new do
@@ -641,10 +709,16 @@ class GitScraper < Jekyll::Generator
     # scrape all the repos
     unless @skip_scrape
       puts "Scraping known repos..."
-      @all_repos.each do |repo_id, repo|
+      @all_repos.to_a.sort_by{|repo_id, repo| repo.name}.each do |repo_id, repo|
         if site.config['repo_id_whitelist'].size == 0 or site.config['repo_id_whitelist'].include?(repo.id)
+
           puts "Scraping " << repo.id << "..."
-          scrape_repo(site, repo)
+          begin
+            scrape_repo(site, repo)
+          rescue IndexException => e
+            @errors[repo.name] << e
+            repo.errors << e.msg
+          end
         end
       end
     end
@@ -786,7 +860,7 @@ class GitScraper < Jekyll::Generator
               'baseurl' => site.config['baseurl'],
               'url' => File.join('/p',package_name,instance_id)+"#"+distro,
               'last_commit_time' => repo_snapshot.data['last_commit_time'],
-              'tags' => p['tags'] * " ",
+              'tags' => (p['tags'] + package_name.split('_')) * " ",
               'name' => package_name,
               'repo_name' => repo.name,
               'released' => if repo_snapshot.released then 'is:released' else '' end,
@@ -850,7 +924,11 @@ class GitScraper < Jekyll::Generator
 
     # create stats page
     puts "Generating statistics page...".blue
-    site.pages << StatsPage.new(site, @package_names, @all_repos)
+    site.pages << StatsPage.new(site, @package_names, @all_repos, @errors)
+
+    # create errors page
+    puts "Generating errors page...".blue
+    site.pages << ErrorsPage.new(site, @errors)
   end
 
   def strip_stopwords(text)

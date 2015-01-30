@@ -69,7 +69,6 @@ contributing a fork).
 
 See [Resurrecting Packages](/contribute/resurrect) for documentation on how to
 bring a package back from the dead.
-
 ## Opting out of Indexing
 
 If you do not want a branch of your repository to be shown on ROS Index, simply
@@ -100,3 +99,13 @@ requests, and especially pull requests are welcome.
 <a href="https://github.com/rosindex/rosindex.github.io/issues/new" target="_blank" class="btn btn-success">Post an Issue</a>
 
 For more details on developing ROS Index, see [development](/about/development).
+
+## Fund ROS Index Development
+
+ROS Index Development is a community-driven project and is not directly funded
+by any grant or organization. If you're interested in supporting implementing new features or 
+fixing specific bugs, but would rather contribute funds than modify the code yourself,
+don't hesitate to donate or pledge bounties on
+[BountySource](https://www.bountysource.com/teams/rosindex/issues).
+
+<a href="https://www.bountysource.com/teams/rosindex/issues" target="_blank" class="btn btn-success">Post a Bounty</a>

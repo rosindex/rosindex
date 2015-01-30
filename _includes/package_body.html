@@ -18,11 +18,11 @@ Assumes distro and package are defined
     <a href="#{{distro}}-assets" data-toggle="tab"><span class="label label-{%if n_assets == 0%}default{%else%}primary{%endif%}">{{n_assets}}</span> Assets</a>
   </li>
   <li class="better-tabs">
-  {% assign n_deps = package.data.deps | size %}
-<a href="#{{distro}}-deps" data-toggle="tab"><span class="label label-{%if n_deps == 0%}default{%else%}primary{%endif%}">{{n_deps}}</span> Dependencies</a>
+    {% assign n_deps = package.data.deps | size %}
+    <a href="#{{distro}}-deps" data-toggle="tab"><span class="label label-{%if n_deps == 0%}default{%else%}primary{%endif%}">{{n_deps}}</span> Dependencies</a>
   </li>
   <li class="better-tabs">
-  <a href="#{{distro}}-tutorials" data-toggle="tab"><span class="label label-default">0</span> Tutorials</a>
+  <a href="#{{distro}}-tutorials" data-toggle="tab">{%comment%}<span class="label label-default">0</span> {%endcomment%}Tutorials</a>
   </li>
 </ul>
 
@@ -170,21 +170,22 @@ Assumes distro and package are defined
   <div class="tab-pane" id="{{distro}}-tutorials">
     <div class="panel panel-default">
       <div class="panel-heading">
-        <h3 class="panel-title">Source Tutorials</h3>
-      </div>
-      <div class="panel-body">
-        <em>None.</em>
-      </div>
-    </div>
-
-    <div class="panel panel-default">
-      <div class="panel-heading">
         <h3 class="panel-title">Wiki Tutorials</h3>
       </div>
       <div class="panel-body">
         <em>See <a href="http://wiki.ros.org/{{package.name}}/Tutorials" target="_blank">ROS Wiki Tutorials</a></em>
       </div>
     </div>
+
+    <div class="panel panel-default">
+      <div class="panel-heading">
+        <h3 class="panel-title">Source Tutorials</h3>
+      </div>
+      <div class="panel-body">
+        <em>Not currently indexed.</em>
+      </div>
+    </div>
+
   </div>
 
   <div class="tab-pane" id="{{distro}}-deps">
@@ -204,7 +205,7 @@ Assumes distro and package are defined
         <h3 class="panel-title">Depended On By</h3>
       </div>
       <div class="panel-body">
-        ...
+        <em>Not currently computed.</em>
       </div>
     </div>
   </div>
@@ -254,7 +255,7 @@ Assumes distro and package are defined
         <h3 class="panel-title">Plugins</h3>
       </div>
       <div class="panel-body">
-        ...
+        <em>Not currently indexed.</em>
       </div>
     </div>
 

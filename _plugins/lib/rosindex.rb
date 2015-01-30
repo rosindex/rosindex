@@ -1,9 +1,5 @@
 
-def get_id(uri)
-  # combines the domain name and path, hyphenated
-  p_uri = URI(uri)
-  return (p_uri.host.split('.').reject{|v| if v.length < 3 or v == 'com' or v == 'org' or v == 'edu' then v end} + p_uri.path.split(%r{[./]}).reject{|v| if v.length == 0 then true end}[0,2]).join('-')
-end
+require_relative 'common'
 
 class PackageSnapshot < Liquid::Drop
   # This represents a snapshot of a ROS package found in a repo snapshot
@@ -46,16 +42,16 @@ end
 
 class Repo < Liquid::Drop
   # This represents a remote repository
-  attr_accessor :name, :id, :uri, :purpose, :snapshots, :tags, :type, :status, :local_path, :local_name
+  attr_accessor :name, :id, :uri, :accessible, :errors, :purpose, :snapshots, :tags, :type, :status, :local_path, :local_name
   def initialize(name, type, uri, purpose, checkout_path)
-    # unique identifier
-    @id = get_id(uri)
-
     # non-unique identifier for this repo
     @name = name
 
     # the uri for cloning this repo
     @uri = cleanup_uri(uri)
+
+    # unique identifier
+    @id = get_id(@uri)
 
     # the version control system type
     @type = type
@@ -65,6 +61,12 @@ class Repo < Liquid::Drop
 
     # maintainer status
     @status = nil
+
+    # whether it's accesible or not
+    @accessible = true
+
+    # a list of error messages
+    @errors = []
 
     # the local repo name to checkout to (this is important for older rosbuild packages)
     @local_name = name
@@ -119,7 +121,7 @@ class PackageInstances < Liquid::Drop
 end
 
 class RosIndexDB
-  attr_accessor :all_repos, :repo_names, :package_names
+  attr_accessor :all_repos, :repo_names, :package_names, :errors
   def initialize
     # the global index of repos
     @all_repos = Hash.new
@@ -127,6 +129,8 @@ class RosIndexDB
     @repo_names = Hash.new
     # the list of package instances by name
     @package_names = Hash.new
+    # the errors encountered while processing
+    @errors = Hash.new
 
     self.add_procs
   end
@@ -139,14 +143,44 @@ class RosIndexDB
     @package_names.default_proc = proc do |h, k|
       h[k]=PackageInstances.new(k)
     end
+
+    @errors.default_proc = proc do |h,k|
+      h[k]=[]
+    end
   end
 
   def marshal_dump
-    [Hash[@all_repos], Hash[@repo_names], Hash[@package_names]]
+    [Hash[@all_repos], Hash[@repo_names], Hash[@package_names], Hash[@errors]]
   end
 
   def marshal_load array
-    @all_repos, @repo_names, @package_names = array
+    @all_repos, @repo_names, @package_names, @errors = array
     self.add_procs
   end
 end
+
+def get_vcs(repo)
+
+  vcs = nil
+
+  case repo.type
+  when 'git'
+    dputs "Getting git repo: " + repo.uri.to_s
+    vcs = GIT.new(repo.local_path, repo.uri)
+  when 'hg'
+    dputs "Getting hg repo: " + repo.uri.to_s
+    vcs = HG.new(repo.local_path, repo.uri)
+  when 'svn'
+    dputs "Getting svn repo: " + repo.uri.to_s
+    vcs = GITSVN.new(repo.local_path, repo.uri)
+  else
+    raise IndexException.new("Unsupported VCS type: "+repo.type.to_s, repo.id)
+  end
+
+  if vcs.valid?
+    return vcs
+  else
+    return nil
+  end
+end
+
