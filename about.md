@@ -23,3 +23,13 @@ For more information see:
 
 See [rosindex on GitHub](https://github.com/rosindex/rosindex.github.io) for
 active development.
+
+# Funding
+
+ROS Index is a community-driven project and is not directly funded
+by any grant or organization. If you're interested in supporting implementing new features or 
+fixing specific bugs, but would rather contribute funds than modify the code yourself,
+don't hesitate to donate or pledge bounties on
+[BountySource](https://www.bountysource.com/teams/rosindex/issues).
+
+<a href="https://www.bountysource.com/teams/rosindex/issues" target="_blank" class="btn btn-success">Post a Bounty</a>

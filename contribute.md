@@ -102,7 +102,7 @@ For more details on developing ROS Index, see [development](/about/development).
 
 ## Fund ROS Index Development
 
-ROS Index Development is a community-driven project and is not directly funded
+ROS Index is a community-driven project and is not directly funded
 by any grant or organization. If you're interested in supporting implementing new features or 
 fixing specific bugs, but would rather contribute funds than modify the code yourself,
 don't hesitate to donate or pledge bounties on

@@ -839,9 +839,9 @@ class GitScraper < Jekyll::Generator
     end
 
     # create lunr index data
-    index = []
-
     unless site.config['skip_search_index']
+      index = []
+
       @all_repos.each do |instance_id, repo|
         repo.snapshots.each do |distro, repo_snapshot|
 
@@ -875,52 +875,52 @@ class GitScraper < Jekyll::Generator
             }
 
             puts 'indexed: ' << "#{package_name} #{instance_id} #{distro}"
+          end
+        end
       end
+
+      # generate index in the json format needed by lunr
+      index_json = JSON.generate({'entries'=>index})
+
+      # save the json file
+      # TODO: is there no way to do this in fewer lines?
+      Dir::mkdir(site.dest) unless File.directory?(site.dest)
+      index_filename = 'search.json'
+
+      File.open(File.join(site.dest, index_filename), "w") do |index_file|
+        index_file.write(index_json)
+      end
+
+      # add this file as a static site file
+      site.static_files << SearchIndexFile.new(site, site.dest, "/", index_filename)
+
+      # precompute the lunr index
+      lunr_cmd = File.join(site.source,'node_modules','lunr-index-build','bin','lunr-index-build')
+      lunr_index_fields = [
+        '-r','id',
+        '-f','baseurl',
+        '-f','instance',
+        '-f','url',
+        '-f','tags:100',
+        '-f','name:100',
+        '-f','version',
+        '-f','description:50',
+        '-f','maintainers',
+        '-f','authors',
+        '-f','distro',
+        '-f','readme',
+        '-f','released',
+        '-f','unreleased'
+      ].join(' ')
+
+      puts ("Precompiling lunr index...").blue
+      spawn(
+        "#{lunr_cmd} #{lunr_index_fields}",
+        :in=>File.join(site.dest,index_filename),
+        :out=>[File.join(site.dest,'index.json'),"w"])
+
+      site.static_files << SearchIndexFile.new(site, site.dest, "/", "index.json")
     end
-    end
-    end
-
-    # generate index in the json format needed by lunr
-    index_json = JSON.generate({'entries'=>index})
-
-    # save the json file
-    # TODO: is there no way to do this in fewer lines?
-    Dir::mkdir(site.dest) unless File.directory?(site.dest)
-    index_filename = 'search.json'
-
-    File.open(File.join(site.dest, index_filename), "w") do |index_file|
-      index_file.write(index_json)
-    end
-
-    # add this file as a static site file
-    site.static_files << SearchIndexFile.new(site, site.dest, "/", index_filename)
-
-    # precompute the lunr index
-    lunr_cmd = File.join(site.source,'node_modules','lunr-index-build','bin','lunr-index-build')
-    lunr_index_fields = [
-      '-r','id',
-      '-f','baseurl',
-      '-f','instance',
-      '-f','url',
-      '-f','tags:100',
-      '-f','name:100',
-      '-f','version',
-      '-f','description:50',
-      '-f','maintainers',
-      '-f','authors',
-      '-f','distro',
-      '-f','readme',
-      '-f','released',
-      '-f','unreleased'
-    ].join(' ')
-
-    puts ("Precompiling lunr index...").blue
-    spawn(
-      "#{lunr_cmd} #{lunr_index_fields}",
-      :in=>File.join(site.dest,index_filename),
-      :out=>[File.join(site.dest,'index.json'),"w"])
-
-    site.static_files << SearchIndexFile.new(site, site.dest, "/", "index.json")
 
     # create stats page
     puts "Generating statistics page...".blue
