@@ -2,3 +2,5 @@ _site
 .sass-cache
 _checkout
 _devel
+_roswiki
+_caches

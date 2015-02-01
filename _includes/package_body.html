@@ -11,7 +11,7 @@ Assumes distro and package are defined
     <a href="#{{distro}}-overview" data-toggle="tab">Overview</a>
   </li>
   <li class="better-tabs">
-    {% assign n_launch = package.data.launch_files | size %}
+    {% assign n_launch = package.data.launch_data | size %}
     {% assign n_msgs = package.data.msg_files | size %}
     {% assign n_srvs = package.data.srv_files | size %}
     {% assign n_assets = n_launch | plus: n_srvs | plus: n_msgs %}
@@ -217,8 +217,16 @@ Assumes distro and package are defined
       </div>
       <div class="panel-body">
         <ul>
-          {% for f in package.data.launch_files %}
-            <li><a href="{{package.data.browse_uri}}/{{f}}" target="_blank">{{f}}</a></li>
+          {% for f in package.data.launch_data %}
+            <li><a href="{{package.data.browse_uri}}/{{f.relpath}}" target="_blank">{{f.relpath}}</a>
+              <ul>
+                {% for a in f.args %}
+                  {% unless a.value %}
+                    <li>{{a.name}} {%if a.default%}<em>default: {{a.default}}{%endif%}</em></li>
+                  {% endunless %}
+                {%endfor%}
+              </ul>
+            </li>
           {%endfor%}
         </ul>
       </div>

@@ -22,6 +22,7 @@ require_relative 'lib/vcs'
 require_relative 'lib/conversions'
 require_relative 'lib/text_rendering'
 require_relative 'lib/pages'
+require_relative 'lib/asset_parsers'
 
 $fetched_uris = {}
 $debug = false
@@ -262,6 +263,14 @@ class GitScraper < Jekyll::Generator
           # look for plugin descriptions in this package
           # TODO: get plugin files from <exports> tag
 
+
+          launch_data = []
+          begin
+            #launch_data = launch_files.map {|f| parse_launch_file(f, Pathname.new(f).relative_path_from(local_package_path).to_s) }
+          rescue REXML::ParseException => e
+            @errors[repo.name] << IndexException.new("Failed to parse launchfile: " + e.to_s)
+          end
+
           package_info = {
             'name' => package_name,
             'pkg_type' => pkg_type,
@@ -291,7 +300,7 @@ class GitScraper < Jekyll::Generator
             'changelog' => changelog,
             'changelog_rendered' => changelog_rendered,
             # assets
-            'launch_files' => launch_files.map {|f| Pathname.new(f).relative_path_from(local_package_path).to_s },
+            'launch_data' => launch_data,
             'msg_files' => msg_files.map {|f| Pathname.new(f).relative_path_from(local_package_path).to_s },
             'srv_files' => srv_files.map {|f| Pathname.new(f).relative_path_from(local_package_path).to_s }
           }
