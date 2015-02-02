@@ -21,7 +21,7 @@ skip_scrape: false
 skip_search_index: false
 
 checkout_threads: 1
-checkout_path: _checkout
+checkout_path: "../_checkout"
 
 # if non-empty, only scrape these packages (useful for debugging / partial db updates)
 scrape_whitelist: []

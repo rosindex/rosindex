@@ -19,14 +19,17 @@ end
 
 class RepoSnapshot < Liquid::Drop
   # This represents a snapshot of a version control repository
-  attr_accessor :released, :distro, :version, :data, :packages
-  def initialize(version, distro, released)
+  attr_accessor :released, :documented, :distro, :version, :data, :packages
+  def initialize(version, distro, released, documented)
     # the version control system version string
     # this is either a branch or tag of the remote repo
     @version = version
 
     # whether this snapshot is released
     @released = released
+
+    # whether this snapshot has generated api docs
+    @documented = documented
 
     # the distro that this snapshot works with
     @distro = distro
@@ -76,7 +79,7 @@ class Repo < Liquid::Drop
 
     # hash distro -> RepoSnapshot
     # each entry in this hash represents the preferred version for a given distro in this repo
-    @snapshots = Hash[$all_distros.collect { |d| [d, RepoSnapshot.new(nil, d, false)] }]
+    @snapshots = Hash[$all_distros.collect { |d| [d, RepoSnapshot.new(nil, d, false, false)] }]
 
     # tags from all versions
     @tags = []

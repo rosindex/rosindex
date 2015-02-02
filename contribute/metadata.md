@@ -114,15 +114,36 @@ documents will be rendered into HTML.
 
 ***WIP***
 
-A package can also give a list of a series of tutorials.
+A package can give a list of a series of tutorials with the
+following sources:
 
 ```xml
 <tutorials>
-  <tutorial>doc/tut1.md</tutorial>
-  <tutorial>doc/tut2.md</tutorial>
-  <tutorial>doc/tut3.md</tutorial>
+  <!-- Declare some pre-requisite tutorials -->
+  <prereq pkg="other_pkg_tutorials"/>
+
+  <!-- Direct users to another package for tutorials. -->
+  <tutorial pkg="my_pkg_tutorials"/>
+
+  <!-- Direct users to a tutorial on an external website. -->
+  <tutorial link="http://www.my_website.com/some_tutorial.html">Optional Name</tutorial>
+
+  <!-- Display markdown-based tutorials (rendered by ROSIndex). -->
+  <tutorial file="doc/tut1.md>Tutorial One</tutorial>
+  <tutorial file="doc/tut2.md>Tutorial Two</tutorial>
+  <tutorial file="doc/tut3.md>Tutorial Three</tutorial>
+
+  <!-- Display markdown-based tutorials (rendered by ROSIndex). -->
+  <sequence title="Advanced Tutorials">
+    <tutorial file="doc/tut1.md>Tutorial One</tutorial>
+    <tutorial file="doc/tut2.md>Tutorial Two</tutorial>
+    <tutorial file="doc/tut3.md>Tutorial Three</tutorial>
+  </sequence>
 </tutorials>
 ```
+
+Tutorials listed on the ROS Wiki under `<<package_name>>/Tutorials/*`
+will also be listed and directly linked.
 
 ### Nodes
 

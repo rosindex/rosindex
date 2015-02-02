@@ -1,6 +1,7 @@
 
 # NOTE: This whole file is one big hack. Don't judge.
 
+require 'colorator'
 require 'fileutils'
 require 'find'
 require 'rexml/document'
@@ -13,16 +14,15 @@ require 'yaml'
 require "net/http"
 require 'thread'
 
-require 'colorize'
-
 # local libs
-require_relative 'lib/common'
-require_relative 'lib/rosindex'
-require_relative 'lib/vcs'
-require_relative 'lib/conversions'
-require_relative 'lib/text_rendering'
-require_relative 'lib/pages'
-require_relative 'lib/asset_parsers'
+require_relative '../_ruby_libs/common'
+require_relative '../_ruby_libs/rosindex'
+require_relative '../_ruby_libs/vcs'
+require_relative '../_ruby_libs/conversions'
+require_relative '../_ruby_libs/text_rendering'
+require_relative '../_ruby_libs/pages'
+require_relative '../_ruby_libs/asset_parsers'
+require_relative '../_ruby_libs/roswiki'
 
 $fetched_uris = {}
 $debug = false
@@ -77,7 +77,7 @@ def get_browse_uri(uri_s, type, branch)
   return uri_s
 end
 
-class GitScraper < Jekyll::Generator
+class Indexer < Jekyll::Generator
   def initialize(config = {})
     super(config)
 
@@ -129,15 +129,22 @@ class GitScraper < Jekyll::Generator
           next
         end
 
-        begin
-          # open or create a repo
-          vcs = get_vcs(repo)
-          unless (not vcs.nil? and vcs.valid?) then next end
+        (1..3).each do |attempt|
+          begin
+            # open or create a repo
+            vcs = get_vcs(repo)
+            unless (not vcs.nil? and vcs.valid?) then next end
 
-          # fetch the repo
-          vcs.fetch()
-        rescue VCSException => e
-          raise IndexException.new(e.msg, id)
+            # fetch the repo
+            vcs.fetch()
+            # too many open files if we don't do this
+            vcs.close()
+          rescue VCSException => e
+            puts ("Failed to communicate with source repo after #{attempt} attempt(s)").yellow
+            if attempt == 3
+              raise IndexException.new("Could not fetch source repo: "+e.msg, id)
+            end
+          end
         end
 
       rescue IndexException => e
@@ -256,19 +263,29 @@ class GitScraper < Jekyll::Generator
           # TODO
           # look for launchfiles in this package
           launch_files = Dir[File.join(path,'**','*.launch')]
+          launch_files += Dir[File.join(path,'**','*.xml')].reject do |f|
+            begin
+              REXML::Document.new(IO.read(f)).root.name != 'launch'
+            rescue Exception => e
+              true
+            end
+          end
           # look for message files in this package
           msg_files = Dir[File.join(path,'**','*.msg')]
           # look for service files in this package
           srv_files = Dir[File.join(path,'**','*.srv')]
           # look for plugin descriptions in this package
-          # TODO: get plugin files from <exports> tag
+          plugin_data = REXML::XPath.each(manifest_doc, '//export/*[@plugin]').map {|e| {'name'=>e.name, 'file'=>e.attributes['plugin'].sub('${prefix}','')}}
 
 
           launch_data = []
-          begin
-            #launch_data = launch_files.map {|f| parse_launch_file(f, Pathname.new(f).relative_path_from(local_package_path).to_s) }
-          rescue REXML::ParseException => e
-            @errors[repo.name] << IndexException.new("Failed to parse launchfile: " + e.to_s)
+          launch_data = launch_files.map do |f|
+            relative_path = Pathname.new(f).relative_path_from(local_package_path).to_s
+            begin
+              parse_launch_file(f, relative_path)
+            rescue Exception => e
+              @errors[repo.name] << IndexException.new("Failed to parse launchfile #{relative_path}: " + e.to_s)
+            end
           end
 
           package_info = {
@@ -278,7 +295,6 @@ class GitScraper < Jekyll::Generator
             'raw_uri' => raw_uri,
             'browse_uri' => browse_uri,
             # required package info
-            'name' => package_name,
             'version' => version,
             'license' => license,
             'description' => description,
@@ -301,8 +317,10 @@ class GitScraper < Jekyll::Generator
             'changelog_rendered' => changelog_rendered,
             # assets
             'launch_data' => launch_data,
+            'plugin_data' => plugin_data,
             'msg_files' => msg_files.map {|f| Pathname.new(f).relative_path_from(local_package_path).to_s },
-            'srv_files' => srv_files.map {|f| Pathname.new(f).relative_path_from(local_package_path).to_s }
+            'srv_files' => srv_files.map {|f| Pathname.new(f).relative_path_from(local_package_path).to_s },
+            'wiki' => {'exists'=>false}
           }
 
           dputs " -- adding package " << package_name
@@ -357,6 +375,9 @@ class GitScraper < Jekyll::Generator
       # collect tags from discovered packages
       repo.tags = Set.new(repo.tags).merge(package_data['tags']).to_a
 
+      # collect wiki data
+      package.data['wiki'] = @wiki_data[package_name]
+
       # add this package to the global package dict
       @package_names[package_name].instances[repo.id] = repo
       @package_names[package_name].tags = Set.new(@package_names[package_name].tags).merge(package_data['tags']).to_a
@@ -409,7 +430,6 @@ class GitScraper < Jekyll::Generator
 
             # check out this branch
             vcs.checkout(version)
-
           # check for ignore file
           if File.exist?(File.join(vcs.local_path,'.rosindex_ignore'))
             puts (" --- ignoring version for " << repo.name).yellow
@@ -431,7 +451,8 @@ class GitScraper < Jekyll::Generator
   def generate(site)
 
     # create the checkout path if necessary
-    @checkout_path = site.config['checkout_path']
+    puts "checkout path: " + site.config['checkout_path']
+    @checkout_path = File.expand_path(site.config['checkout_path'])
     puts "checkout path: " + @checkout_path
     unless File.exist?(@checkout_path)
       FileUtils.mkpath(@checkout_path)
@@ -466,6 +487,10 @@ class GitScraper < Jekyll::Generator
     # the list of errors encountered
     @errors = @db.errors
 
+    # a dict of data scraped from the wiki
+    # currently the only information is the title-index on the wiki
+    @wiki_data = {}
+
     # get the repositories from the rosdistro files, rosdoc rosinstall files, and other sources
     unless @skip_discover
       $all_distros.reverse_each do |distro|
@@ -499,30 +524,44 @@ class GitScraper < Jekyll::Generator
                 source_type = repo_data['doc']['type'].to_s
                 source_version = (if repo_data['doc'].key?('version') and repo_data['doc']['version'] != 'HEAD' then repo_data['doc']['version'].to_s else 'REMOTE_HEAD' end)
               elsif repo_data.has_key?('release')
-                # TODO: get the release repo to get the upstream repo
                 # NOTE: also, sometimes people use the release repo as the "doc" repo
 
+                # get the release repo to get the upstream repo
                 release_uri = cleanup_uri(repo_data['release']['url'].to_s)
                 release_repo_path = File.join(@checkout_path,'_release_repos',repo_name,get_id(release_uri))
-                # clone the release repo
-                release_repo = GIT.new(release_repo_path, release_uri)
-                release_repo.fetch()
 
-                # get the tracks file
                 tracks_file = nil
-                ['master','bloom'].each do |branch_name|
-                  branch, _ = release_repo.get_version(branch_name)
 
-                  if branch.nil? then next end
-
-                  release_repo.checkout(branch)
-
+                (1..3).each do |attempt|
                   begin
+                    # clone the release repo
+                    release_vcs = GIT.new(release_repo_path, release_uri)
+                    release_vcs.fetch()
+
                     # get the tracks file
-                    tracks_file = YAML.load_file(File.join(release_repo_path,'tracks.yaml'))
-                    break
-                  rescue
-                    next
+                    ['master','bloom'].each do |branch_name|
+                      branch, _ = release_vcs.get_version(branch_name)
+
+                      if branch.nil? then next end
+
+                      release_vcs.checkout(branch)
+
+                      begin
+                        # get the tracks file
+                        tracks_file = YAML.load_file(File.join(release_repo_path,'tracks.yaml'))
+                        break
+                      rescue
+                        next
+                      end
+                    end
+
+                    # too many open files if we don't do this
+                    release_vcs.close()
+                  rescue VCSException => e
+                    puts ("Failed to communicate with release repo after #{attempt} attempt(s)").yellow
+                    if attempt == 3
+                      raise IndexException.new("Could not fetch release repo for repo: "+repo_name+": "+e.msg)
+                    end
                   end
                 end
 
@@ -572,7 +611,7 @@ class GitScraper < Jekyll::Generator
               end
 
               # add the specific version from this instance
-              repo.snapshots[distro] = RepoSnapshot.new(source_version, distro, repo_data.key?('release'))
+              repo.snapshots[distro] = RepoSnapshot.new(source_version, distro, repo_data.key?('release'), true)
 
               # store this repo in the name index
               @repo_names[repo.name].instances[repo.id] = repo
@@ -632,7 +671,7 @@ class GitScraper < Jekyll::Generator
                 end
 
                 # add the specific version from this instance
-                repo.snapshots[distro] = RepoSnapshot.new(repo_version, distro, false)
+                repo.snapshots[distro] = RepoSnapshot.new(repo_version, distro, false, true)
 
                 # store this repo in the name index
                 @repo_names[repo.name].instances[repo.id] = repo
@@ -715,6 +754,9 @@ class GitScraper < Jekyll::Generator
       workers.map(&:join); "ok"
     end
 
+    # Load wiki title index
+    @wiki_data = parse_wiki_title_index(site.config['wiki_title_index_filename'])
+
     # scrape all the repos
     unless @skip_scrape
       puts "Scraping known repos..."
@@ -731,6 +773,7 @@ class GitScraper < Jekyll::Generator
         end
       end
     end
+
 
     # backup the current db if it exists
     if File.exist?(@db_cache_filename) then FileUtils.mv(@db_cache_filename, @db_cache_filename+'.bak') end

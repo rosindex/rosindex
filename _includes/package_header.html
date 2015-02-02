@@ -31,10 +31,12 @@ Assumes the following are defined:
         <a style="text-decoration:none" href="/p/{{package.name}}">{{package.name}}</a> <small>package from <a style="text-decoration:none" href="/r/{{ package.repo.name }}/{{ package.repo.id }}">{{ package.repo.name }}</a> repo</small>
       </h3>
       {% for peer in package.snapshot.packages %}
+        {% assign peer_has_readme = peer[1].data.readme_rendered %}
+        {% assign peer_n_tutorials = peer[1].data.wiki.tutorials | size %}
         {% if peer[0] != package.name %}
-          <a class="label label-primary" href="/p/{{peer[0]}}/{{package.repo.id}}">{%if peer[1].data.readme_rendered%}<span class="glyphicon glyphicon-file"></span>{%endif%}{{ peer[0] }}</a>
+          <a class="label label-primary" href="/p/{{peer[0]}}/{{package.repo.id}}">{% include peer_label.html %}</a> &nbsp;
         {% else %}
-          <span class="label label-default">{%if peer[1].data.readme_rendered%}<span class="glyphicon glyphicon-file"></span>{%endif%} {{ peer[0] }}</span>
+          <span class="label label-default">{% include peer_label.html %}</span> &nbsp;
         {% endif %}
       {% endfor %}
     </td>
@@ -43,10 +45,10 @@ Assumes the following are defined:
 <div class="top-buffer">
   <div class="text-left">
     <div class="btn-group btn-group-justified" role="group" aria-label="...">
-      <a target="_blank" href="http://docs.ros.org/{{distro}}/api/{{page.package_name}}/html/" type="button" class="btn btn-default {% unless package.snapshot.released %}inactive{% endunless %}"><span class="glyphicon glyphicon-file"></span> API</a>
+      <a target="_blank" href="http://docs.ros.org/{{distro}}/api/{{page.package_name}}/html/" {% unless package.snapshot.documented %}disabled{% endunless %} type="button" class="btn btn-default"><span class="glyphicon glyphicon-file"></span> API</a>
       <a target="_blank" href="{{ package.data.browse_uri }}" type="button" class="btn btn-default"><span class="glyphicon glyphicon-leaf"></span> SRC</a>
       <a target="_blank" href="http://answers.ros.org/questions/scope:all/sort:activity-desc/tags:{{page.package_name}}/page:1/" type="button" class="btn btn-default"><span class="glyphicon glyphicon-question-sign"></span> FAQ</a>
-      <a target="_blank" href="http://wiki.ros.org/{{page.package_name}}" type="button" class="btn btn-default"><span class="glyphicon glyphicon-info-sign"></span> Wiki</a>
+      <a target="_blank" href="http://wiki.ros.org/{{page.package_name}}?distro={{distro}}" type="button" class="btn btn-default {% unless package.data.wiki.exists %}inactive{% endunless %}"><span class="glyphicon glyphicon-info-sign"></span> Wiki</a>
       {% comment %}<a target="_blank" type="button" class="btn inactive btn-default"><span class="glyphicon glyphicon-fire"></span> CI</a>{% endcomment %}
     </div>
   </div>

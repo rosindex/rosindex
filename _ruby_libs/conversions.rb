@@ -7,8 +7,13 @@ def get_hdf(hdf_str)
   # convert some hdf garbage into a ruby structure SUPERHACK
   # HDF is an old mostly unused markup format which is used to describe ROS
   # APIs on the ROS Wiki
-  stdin, stdout, stderr = Open3.popen3('_scripts/hdf2json.py')
-  stdin.puts(hdf_str)
-  return JSON.parse(stdout.gets)
+  json = ''
+  Open3.popen3('_scripts/hdf2json.py'){|i,o,e,t|
+    stdin.puts(hdf_str)
+    if t.value.success?
+      json = stdout.gets
+    end
+  }
+  return JSON.parse(json)
 end
 

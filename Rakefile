@@ -11,12 +11,12 @@ namespace :build do
 
   task :devel do
     puts "Generating local rosindex..."
-    sh "jekyll build --trace --config=_config.yml,_config_devel.yml"
+    sh "bundle exec jekyll build --trace --config=_config.yml,_config_devel.yml"
   end
 
   task :deploy do
     puts 'Generating deployment rosindex (this could take a while)...'
-    sh "jekyll build --trace --config=_config.yml"
+    sh "bundle exec jekyll build --trace --config=_config.yml"
   end
 
 end
@@ -25,12 +25,12 @@ namespace :serve do
 
   task :deploy do
     puts "Serving local rosindex..."
-    sh "jekyll serve --trace --config=_config.yml --skip-initial-build"
+    sh "bundle exec jekyll serve --trace --config=_config.yml --skip-initial-build"
   end
 
   task :devel do
     puts "Serving local rosindex..."
-    sh "jekyll serve --trace --config=_config.yml,_config_devel.yml --skip-initial-build"
+    sh "bundle exec jekyll serve --trace --config=_config.yml,_config_devel.yml --skip-initial-build"
   end
 
 

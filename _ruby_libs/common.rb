@@ -1,5 +1,6 @@
 # Common utility functions
 
+require 'colorator'
 require 'uri'
 
 # Debug puts

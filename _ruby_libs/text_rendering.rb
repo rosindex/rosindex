@@ -28,8 +28,8 @@ def render_md(site, readme)
     readme.gsub! "```","\n```"
     readme.gsub! '```shell','```bash'
     return mkconverter.convert(readme)
-  rescue
-    return 'Could not convert readme.'
+  rescue Exception =>e
+    return 'Could not convert readme: <pre>'+e.to_s+'</pre>'
   end
 end
 

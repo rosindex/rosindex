@@ -1,8 +1,9 @@
 # Version control systems
 
-require 'colorize'
+require 'colorator'
 require 'uri'
 require 'typhoeus'
+require 'open3'
 
 require 'git'
 require 'rugged'
@@ -63,6 +64,10 @@ class VCS
     return other.local_path == @local_path
   end
 
+  def close
+    return nil
+  end
+
 end
 
 class GIT < VCS
@@ -97,6 +102,10 @@ class GIT < VCS
     end
   end
 
+  def close()
+    return @r.close
+  end
+
   def valid?()
     return (not @origin.nil?)
   end
@@ -108,8 +117,8 @@ class GIT < VCS
         begin
           dputs " - fetching remote from: " + @uri
           @r.fetch(@origin)
-        rescue
-          raise VCSException.new("Could not fetch git repository from uri: " + @uri)
+        rescue Exception => e
+          raise VCSException.new("Could not fetch git repository from uri: " + @uri+": "+e.to_s)
         end
       else
         dputs " - not fetching remote "
@@ -322,9 +331,11 @@ class GITSVN < GIT
   end
 
   def fetch
-    unless system('cd "'+@local_path+'" git svn rebase')
-      raise VCSException.new("Could not update svn repository from uri: "+@uri)
-    end
+    Open3.popen3("git svn rebase", :chdir=>@local_path) { |i,o,e,t|
+      unless t.value.success?
+        raise VCSException.new("Could not update svn repository from uri: "+@uri+": "+e.read.chomp)
+      end
+    }
   end
 end
 
