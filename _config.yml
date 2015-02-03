@@ -42,7 +42,7 @@ skip_scrape: false
 # If true, this skips generating the search index
 skip_search_index: false
 
-checkout_threads: 4
+checkout_threads: 5
 checkout_path: "../_checkout"
 
 # if non-empty, only scrape these packages (useful for debugging / partial db updates)

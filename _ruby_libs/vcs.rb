@@ -332,6 +332,7 @@ class GITSVN < GIT
 
   def fetch
     Open3.popen3("git svn rebase", :chdir=>@local_path) { |i,o,e,t|
+      i.close
       unless t.value.success?
         raise VCSException.new("Could not update svn repository from uri: "+@uri+": "+e.read.chomp)
       end
