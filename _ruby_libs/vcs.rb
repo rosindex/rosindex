@@ -192,7 +192,7 @@ class GIT < VCS
 
     # get the version if it's a tag
     @r.tags.each do |tag|
-      tag_name = tag.to_s
+      tag_name = tag.name
 
       # save the tag if it matches either the explicit version or the distro name
       if explicit_version

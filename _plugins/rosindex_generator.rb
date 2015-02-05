@@ -422,6 +422,7 @@ class Indexer < Jekyll::Generator
 
       begin
         # get the version
+        puts (" Looking for explicit version #{explicit_version}").green
         version, snapshot.version = vcs.get_version(distro, explicit_version)
 
         # scrape the data (packages etc)
@@ -597,17 +598,17 @@ class Indexer < Jekyll::Generator
                 raise IndexException.new("Failed to create repo from #{source_type} repo #{source_uri}: " + repo_name+ " in rosidstro file: " + rosdistro_filename)
               end
 
-              # get maintainer status
-              if repo_data.key?('status')
-                repo.status = repo_data['status']
-              end
-
               if @all_repos.key?(repo.id)
                 repo = @all_repos[repo.id]
               else
-                dputs " -- Adding repo for " << repo.name << " instance: " << repo.id << " from uri " << repo.uri.to_s
+                puts " -- Adding repo " << repo.name << " instance: " << repo.id << " from uri: " << repo.uri.to_s << " with version: " <<source_version
                 # store this repo in the unique index
                 @all_repos[repo.id] = repo
+              end
+
+              # get maintainer status
+              if repo_data.key?('status')
+                repo.status = repo_data['status']
               end
 
               # add the specific version from this instance

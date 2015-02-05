@@ -115,29 +115,29 @@ documents will be rendered into HTML.
 ***WIP***
 
 A package can give a list of a series of tutorials with the
-following sources:
+following formats:
 
 ```xml
 <tutorials>
   <!-- Declare some pre-requisite tutorials -->
-  <prereq pkg="other_pkg_tutorials"/>
+  <prereq pkg="other_pkg"/>
 
   <!-- Direct users to another package for tutorials. -->
   <tutorial pkg="my_pkg_tutorials"/>
 
   <!-- Direct users to a tutorial on an external website. -->
-  <tutorial link="http://www.my_website.com/some_tutorial.html">Optional Name</tutorial>
+  <tutorial link="http://www.my_website.com/some_tutorial.html">That Other Guy's Tutorial</tutorial>
 
   <!-- Display markdown-based tutorials (rendered by ROSIndex). -->
-  <tutorial file="doc/tut1.md>Tutorial One</tutorial>
-  <tutorial file="doc/tut2.md>Tutorial Two</tutorial>
-  <tutorial file="doc/tut3.md>Tutorial Three</tutorial>
+  <tutorial file="doc/tut1.md">Tutorial One</tutorial>
+  <tutorial file="doc/tut2.md">Tutorial Two</tutorial>
+  <tutorial file="doc/tut3.md">Tutorial Three</tutorial>
 
-  <!-- Display markdown-based tutorials (rendered by ROSIndex). -->
+  <!-- Display a group of markdown-based tutorials (rendered by ROSIndex). -->
   <sequence title="Advanced Tutorials">
-    <tutorial file="doc/tut1.md>Tutorial One</tutorial>
-    <tutorial file="doc/tut2.md>Tutorial Two</tutorial>
-    <tutorial file="doc/tut3.md>Tutorial Three</tutorial>
+    <tutorial file="doc/tut4.md">Tutorial Four</tutorial>
+    <tutorial file="doc/tut5.md">Tutorial Five</tutorial>
+    <tutorial file="doc/tut6.md">Tutorial Six</tutorial>
   </sequence>
 </tutorials>
 ```

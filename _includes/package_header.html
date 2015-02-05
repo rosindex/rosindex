@@ -46,8 +46,9 @@ Assumes the following are defined:
   <div class="text-left">
     <div class="btn-group btn-group-justified" role="group" aria-label="...">
       <a target="_blank" href="http://docs.ros.org/{{distro}}/api/{{page.package_name}}/html/" {% unless package.snapshot.documented %}disabled{% endunless %} type="button" class="btn btn-default"><span class="glyphicon glyphicon-file"></span> API</a>
-      <a target="_blank" href="{{ package.data.browse_uri }}" type="button" class="btn btn-default"><span class="glyphicon glyphicon-leaf"></span> SRC</a>
+      <a target="_blank" href="{{ package.data.browse_uri }}" type="button" class="btn btn-default"><span class="glyphicon glyphicon-folder-open" style="margin-right:5px;"></span> SRC</a>
       <a target="_blank" href="http://answers.ros.org/questions/scope:all/sort:activity-desc/tags:{{page.package_name}}/page:1/" type="button" class="btn btn-default"><span class="glyphicon glyphicon-question-sign"></span> FAQ</a>
+      <a target="_blank" href="http://http404error.github.io/roseco/graph.html?id=ros.json&focus={{page.package_name}}&height=1&depth=2&tred=standard&metagroup=false&colorby=Health&direction=LR" {% unless package.snapshot.documented %}disabled{% endunless %} type="button" class="btn btn-default {% unless package.data.wiki.exists %}inactive{% endunless %}"><span class="glyphicon glyphicon-tree-deciduous"></span> ECO</a>
       <a target="_blank" href="http://wiki.ros.org/{{page.package_name}}?distro={{distro}}" type="button" class="btn btn-default {% unless package.data.wiki.exists %}inactive{% endunless %}"><span class="glyphicon glyphicon-info-sign"></span> Wiki</a>
       {% comment %}<a target="_blank" type="button" class="btn inactive btn-default"><span class="glyphicon glyphicon-fire"></span> CI</a>{% endcomment %}
     </div>
