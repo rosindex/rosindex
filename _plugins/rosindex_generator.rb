@@ -94,7 +94,7 @@ def resolve_dep(ps, ms, os, ver, data)
     if data.key?('source') and data['source'].key?('uri') then return data['source']['uri'] end
     if data.key?('packages') then return data['packages'] end
     ms.each do |manager_name, manager_oss|
-      if (manager_oss.include?(os) and data.key?(manager_name)) then return resolve_dep(ps, ms, os, ver, data[manager_name]) end
+      if ((manager_oss.include?(os) or manager_oss.size == 0) and data.key?(manager_name)) then return resolve_dep(ps, ms, os, ver, data[manager_name]) end
     end
   end
 

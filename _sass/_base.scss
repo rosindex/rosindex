@@ -1,4 +1,9 @@
 
+.label-list-inline>li {
+  padding-left: 0px;
+  padding-right: 0px;
+  line-height: 1.6;
+}
 
 .label-as-badge {
     border-radius: 1em;
@@ -121,7 +126,7 @@ div#toc a {
 }
 
 .pkg-label {
-  margin-right: 2px;
+  /*margin-right: 2px;*/
 }
 
 
