@@ -78,6 +78,10 @@ div pre code {
   white-space: inherit;
 }
 
+div code {
+  white-space: nowrap;
+}
+
 label.control-label {
   font-weight: bold;
 }
@@ -114,6 +118,10 @@ div#toc a {
 
 .alert-warning h3 {
   color: #FFF;
+}
+
+.pkg-label {
+  margin-right: 2px;
 }
 
 
@@ -337,4 +345,8 @@ code {
             fill: $grey-color;
         }
     }
+}
+
+th.rotate45 {
+  transform: rotate(-45deg);
 }

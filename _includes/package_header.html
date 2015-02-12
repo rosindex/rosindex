@@ -31,12 +31,11 @@ Assumes the following are defined:
         <a style="text-decoration:none" href="/p/{{package.name}}">{{package.name}}</a> <small>package from <a style="text-decoration:none" href="/r/{{ package.repo.name }}/{{ package.repo.id }}">{{ package.repo.name }}</a> repo</small>
       </h3>
       {% for peer in package.snapshot.packages %}
-        {% assign peer_has_readme = peer[1].data.readme_rendered %}
-        {% assign peer_n_tutorials = peer[1].data.wiki.tutorials | size %}
+        {% assign labeled_package = peer[1] %}
         {% if peer[0] != package.name %}
-          <a class="label label-primary" href="/p/{{peer[0]}}/{{package.repo.id}}">{% include peer_label.html %}</a> &nbsp;
+          <a class="label label-primary pkg-label" href="/p/{{peer[0]}}/{{package.repo.id}}">{% include peer_label.html %}</a>
         {% else %}
-          <span class="label label-default">{% include peer_label.html %}</span> &nbsp;
+          <span class="label label-default pkg-label">{% include peer_label.html %}</span>
         {% endif %}
       {% endfor %}
     </td>

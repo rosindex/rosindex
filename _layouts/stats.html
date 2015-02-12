@@ -1,56 +1,58 @@
 ---
 layout: default
 ---
-<div class="container-fluid" style="margin:20px">
-  <div class="row">
-    <ol class="breadcrumb">
-      <li><a href="/">Home</a></li>
-      <li class="active">Statistics</li>
-    </ol>
-  </div>
-  <div class="row">
-    &nbsp;
-  </div>
-  <div class="row">
-    <div class="panel panel-default">
-      <div class="panel-heading"><h3 class="panel-title">Index</h3></div>
-      <div class="panel-body" style="overflow-x:auto;">
-        <ul>
-          <li><strong>Repositories:</strong> {{page.n_repos}}</li>
-          <li><strong>Packages:</strong> {{page.n_packages}}</li>
-          <li><strong>Errors:</strong> <a href="/stats/errors">{{page.n_errors}}</a></li>
-        </ul>
+<div class="container-fluid" style="margin-top:20px">
+  <div class="container-fluid">
+    <div class="row">
+      <ol class="breadcrumb">
+        <li><a href="/">Home</a></li>
+        <li class="active">Statistics</li>
+      </ol>
+    </div>
+    <div class="row">
+      &nbsp;
+    </div>
+    <div class="row">
+      <div class="panel panel-default">
+        <div class="panel-heading"><h3 class="panel-title">Index</h3></div>
+        <div class="panel-body" style="overflow-x:auto;">
+          <ul>
+            <li><strong>Repositories:</strong> {{page.n_repos}}</li>
+            <li><strong>Packages:</strong> {{page.n_packages}}</li>
+            <li><strong>Errors:</strong> <a href="/stats/errors">{{page.n_errors}}</a></li>
+          </ul>
+        </div>
       </div>
     </div>
-  </div>
-  <div class="row">
-    &nbsp;
-  </div>
-  <div class="row">
-    <div class="panel panel-default">
-      <div class="panel-heading"><h3 class="panel-title">Known Packages</h3></div>
-      <div class="panel-body" style="overflow-x:auto;">
-        <div class="venn text-center"></div>
+    <div class="row">
+      &nbsp;
+    </div>
+    <div class="row">
+      <div class="panel panel-default">
+        <div class="panel-heading"><h3 class="panel-title">Known Packages</h3></div>
+        <div class="panel-body" style="overflow-x:auto;">
+          <div class="venn text-center"></div>
+        </div>
       </div>
     </div>
-  </div>
-  <div class="row">
-    &nbsp;
-  </div>
-  <div class="row">
-    <div class="panel panel-default">
-      <div class="panel-heading"><h3 class="panel-title">Distro Activity</h3></div>
-      <div class="panel-body" style="overflow-x:auto;">
-        <p>
-        Below are histograms of repositories updated over the last 2000 days in each distro.
-        </p>
+    <div class="row">
+      &nbsp;
+    </div>
+    <div class="row">
+      <div class="panel panel-default">
+        <div class="panel-heading"><h3 class="panel-title">Distro Activity</h3></div>
+        <div class="panel-body" style="overflow-x:auto;">
+          <p>
+          Below are histograms of repositories updated over the last 2000 days in each distro.
+          </p>
 
-      {% for hist_values in page.distro_activity %}
-        {% assign distro = hist_values[0] %}
-        <h3>{{distro}} <small>{{hist_values[1] | size}} repos</small></h3>
-        <br><br>
-        <div id="activity_hist_{{distro}}" class="text-center"></div>
-      {%endfor%}
+        {% for hist_values in page.distro_activity %}
+          {% assign distro = hist_values[0] %}
+          <h3>{{distro}} <small>{{hist_values[1] | size}} repos</small></h3>
+          <br><br>
+          <div id="activity_hist_{{distro}}" class="text-center"></div>
+        {%endfor%}
+        </div>
       </div>
     </div>
   </div>

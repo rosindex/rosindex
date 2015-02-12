@@ -1,6 +1,8 @@
 
 # NOTE: This whole file is one big hack. Don't judge.
 
+require 'pp'
+require 'awesome_print'
 require 'colorator'
 require 'fileutils'
 require 'find'
@@ -76,6 +78,29 @@ def get_browse_uri(uri_s, type, branch)
 
   return uri_s
 end
+
+def resolve_dep(ps, ms, os, ver, data)
+  # resolve rosdep
+  # ps: platforms
+  # ms: package managers
+  # os: desired os
+  # ver: desired os version
+  # data: yaml data
+
+  if data.is_a?(Array) then return data end
+  if data.is_a?(Hash)
+    if data.key?(os) then return resolve_dep(ps, ms, os, ver, data[os]) end
+    if data.key?(ver) then return resolve_dep(ps, ms, os, ver, data[ver]) end
+    if data.key?('source') and data['source'].key?('uri') then return data['source']['uri'] end
+    if data.key?('packages') then return data['packages'] end
+    ms.each do |manager_name, manager_oss|
+      if (manager_oss.include?(os) and data.key?(manager_name)) then return resolve_dep(ps, ms, os, ver, data[manager_name]) end
+    end
+  end
+
+  return []
+end
+
 
 class Indexer < Jekyll::Generator
   def initialize(config = {})
@@ -449,12 +474,203 @@ class Indexer < Jekyll::Generator
 
   end
 
+  class SystemDep < Liquid::Drop
+    # This represents a system dependency ("rosdep")
+    attr_accessor :name, :repo, :snapshot, :version, :data
+    def initialize(name, repo, snapshot, data)
+      @name = name
+
+      # TODO: get rid of these back-pointers
+      @repo = repo
+      @snapshot = snapshot
+      @version = snapshot.version
+
+      # additionally-collected data
+      @data = data
+    end
+  end
+
+  def load_rosdeps(rosdistro_path, platforms, package_manager_names)
+    # see here for parsing this thing: http://www.ros.org/reps/rep-0111.html
+    #
+    # #### VERSION A ####
+    #
+    # ROSDEP-KEY:
+    #   PLATFORM: array-of-deps
+    #
+    # #### VERSION B ####
+    #
+    # ROSDEP-KEY:
+    #   PLATFORM:
+    #     VERSION: array-of-deps
+    #
+    # #### VERSION C ####
+    #
+    # ROSDEP-KEY:
+    #   PLATFORM:
+    #     VERSION:
+    #       MANAGER: array-of-deps
+    #
+    # #### VERSION D ####
+    #
+    # ROSDEP-KEY:
+    #   PLATFORM:
+    #     VERSION:
+    #       MANAGER:
+    #         packages: array-of-deps
+    #
+    # #### VERSION E... ugh ####
+    #
+    # ROSDEP-KEY:
+    #   PLATFORM:
+    #     MANAGER:
+    #       packages: array-of-deps
+    #
+    # #### VERSION FFFF... ugh ####
+    #
+    # ROSDEP-KEY:
+    #   PLATFORM:
+    #     VERSION:
+    #       packages: array-of-deps
+    #
+    # #### VERSION GFY... ugh ####
+    #
+    # ROSDEP-KEY:
+    #   MANAGER: array-of-deps
+    #
+
+    rosdep_data = Hash.new
+
+    manager_set = Set.new(package_manager_names)
+
+    rosdeps = []
+
+    Dir.glob(File.join(rosdistro_path,'rosdep','*.yaml')) do |rosdep_filename|
+      rosdep_yaml = YAML.load_file(rosdep_filename)
+      rosdep_data = rosdep_data.deep_merge(rosdep_yaml)
+      rosdeps << rosdep_yaml
+    end
+
+    # update the platforms list
+    new_platforms = {}
+
+    # look for new platforms and versions
+    rosdep_data.each do |name, deps|
+      # iterate over platform names
+      deps.each do |platform_name, platform_deps|
+
+        if package_manager_names.include? platform_name then next end
+        unless new_platforms.key?(platform_name) then new_platforms[platform_name] = {'versions'=>[]} end
+        unless platform_deps.is_a?(Hash) then next end
+        if platform_deps.key?('packages') then next end
+        if platform_deps.key?('source') then next end
+        if manager_set.intersection(platform_deps.keys).length > 0 then next end
+
+        # iterate over version names
+        platform_deps.each do |version_or_manager_name, version_deps|
+          # add this version name
+          new_platforms[platform_name]['versions'] |= [version_or_manager_name]
+        end
+      end
+    end
+
+    dputs "New Platforms: "
+    dputs YAML.dump(new_platforms)
+
+    return rosdep_data
+  end
+
+  def generate_sorted_paginated(site, elements_sorted, default_sort_key, n_elements, elements_per_page, page_class)
+
+    n_pages = (n_elements / elements_per_page).floor + 1
+
+    (1..n_pages).each do |page_index|
+
+      p_start = (page_index-1) * elements_per_page
+      p_end = [n_elements, p_start+elements_per_page].min
+
+      elements_sorted.each do |sort_key, elements|
+        # Get a subset of the elements
+        elements_sliced = elements.slice(p_start, elements_per_page)
+
+        site.pages << page_class.new( site, sort_key, n_pages, page_index, elements_sliced)
+        # create page 1 without a page number or key in the url
+        if sort_key == default_sort_key and page_index == 1
+          site.pages << page_class.new( site, sort_key, n_pages, page_index, elements_sliced, true)
+        end
+      end
+    end
+  end
+
+
+  def sort_repos(site)
+    repos_sorted = {}
+    repos_sorted['name']= @repo_names.sort_by { |name, instances| name }
+
+    repos_sorted['time'] = repos_sorted['name'].reverse.sort_by { |name, instances|
+      instances.default.snapshots.reject { |d,s|
+        not $recent_distros.include?(d)
+      }.map { |d,s|
+        s.data['last_commit_time'].to_s
+      }.max
+    }.reverse
+
+    repos_sorted['doc'] = repos_sorted['name'].reverse.sort_by { |name, instances|
+      -(instances.default.snapshots.count { |d,s|
+        $recent_distros.include?(d) and not s.data['readme_rendered'].nil?
+      })
+    }
+
+    repos_sorted['released'] = repos_sorted['name'].reverse.sort_by { |name, instances|
+      -(instances.default.snapshots.count {|d,s|
+        $recent_distros.include?(d) and s.released
+      })
+    }
+
+    return repos_sorted
+  end
+
+  def sort_packages(site)
+    packages_sorted = {}
+
+    packages_sorted['name'] = @package_names.sort_by { |name, instances| name }
+
+    packages_sorted['time'] = packages_sorted['name'].reverse.sort_by { |name, instances|
+      instances.snapshots.reject { |d,s|
+        s.nil? or not $recent_distros.include?(d)
+      }.map { |d,s|
+        s.snapshot.data['last_commit_time'].to_s
+      }.max.to_s
+    }.reverse
+
+    packages_sorted['doc'] = packages_sorted['name'].reverse.sort_by { |name, instances|
+      -(instances.snapshots.count { |d,s|
+        not s.nil? and $recent_distros.include?(d) and not s.data['readme_rendered'].nil?
+      })
+    }
+
+    packages_sorted['released'] = packages_sorted['name'].reverse.sort_by { |name, instances|
+      -(instances.snapshots.count { |d,s|
+        not s.nil? and $recent_distros.include?(d) and s.snapshot.released
+      })
+    }
+
+    return packages_sorted
+  end
+
+  def sort_rosdeps(site)
+    rosdeps_sorted = {}
+
+    rosdeps_sorted['name'] = @rosdeps_full.sort_by { |name, details| name }
+
+    return rosdeps_sorted
+  end
+
   def generate(site)
 
     # create the checkout path if necessary
-    puts "checkout path: " + site.config['checkout_path']
     @checkout_path = File.expand_path(site.config['checkout_path'])
-    puts "checkout path: " + @checkout_path
+    puts ("Using checkout path: " + @checkout_path).green
     unless File.exist?(@checkout_path)
       FileUtils.mkpath(@checkout_path)
     end
@@ -473,7 +689,7 @@ class Indexer < Jekyll::Generator
     @skip_scrape = site.config['skip_scrape']
 
     if @use_db_cache
-      puts "Reading cache: " << @db_cache_filename
+      puts ("Reading cache: " << @db_cache_filename).blue
       @db = Marshal.load(IO.read(@db_cache_filename))
     else
       @db = RosIndexDB.new
@@ -491,6 +707,15 @@ class Indexer < Jekyll::Generator
     # a dict of data scraped from the wiki
     # currently the only information is the title-index on the wiki
     @wiki_data = {}
+
+    # load rosdep data
+    # TODO: check deps against this when generating pages
+    # TODO: generate page for each rosdep key (start with just the exact YAML dump)
+    @db.rosdeps = load_rosdeps(
+      site.config['rosdistro_path'],
+      site.config['platforms'],
+      site.config['package_manager_names'].keys)
+    @rosdeps = @db.rosdeps
 
     # get the repositories from the rosdistro files, rosdoc rosinstall files, and other sources
     unless @skip_discover
@@ -775,7 +1000,6 @@ class Indexer < Jekyll::Generator
       end
     end
 
-
     # backup the current db if it exists
     if File.exist?(@db_cache_filename) then FileUtils.mv(@db_cache_filename, @db_cache_filename+'.bak') end
     # save scraped data into the cache db
@@ -800,7 +1024,7 @@ class Indexer < Jekyll::Generator
     end
 
     # create package pages
-    puts "Found "+String(@package_names.length)+" packages total."
+    puts ("Found "+String(@package_names.length)+" packages total.").green
     puts ("Generating package pages...").blue
 
     @package_names.each do |package_name, package_instances|
@@ -822,74 +1046,44 @@ class Indexer < Jekyll::Generator
 
     # create repo list pages
     puts ("Generating repo list pages...").blue
-    repos_per_page = site.config['repos_per_page']
-    n_repo_list_pages = (@repo_names.length / repos_per_page).ceil + 1
 
-    repos_alpha = @repo_names.sort_by { |name, instances| name }
-    repos_time = repos_alpha.reverse.sort_by { |name, instances| (instances.default.snapshots.reject { |d,s| not $recent_distros.include?(d) }.map {|d,s| s.data['last_commit_time'].to_s}).max }.reverse
-    repos_doc = repos_alpha.reverse.sort_by { |name, instances| -(instances.default.snapshots.count {|d,s| $recent_distros.include?(d) and not s.data['readme_rendered'].nil? }) }
-    repos_released = repos_alpha.reverse.sort_by { |name, instances| -(instances.default.snapshots.count {|d,s| $recent_distros.include?(d) and s.released}) }
-
-    (1..n_repo_list_pages).each do |page_index|
-
-      p_start = (page_index-1) * repos_per_page
-      p_end = [@repo_names.length, p_start+repos_per_page].min
-
-      list_alpha = repos_alpha.slice(p_start, repos_per_page)
-      list_time = repos_time.slice(p_start, repos_per_page)
-      list_doc = repos_doc.slice(p_start, repos_per_page)
-      list_released = repos_released.slice(p_start, repos_per_page)
-
-      # create alpha pages
-      site.pages << RepoListPage.new( site, '', n_repo_list_pages, page_index, list_alpha)
-      if page_index == 1
-        site.pages << RepoListPage.new( site, '', n_repo_list_pages, page_index, list_alpha, true)
-      end
-
-      site.pages << RepoListPage.new( site, 'time', n_repo_list_pages, page_index, list_time)
-      site.pages << RepoListPage.new( site, 'doc', n_repo_list_pages, page_index, list_doc)
-      site.pages << RepoListPage.new( site, 'released', n_repo_list_pages, page_index, list_released)
-    end
+    repos_sorted = sort_repos(site)
+    generate_sorted_paginated(site, repos_sorted, 'time', @repo_names.length, site.config['repos_per_page'], RepoListPage)
 
     # create package list pages
     puts ("Generating package list pages...").blue
-    packages_per_page = site.config['packages_per_page']
-    n_package_list_pages = (@package_names.length / packages_per_page).ceil + 1
 
-    packages_alpha = @package_names.sort_by { |name, instances| name }
+    packages_sorted = sort_packages(site)
+    generate_sorted_paginated(site, packages_sorted, 'time', @package_names.length, site.config['packages_per_page'], PackageListPage)
 
-    packages_time = packages_alpha.reverse.sort_by { |name, instances|
-      instances.snapshots.reject { |d,s|
-        s.nil? or not $recent_distros.include?(d)}.map { |d,s|
-          s.snapshot.data['last_commit_time'].to_s}.max.to_s }.reverse
+    # create rosdep list pages
+    puts ("Generating rosdep list pages...").blue
+    @rosdeps_full = {}
 
-    packages_doc = packages_alpha.reverse.sort_by { |name, instances|
-      -(instances.snapshots.count {|d,s|
-        not s.nil? and $recent_distros.include?(d) and not s.data['readme_rendered'].nil? }) }
+    @rosdeps.each do |dep_name, dep_data|
+      platforms = site.config['platforms']
+      manager_set = Set.new(site.config['package_manager_names'])
 
-    packages_released = packages_alpha.reverse.sort_by {
-      |name, instances| -(instances.snapshots.count { |d,s|
-        not s.nil? and $recent_distros.include?(d) and s.snapshot.released}) }
-
-    (1..n_package_list_pages).each do |page_index|
-
-      p_start = (page_index-1) * packages_per_page
-      p_end = [@package_names.length, p_start+packages_per_page].min
-
-      list_alpha = packages_alpha.slice(p_start, packages_per_page)
-      list_time = packages_time.slice(p_start, packages_per_page)
-      list_doc = packages_doc.slice(p_start, packages_per_page)
-      list_released = packages_released.slice(p_start, packages_per_page)
-
-      site.pages << PackageListPage.new(site, '', n_package_list_pages, page_index, list_alpha)
-      if page_index == 1
-        site.pages << PackageListPage.new(site, '', n_package_list_pages, page_index, list_alpha, true)
+      full_dep_data = {}
+      platforms.each do |platform_key, platform_details|
+        if platform_details['versions'].size > 0
+          full_dep_data[platform_key] = {}
+          platform_details['versions'].each do |version_key, version_name|
+            full_dep_data[platform_key][version_key] = resolve_dep(platforms, manager_set, platform_key, version_key, dep_data)
+          end
+        else
+          full_dep_data[platform_key] = resolve_dep(platforms, manager_set, platform_key, 'any_version', dep_data)
+        end
       end
 
-      site.pages << PackageListPage.new( site, 'time', n_package_list_pages, page_index, list_time)
-      site.pages << PackageListPage.new( site, 'doc', n_package_list_pages, page_index, list_doc)
-      site.pages << PackageListPage.new( site, 'released', n_package_list_pages, page_index, list_released)
+      @rosdeps_full[dep_name] = full_dep_data
+
+      site.pages << DepPage.new(site, dep_name, dep_data, full_dep_data)
     end
+
+    rosdeps_sorted = sort_rosdeps(site)
+    generate_sorted_paginated(site, rosdeps_sorted, 'name', @rosdeps_full.length, site.config['packages_per_page'], DepListPage)
+
 
     # create lunr index data
     unless site.config['skip_search_index']
@@ -927,7 +1121,7 @@ class Indexer < Jekyll::Generator
               'readme' => readme_filtered
             }
 
-            puts 'indexed: ' << "#{package_name} #{instance_id} #{distro}"
+            dputs 'indexed: ' << "#{package_name} #{instance_id} #{distro}"
           end
         end
       end

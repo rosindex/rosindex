@@ -103,3 +103,14 @@ git add .
 git commit -a --amend
 git push -f origin master
 ```
+
+## Design Patterns
+
+### Pagination
+
+Currently, pagination of `N` total items is done by generating html files for
+each page of `n` items and each `m` ways of sorting those items. This leads to
+`n*(m+1)` html pages (`+1` for the default sort, whichever that may be). This
+also constrains the display to display only `N/n` items at a time.
+
+*Goal:* Make it easier to generate 

@@ -29,18 +29,18 @@ redcarpet:
 highlighter: pygments
 
 # If true, this begins with an existing db
-use_db_cache: false
+use_db_cache: true
 db_cache_filename: _caches/_deploy_cache.db
 wiki_title_index_filename: _caches/ros_org_wiki_title_index.txt
 
 # If true, this skips finding repos based on the repo sources
-skip_discover: false
+skip_discover: true
 # If true, this skips updating the known repos
-skip_update: false
+skip_update: true
 # If true, this skips scraping the cloned repos
-skip_scrape: false
+skip_scrape: true
 # If true, this skips generating the search index
-skip_search_index: false
+skip_search_index: true
 
 checkout_threads: 5
 checkout_path: "../_checkout"
@@ -72,6 +72,10 @@ repos_path: _rosforks/repos
 index_old_doc_paths: false
 
 # ROS distros to look for
+#
+# Distros are given big buttons and "old" distros are relegated to share a
+# drop-down list in the distro selector.
+#
 distros:
   - 'jade'
   - 'indigo'
@@ -81,6 +85,99 @@ old_distros:
   - 'fuerte'
   - 'electric'
   - 'diamondback'
+
+# rosdep / xylem platforms
+#
+# This is a list of platforms and versions found in the rosdep database if a
+# platform / version key isn't found here, then it will throw and error and
+# should either be added or fixed if it was erroneous.
+#
+# Each key under 'versions' is a map from version identifier to version
+# display name. If the display name is empty, then the capitalized version of
+# the identifier will be used.
+#
+platforms:
+  arch:
+    name: 'Arch Linux'
+    versions: {}
+  centos:
+    name: 'CentOS'
+    versions: {}
+  cygwin:
+    name: 'Cygwin'
+    versions: {}
+  debian:
+    name: 'Debian'
+    versions:
+      sarge: ""
+      etch: ""
+      lenny: ""
+      squeeze: ""
+      wheezy: ""
+      jessie: ""
+      sid: "Sid (Unstable)"
+  fedora:
+    name: 'Fedora'
+    versions:
+      beefy: "17 (Beefy Miracle)"
+      spherical: "18 (Spherical Cow)"
+      "schrödinger’s": "19 (Schrödinger's Cat)"
+      heisenbug: "20 (Heisenberg)"
+      '21': "Fedora 21"
+      '22': "Fedora 22"
+  freebsd:
+    name: 'FreeBSD'
+    versions: {}
+  gentoo:
+    name: 'Gentoo Linux'
+    versions: {}
+  mandrake:
+    name: 'Mandrake/Mandriva Linux'
+    versions: {}
+  opensuse:
+    name: 'openSUSE'
+    versions: {}
+  osx:
+    name: 'Mac OS X'
+    versions:
+      leopard: ""
+      snow: "Snow Leopard"
+      lion: ""
+      "mountain lion": ""
+      mavericks: ""
+      yosemite: ""
+  rhel:
+    name: 'Red Hat Enterprise Linux'
+    versions: {}
+  ubuntu:
+    name: 'Ubuntu'
+    versions:
+      karmic: ""
+      lucid: ""
+      maverick: ""
+      natty: ""
+      oneiric: ""
+      precise: ""
+      quantal: ""
+      raring: ""
+      saucy: ""
+      trusty: ""
+      trusty_python3: "Trusty (Python3)"
+      utopic: ""
+      utopic_python3: "Utopic (Python3)"
+      vivid: ""
+      vivid_python3: "Vivid (Python3)"
+
+# These are the names of available package managers across all the
+# platforms
+package_manager_names:
+  apt: ['ubuntu','debian']
+  gem: []
+  homebrew: ['osx']
+  macports: ['osx']
+  pacman: ['arch']
+  pip: []
+  portage: ['gentoo']
 
 # package list page
 packages_per_page: 50

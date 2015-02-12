@@ -1,0 +1,116 @@
+---
+layout: default
+---
+
+<div class="container-fluid" style="margin-top:20px">
+  <div class="container-fluid">
+    <div class="row">
+      <ol class="breadcrumb">
+        <li><a href="/">Home</a></li>
+        <li><a href="/deps">System Dependencies</a></li>
+        <li class="active">{{page.dep_name}}</li>
+      </ol>
+    </div>
+    <div class="row">
+      <div class="well well-sm">
+        <table class="table">
+          <tr>
+            <td width="100px" class="text-center">
+              {% comment %}<img style="width: 80px;" src="/assets/repo.png">{% endcomment %}
+            </td>
+            <td>
+              <h3><a style="text-decoration:none;" href="/d/{{page.dep_name}}">{{page.dep_name}}</a> <small>system dep</small></h3>
+            </td>
+          </tr>
+        </table>
+        <div class="top-buffer">
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="container-fluid">
+  <div class="panel panel-default">
+    <div class="panel-heading"><h3 class="panel-title">Dependency Availability</h3></div>
+    <div class="panel-body" style="overflow-x: auto">
+      <div class="container-fluid">
+        {% for p in site.platforms %}
+          {% assign platform_key = p[0] %}
+          {% assign platform_details = p[1] %}
+          {% assign platform_versions = platform_details.versions %}
+          {% assign platform_name = platform_details.name %}
+
+          {% assign dep_platform_data = page.full_dep_data[platform_key] %}
+          <div class="row">
+            <div class="col-sm-4">
+              <div class="vcenter"><strong>{{platform_name}}</strong></div>
+            </div>
+            <div class="col-sm-8">
+              <div class="row">
+                {% assign n_versions = platform_versions | size %}
+                {% if n_versions > 0 %}
+                  {% for v in platform_versions %}
+                    {% assign version_key = v[0] %}
+                    {% assign version_name = v[1] %}
+                    {% assign version_name_len = version_name | size %}
+                    <div class="col-xs-6">
+                      {% if version_name_len > 0 %}
+                        {{version_name}}
+                      {% else %}
+                        {{version_key | capitalize}}
+                      {% endif %}
+                    </div>
+                    <div class="col-xs-6">
+                      {% assign found = dep_platform_data[version_key] %}
+                      {% assign n_found = found | size %}
+                      {% if n_found > 0 %}
+                        {% for p in found %}
+                          <code>{{p}}</code>
+                        {% endfor %}
+                      {% else %}
+                        <em>Not available</em>
+                      {% endif %}
+                    </div>
+                  {% endfor %}
+                {% else %}
+                  <div class="col-xs-6">
+                    <em>All Versions</em>
+                  </div>
+                  <div class="col-xs-6">
+                    {% assign found = dep_platform_data %}
+                    {% assign n_found = found | size %}
+                    {% if n_found > 0 %}
+                      {% for p in found %}
+                        <code>{{p}}</code>
+                      {% endfor %}
+                    {% else %}
+                      <em>Not available</em>
+                    {% endif %}
+                  </div>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+          <div class="row">&nbsp;</div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <div class="panel panel-default">
+    <div class="panel-heading"><h3 class="panel-title">Raw Rosdep Data</h3></div>
+    <div class="panel-body">
+      <pre>
+  {{page.dep_data}}
+      </pre>
+    </div>
+  </div>
+
+  <div class="panel panel-default">
+    <div class="panel-heading"><h3 class="panel-title">Used in Packages</h3></div>
+    <div class="panel-body">
+      <em>Package usage not currently computed.</em>
+    </div>
+  </div>
+</div>

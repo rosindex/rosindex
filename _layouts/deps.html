@@ -19,7 +19,7 @@ layout: default
     {% for distro in page.all_distros %}
       <div class="row distro distro-{{distro}}">
         <div class="panel panel-default">
-          <div class="panel-heading"><h3 class="panel-title">Packages </h3></div>
+          <div class="panel-heading"><h3 class="panel-title">OS Dependencies</h3></div>
           <div class="table-responsive">
             <table class="table table-condensed table-striped table-hover">
               <thead>
@@ -47,17 +47,17 @@ layout: default
                     {% endif %}
                   </th>
                   <th style="text-align: left;">
-                    {% if page.sort_id == 'name' %}
+                    {% if page.sort_id == '' %}
                       <span class="selected-sort-label">Name</span>
                     {% else %}
-                      <a class="unselected-sort-label" href="/packages/page/1/name">Name</a>
+                      <a class="unselected-sort-label" href="/packages/page/1">Name</a>
                     {% endif %}
                   </th>
                   <th width="100%">Description</th>
                 </tr>
               </thead>
               <tbody>
-                {% for package in page.list %}
+                {% for package in page.list_alpha %}
                   {% assign r = package[1].repos[distro].snapshots[distro] %}
                   {% assign p = package[1].snapshots[distro] %}
                   {% assign n_instances = package[1].instances | size %}

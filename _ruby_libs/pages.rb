@@ -17,6 +17,26 @@ def get_available_distros(site, versions_dict)
   return available_distros, available_older_distros, available_older_distros.values.count(true)
 end
 
+class DepPage < Jekyll::Page
+  def initialize(site, dep_name, dep_data, full_dep_data)
+
+    basepath = File.join('d', dep_name)
+
+    @site = site
+    @base = site.source
+    @dir = basepath
+    @name = 'index.html'
+
+    self.process(@name)
+    self.read_yaml(File.join(@base, '_layouts'),'dep.html')
+
+    self.data['dep_name'] = dep_name
+    self.data['dep_data'] = dep_data
+
+    self.data['full_dep_data'] = full_dep_data
+  end
+end
+
 class RepoInstancesPage < Jekyll::Page
   def initialize(site, repo_instances)
     @site = site
@@ -59,7 +79,7 @@ class RepoPage < Jekyll::Page
 end
 
 class PackageListPage < Jekyll::Page
-  def initialize(site, sort_id, n_list_pages, page_index, list_alpha, default=false)
+  def initialize(site, sort_id, n_list_pages, page_index, list, default=false)
     @site = site
     @base = site.source
     @dir = unless default then 'packages/page/'+page_index.to_s+'/'+sort_id else 'packages' end
@@ -74,7 +94,7 @@ class PackageListPage < Jekyll::Page
     self.data['sort_id'] = sort_id
     self.data['n_list_pages'] = n_list_pages
     self.data['page_index'] = page_index
-    self.data['list_alpha'] = list_alpha
+    self.data['list'] = list
 
     self.data['prev_page'] = [page_index - 1, 1].max
     self.data['next_page'] = [page_index + 1, n_list_pages].min
@@ -89,7 +109,7 @@ class PackageListPage < Jekyll::Page
 end
 
 class RepoListPage < Jekyll::Page
-  def initialize(site, sort_id, n_list_pages, page_index, list_alpha, default=false)
+  def initialize(site, sort_id, n_list_pages, page_index, list, default=false)
     @site = site
     @base = site.source
     @dir = unless default then 'repos/page/'+page_index.to_s+'/'+sort_id else 'repos' end
@@ -104,7 +124,37 @@ class RepoListPage < Jekyll::Page
     self.data['sort_id'] = sort_id
     self.data['n_list_pages'] = n_list_pages
     self.data['page_index'] = page_index
-    self.data['list_alpha'] = list_alpha
+    self.data['list'] = list
+
+    self.data['prev_page'] = [page_index - 1, 1].max
+    self.data['next_page'] = [page_index + 1, n_list_pages].min
+
+    self.data['near_pages'] = *([1,page_index-4].max..[page_index+4, n_list_pages].min)
+    self.data['all_distros'] = site.config['distros'] + site.config['old_distros']
+
+    self.data['available_distros'] = Hash[site.config['distros'].collect { |d| [d, true] }]
+    self.data['available_older_distros'] = Hash[site.config['old_distros'].collect { |d| [d, true] }]
+    self.data['n_available_older_distros'] = site.config['old_distros'].length
+  end
+end
+
+class DepListPage < Jekyll::Page
+  def initialize(site, sort_id, n_list_pages, page_index, list, default=false)
+    @site = site
+    @base = site.source
+    @dir = unless default then 'deps/page/'+page_index.to_s+'/'+sort_id else 'deps' end
+    @name = 'index.html'
+
+    self.process(@name)
+    self.read_yaml(File.join(@base, '_layouts'),'system_deps.html')
+    self.data['pager'] = {
+      'base' => 'deps',
+      'post_ns' => '/'+sort_id
+    }
+    self.data['sort_id'] = sort_id
+    self.data['n_list_pages'] = n_list_pages
+    self.data['page_index'] = page_index
+    self.data['list'] = list
 
     self.data['prev_page'] = [page_index - 1, 1].max
     self.data['next_page'] = [page_index + 1, n_list_pages].min

@@ -124,8 +124,10 @@ class PackageInstances < Liquid::Drop
 end
 
 class RosIndexDB
-  attr_accessor :all_repos, :repo_names, :package_names, :errors
+  attr_accessor :rosdeps, :all_repos, :repo_names, :package_names, :errors
   def initialize
+    # the rosdep db
+    @rosdeps = []
     # the global index of repos
     @all_repos = Hash.new
     # the list of repo instances by name
