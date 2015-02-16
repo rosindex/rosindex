@@ -12,6 +12,10 @@ require 'mercurial-ruby'
 # rosindex requires
 require_relative 'common'
 
+Mercurial.configure do |conf|
+  conf.hg_binary_path = `which hg`
+end
+
 class VCSException < RuntimeError
   attr :msg
   def initialize(msg)

@@ -94,7 +94,7 @@ def resolve_dep(ps, ms, os, ver, data)
     if data.key?('source') and data['source'].key?('uri') then return data['source']['uri'] end
     if data.key?('packages') then return data['packages'] end
     ms.each do |manager_name, manager_oss|
-      if (manager_oss.include?(os) and data.key?(manager_name)) then return resolve_dep(ps, ms, os, ver, data[manager_name]) end
+      if ((manager_oss.include?(os) or manager_oss.size == 0) and data.key?(manager_name)) then return resolve_dep(ps, ms, os, ver, data[manager_name]) end
     end
   end
 
@@ -212,6 +212,18 @@ class Indexer < Jekyll::Generator
             # get dependencies
             deps = REXML::XPath.each(manifest_doc, "/package/build_depend/text() | /package/run_depend/text() | package/depend/text()").map { |a| a.to_s }.uniq
 
+            # determine which deps are packages or system deps
+            pkg_deps = {}
+            system_deps = {}
+
+            deps.each do |dep_name|
+              if @rosdeps_full.key?(dep_name)
+                system_deps[dep_name] = nil
+              else
+                pkg_deps[dep_name] = nil
+              end
+            end
+
           elsif File.exist?(manifest_xml_path)
             manifest_xml = IO.read(manifest_xml_path)
             pkg_type = 'rosbuild'
@@ -234,7 +246,8 @@ class Indexer < Jekyll::Generator
             manifest_doc = REXML::Document.new(manifest_xml)
 
             # get dependencies
-            deps = REXML::XPath.each(manifest_doc, "/package/depend/@package").map { |a| a.to_s }.uniq
+            pkg_deps = Hash[*REXML::XPath.each(manifest_doc, "/package/depend/@package").map { |a| a.to_s }.uniq.collect {|d| [d, nil]}.flatten]
+            system_deps = Hash[*REXML::XPath.each(manifest_doc, "/package/rosdep/@name").map { |a| a.to_s }.uniq.collect {|d| [d, nil]}.flatten]
           else
             next
           end
@@ -328,7 +341,9 @@ class Indexer < Jekyll::Generator
             'authors' => authors,
             'urls' => urls,
             # dependencies
-            'deps' => deps,
+            'pkg_deps' => pkg_deps,
+            'system_deps' => system_deps,
+            'dependants' => {},
             # exports
             'deprecated' => deprecated,
             # rosindex metadata
@@ -717,6 +732,27 @@ class Indexer < Jekyll::Generator
       site.config['package_manager_names'].keys)
     @rosdeps = @db.rosdeps
 
+    @rosdeps_full = {}
+
+    @rosdeps.each do |dep_name, dep_data|
+      platforms = site.config['platforms']
+      manager_set = Set.new(site.config['package_manager_names'])
+
+      full_dep_data = {}
+      platforms.each do |platform_key, platform_details|
+        if platform_details['versions'].size > 0
+          full_dep_data[platform_key] = {}
+          platform_details['versions'].each do |version_key, version_name|
+            full_dep_data[platform_key][version_key] = resolve_dep(platforms, manager_set, platform_key, version_key, dep_data)
+          end
+        else
+          full_dep_data[platform_key] = resolve_dep(platforms, manager_set, platform_key, 'any_version', dep_data)
+        end
+      end
+
+      @rosdeps_full[dep_name] = full_dep_data
+    end
+
     # get the repositories from the rosdistro files, rosdoc rosinstall files, and other sources
     unless @skip_discover
       $all_distros.reverse_each do |distro|
@@ -1005,6 +1041,47 @@ class Indexer < Jekyll::Generator
     # save scraped data into the cache db
     File.open(@db_cache_filename, 'w') {|f| f.write(Marshal.dump(@db)) }
 
+    # compute post-scrape details
+    # TODO: check for missing deps or just leave them as nil?
+    @repo_names.each do |repo_name, repo_instances|
+      repo_instances.instances.each do |instance_id, repo|
+        repo.snapshots.each do |distro, snapshot|
+          snapshot.packages.each do |package_name, package_snapshot|
+            # add package details
+            package_snapshot.data['pkg_deps'].keys.each do |dep_name|
+              if @package_names.key?(dep_name)
+                # add forward dep
+                # forward deps should point to the package instances page,
+                # since it might be any given instance
+                package_snapshot.data['pkg_deps'][dep_name] = @package_names[dep_name]
+              end
+
+              # add reverse dep to each dep
+              # reverse deps can point to the exact instance which depends on this package
+              # these are keyed by package name => list of instances
+              @package_names[dep_name].instances.each do |dep_instance_id, dep_repo|
+                if dep_repo.snapshots[distro].packages.key?(dep_name)
+                  dependants = dep_repo.snapshots[distro].packages[dep_name].data['dependants']
+                  unless dependants.key?(package_name) then dependants[package_name] = [] end
+                  dependants[package_name] << {
+                    'repo' => repo,
+                    'id' => instance_id,
+                    'package' => package_snapshot
+                  }
+                end
+              end
+            end
+            # add rosdep details
+            package_snapshot.data['system_deps'].keys.each do |dep_name|
+              if @rosdeps_full.key?(dep_name)
+                package_snapshot.data['system_deps'][dep_name] = @rosdeps_full[dep_name]
+              end
+            end
+          end
+        end
+      end
+    end
+
     # generate pages for all repos
     @repo_names.each do |repo_name, repo_instances|
 
@@ -1058,27 +1135,9 @@ class Indexer < Jekyll::Generator
 
     # create rosdep list pages
     puts ("Generating rosdep list pages...").blue
-    @rosdeps_full = {}
 
-    @rosdeps.each do |dep_name, dep_data|
-      platforms = site.config['platforms']
-      manager_set = Set.new(site.config['package_manager_names'])
-
-      full_dep_data = {}
-      platforms.each do |platform_key, platform_details|
-        if platform_details['versions'].size > 0
-          full_dep_data[platform_key] = {}
-          platform_details['versions'].each do |version_key, version_name|
-            full_dep_data[platform_key][version_key] = resolve_dep(platforms, manager_set, platform_key, version_key, dep_data)
-          end
-        else
-          full_dep_data[platform_key] = resolve_dep(platforms, manager_set, platform_key, 'any_version', dep_data)
-        end
-      end
-
-      @rosdeps_full[dep_name] = full_dep_data
-
-      site.pages << DepPage.new(site, dep_name, dep_data, full_dep_data)
+    @rosdeps_full.each do |dep_name, full_dep_data|
+      site.pages << DepPage.new(site, dep_name, @rosdeps[dep_name], full_dep_data)
     end
 
     rosdeps_sorted = sort_rosdeps(site)

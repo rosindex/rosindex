@@ -34,19 +34,19 @@ db_cache_filename: _caches/_deploy_cache.db
 wiki_title_index_filename: _caches/ros_org_wiki_title_index.txt
 
 # If true, this skips finding repos based on the repo sources
-skip_discover: true
+skip_discover: false
 # If true, this skips updating the known repos
-skip_update: true
+skip_update: false
 # If true, this skips scraping the cloned repos
-skip_scrape: true
+skip_scrape: false
 # If true, this skips generating the search index
-skip_search_index: true
+skip_search_index: false
 
 checkout_threads: 5
 checkout_path: "../_checkout"
 
 # if non-empty, only scrape these packages (useful for debugging / partial db updates)
-repo_id_whitelist: []
+repo_id_whitelist: ['github-ros-perception-perception-pcl']
 
 # domains which are broken
 domain_blacklist:

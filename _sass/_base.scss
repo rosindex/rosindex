@@ -1,4 +1,10 @@
 
+// unused
+.label-list-inline>li {
+  padding-left: 0px;
+  padding-right: 0px;
+  line-height: 1.6;
+}
 
 .label-as-badge {
     border-radius: 1em;
@@ -40,6 +46,10 @@ div.vcenter {
 
 a.inactive {
   color: #999999;
+  text-decoration: none;
+}
+
+table.table a .glyphicon {
   text-decoration: none;
 }
 
@@ -122,6 +132,7 @@ div#toc a {
 
 .pkg-label {
   margin-right: 2px;
+  display: inline-block;
 }
 
 
@@ -298,8 +309,8 @@ code {
  * Wrapper
  */
 .wrapper {
-    max-width: -webkit-calc(800px - (0px * 2));
-    max-width:         calc(800px - (0px * 2));
+    max-width: -webkit-calc(1000px - (0px * 2));
+    max-width:         calc(1000px - (0px * 2));
     margin-right: auto;
     margin-left: auto;
     padding-right: 0px;
@@ -307,8 +318,8 @@ code {
     @extend %clearfix;
 
     @include media-query($on-laptop) {
-        max-width: -webkit-calc(800px - (0px));
-        max-width:         calc(800px - (0px));
+        max-width: -webkit-calc(1000px - (0px));
+        max-width:         calc(1000px - (0px));
         padding-right: 0px / 2;
         padding-left: 0px / 2;
     }
