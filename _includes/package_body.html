@@ -6,7 +6,7 @@ Assumes distro and package are defined
   <div class="alert alert-warning"><h3><strong>Package Deprecated</strong></h3> {{package.data.deprecated}}</div>
 {% endif %}
 
-<ul class="nav nav-tabs nav-justified" id="{{distro}}-tabs" style="margin-bottom:20px">
+<ul class="nav nav-tabs" id="{{distro}}-tabs" style="margin-bottom:20px">
   <li class="better-tabs active">
     <a href="#{{distro}}-overview" data-toggle="tab">Overview</a>
   </li>
@@ -19,7 +19,10 @@ Assumes distro and package are defined
     <a href="#{{distro}}-assets" data-toggle="tab"><span class="label label-{%if n_assets == 0%}default{%else%}primary{%endif%}">{{n_assets}}</span> Assets</a>
   </li>
   <li class="better-tabs">
-    {% assign n_deps = package.data.deps | size %}
+    {% assign n_dependants = package.data.dependants | size %}
+    {% assign n_pkg_deps = package.data.pkg_deps | size %}
+    {% assign n_system_deps = package.data.system_deps | size %}
+    {% assign n_deps = n_pkg_deps | plus: n_system_deps %}
     <a href="#{{distro}}-deps" data-toggle="tab"><span class="label label-{%if n_deps == 0%}default{%else%}primary{%endif%}">{{n_deps}}</span> Dependencies</a>
   </li>
   <li class="better-tabs">
@@ -31,12 +34,55 @@ Assumes distro and package are defined
 <div class="tab-content">
   <div class="tab-pane active" id="{{distro}}-overview">
     <div class="row">
-      <div class="col-sm-8">
+      <div class="col-xs-12 col-sm-6 col-md-6 col-lg-6">
         <div class="panel panel-default">
           <div class="panel-heading"><h3 class="panel-title">Package Description</h3></div>
           <div class="panel-body">
             {{ package.data.description}}
           </div>
+          <div class="panel-heading"><h4 class="panel-title">Additional Links</h4></div>
+          <div class="panel-body">
+            {% assign n_urls = package.data.urls | size %}
+            {% if n_urls > 0 %}
+              <ul class="list-unstyled">
+                {% for url in package.data.urls %}
+                  <li><a href="{{url.uri}}">{%if url.type%}{{url.type | capitalize}}{%else%}{{url.domain}}{%endif%}</a></li>
+                {% endfor %}
+              </ul>
+            {% else %}
+              <em>No additional links.</em>
+            {% endif %}
+          </div>
+          <div class="panel-heading"><h4 class="panel-title">Maintainers</h4></div>
+          <div class="panel-body">
+            {% assign n_maintainers = package.data.maintainers | size %}
+            {% if n_maintainers > 0 %}
+              <ul class="list-unstyled">
+                {% for m in package.data.maintainers %}
+                  <li>{{m | replace: '@', ' [AT] ' }}</li>
+                {% endfor %}
+              </ul>
+            {% else %}
+              <em>No known maintainers.</em>
+            {% endif %}
+          </div>
+          <div class="panel-heading"><h4 class="panel-title">Authors</h4></div>
+          <div class="panel-body">
+            {% assign n_authors = package.data.authors | size %}
+            {% if n_authors > 0 %}
+              <ul class="list-unstyled">
+                {% for a in package.data.authors %}
+                  <li>{{a | replace: '@', ' [AT] ' }}</li>
+                {% endfor %}
+              </ul>
+            {% else %}
+              <em>No additional authors.</em>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      <div class="col-xs-12 col-sm-6 col-md-6 col-lg-6">
+        <div class="panel panel-default">
           <div class="panel-heading"><h4 class="panel-title">Package Summary</h4></div>
           <div class="panel-body" style="overflow-x: auto">
             <table class="table table-condensed">
@@ -90,52 +136,9 @@ Assumes distro and package are defined
           </div>
         </div>
       </div>
-      <div class="col-sm-4">
-        <div class="panel panel-default">
-          <div class="panel-heading"><h4 class="panel-title">Maintainers</h4></div>
-          <div class="panel-body">
-            {% assign n_maintainers = package.data.maintainers | size %}
-            {% if n_maintainers > 0 %}
-              <ul class="list-unstyled">
-                {% for m in package.data.maintainers %}
-                  <li>{{m | replace: '@', ' [AT] ' }}</li>
-                {% endfor %}
-              </ul>
-            {% else %}
-              <em>No known maintainers.</em>
-            {% endif %}
-          </div>
-          <div class="panel-heading"><h4 class="panel-title">Authors</h4></div>
-          <div class="panel-body">
-            {% assign n_authors = package.data.authors | size %}
-            {% if n_authors > 0 %}
-              <ul class="list-unstyled">
-                {% for a in package.data.authors %}
-                  <li>{{a | replace: '@', ' [AT] ' }}</li>
-                {% endfor %}
-              </ul>
-            {% else %}
-              <em>No additional authors.</em>
-            {% endif %}
-          </div>
-          <div class="panel-heading"><h4 class="panel-title">Additional Links</h4></div>
-          <div class="panel-body">
-            {% assign n_urls = package.data.urls | size %}
-            {% if n_urls > 0 %}
-              <ul class="list-unstyled">
-                {% for url in package.data.urls %}
-                  <li><a href="{{url.uri}}">{%if url.type%}{{url.type | capitalize}}{%else%}{{url.domain}}{%endif%}</a></li>
-                {% endfor %}
-              </ul>
-            {% else %}
-              <em>No additional links.</em>
-            {% endif %}
-          </div>
-        </div>
-      </div>
     </div>
     <div class="row">
-      <div class="col-xs-12">
+      <div class="col-xs-12 col-md-9">
         <div class="panel panel-default">
           <div class="panel-heading"><span class="glyphicon glyphicon-file"></span> README</div>
           <div class="panel-body">
@@ -154,7 +157,7 @@ Assumes distro and package are defined
       </div>
     </div>
     <div class="row">
-      <div class="col-xs-12">
+      <div class="col-xs-12 col-md-9">
         <div class="panel panel-default">
           <div class="panel-heading"><span class="glyphicon glyphicon-list"></span> CHANGELOG</div>
           <div class="panel-body">
@@ -199,23 +202,111 @@ Assumes distro and package are defined
   </div>
 
   <div class="tab-pane" id="{{distro}}-deps">
-    <div class="panel panel-default">
-      <div class="panel-heading">
-        <h3 class="panel-title">Depends On</h3>
+    <div class="row">
+      <div class="col-sm-6">
+        <div class="panel panel-default">
+          <div class="panel-heading">
+            <h3 class="panel-title">Package Dependencies</h3>
+          </div>
+          <div class="panel-body">
+            {% if n_pkg_deps > 0 %}
+              <table class="table table-condensed table-striped">
+                <thead>
+                  <th class="text-center">Deps</span></th>
+                  <th class="text-center"><span class="glyphicon glyphicon-th"></span></th>
+                  <th style="width: 100%">Name</th>
+                </thead>
+                <tbody>
+                  {% for p in package.data.pkg_deps %}
+                    {% assign n_instances = p[1].instances | size %}
+                    {% if n_instances > 0 %}
+                      <tr>
+                        <td class="text-center">
+                          {% assign n_2nd_order_pdeps = p[1].snapshots[distro].data.pkg_deps | size %}
+                          {% assign n_2nd_order_sdeps = p[1].snapshots[distro].data.system_deps | size %}
+                          {% assign n_2nd_order_deps = n_2nd_order_pdeps | plus: n_2nd_order_sdeps %}
+                          <a href="/p/{{p[0]}}#{{distro}}-deps" {% if n_2nd_order_deps == 0 %}class="inactive"{% endif %}>
+                            <span class="glyphicon glyphicon-arrow-left"></span>
+                          </a>
+                        </td>
+                        <td class="text-center">
+                          <a href="/packages/{{p[0]}}" class="label label-{% if n_instances > 1 %}primary{% else %}default{% endif %}">
+                            {{n_instances}}
+                          </a>
+                        </td>
+                        <td><a href="/p/{{p[0]}}#{{distro}}">{{p[0]}}</a></td>
+                      </tr>
+                    {% else %}
+                      <tr>
+                        <td class="text-center"></td>
+                        <td class="text-center">
+                          <span class="label label-danger">0</span>
+                        </td>
+                        <td>{{p[0]}}</td>
+                      </tr>
+                    {% endif %}
+                  {%endfor%}
+                </tbody>
+              </table>
+            {% else %}
+              <em>No dependencies on ROS packages.</em>
+            {% endif %}
+          </div>
+          <div class="panel-heading">
+            <h3 class="panel-title">System Dependencies</h3>
+          </div>
+          <div class="panel-body">
+            {% if n_system_deps > 0 %}
+              <table class="table table-condensed table-striped">
+                <thead>
+                  <th>Name</th>
+                </thead>
+                <tbody>
+                  {% for d in package.data.system_deps %}
+                    {% if d[1] %}
+                      <tr>
+                        <td><a href="/d/{{d[0]}}">{{d[0]}}</a></td>
+                      </tr>
+                    {% else %}
+                      <tr class="danger">
+                        <td>{{d[0]}}</td>
+                      </tr>
+                    {% endif %}
+                  {%endfor%}
+                </tbody>
+              </table>
+            {% else %}
+              <em>No direct system dependencies.</em>
+            {% endif %}
+          </div>
+        </div>
       </div>
-      <div class="panel-body">
-          {% for p in package.data.deps %}
-            <li><h4><a class="label label-primary" href="/p/{{p}}#{{distro}}">{{p}}</a></h4></li>
-          {%endfor%}
-      </div>
-    </div>
 
-    <div class="panel panel-default">
-      <div class="panel-heading">
-        <h3 class="panel-title">Depended On By</h3>
-      </div>
-      <div class="panel-body">
-        <em>Not currently computed.</em>
+      <div class="col-sm-6">
+        <div class="panel panel-default">
+          <div class="panel-heading">
+            <h3 class="panel-title">Dependant Packages</h3>
+          </div>
+          <div class="panel-body">
+            {% if n_dependants > 0 %}
+              <table class="table table-condensed table-striped">
+                <thead>
+                  <th>Name</th>
+                </thead>
+                <tbody>
+                  {% for d in package.data.dependants %}
+                    {% assign dep_name = d[0] %}
+                    {% for dep_instance in d[1] %}
+                      <tr><td><a href="/p/{{dep_name}}/{{dep_instance.id}}#{{distro}}">{{dep_name}} ({{dep_instance.id}})</a></td></tr>
+                    {% endfor %}
+                  {%endfor%}
+                </tbody>
+              </table>
+            {% else %}
+              <em>No known dependants.</em>
+            {% endif %}
+          </div>
+        </div>
       </div>
     </div>
   </div>
