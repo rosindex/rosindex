@@ -20,6 +20,9 @@ class VCSException < RuntimeError
   end
 end
 
+Mercurial.configure do |conf|
+    conf.hg_binary_path = system('which hg')
+end
 
 class VCS
   # This represents a working copy of a remote repository

@@ -25,9 +25,8 @@ organization](http://github.com/rosindex).
 
 ### System Requirements
 
-* ruby 1.9
-* subversion 1.8
-  * with SWIG ruby bindings and serf (`./configure --with-serf`)
+* ruby 2.2
+* rubygems
 * git
 * mercurial
 
