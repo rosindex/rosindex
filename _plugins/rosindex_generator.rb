@@ -48,7 +48,9 @@ def get_raw_uri(uri_s, type, branch)
   case uri.host
   when 'github.com'
     uri_split = File.split(uri.path)
-    return 'https://raw.githubusercontent.com/%s/%s/%s' % [uri_split[0], uri_split[1].rpartition('.')[0], branch]
+    path_split = uri_split[1].rpartition('.')
+    repo_name = if path_split[1] == '.' then path_split[0] else path_split[-1] end
+    return 'https://raw.githubusercontent.com/%s/%s/%s' % [uri_split[0], repo_name, branch]
   when 'bitbucket.org'
     uri_split = File.split(uri.path)
     return 'https://bitbucket.org/%s/%s/raw/%s' % [uri_split[0], uri_split[1], branch]
@@ -67,7 +69,9 @@ def get_browse_uri(uri_s, type, branch)
   case uri.host
   when 'github.com'
     uri_split = File.split(uri.path)
-    return 'https://github.com/%s/%s/tree/%s' % [uri_split[0], uri_split[1].rpartition('.')[0], branch]
+    path_split = uri_split[1].rpartition('.')
+    repo_name = if path_split[1] == '.' then path_split[0] else path_split[-1] end
+    return 'https://github.com/%s/%s/tree/%s' % [uri_split[0], repo_name, branch]
   when 'bitbucket.org'
     uri_split = File.split(uri.path)
     return 'https://bitbucket.org/%s/%s/src/%s' % [uri_split[0], uri_split[1], branch]
@@ -446,7 +450,7 @@ class Indexer < Jekyll::Generator
     rescue VCSException => e
       raise IndexException.new(e.msg, repo.id)
     end
-    unless (not vcs.nil? and vcs.valid?) then return end
+    if (vcs.nil? or not vcs.valid?) then return end
 
     # get versions suitable for checkout for each distro
     repo.snapshots.each do |distro, snapshot|
@@ -462,15 +466,18 @@ class Indexer < Jekyll::Generator
 
       begin
         # get the version
-        puts (" Looking for explicit version #{explicit_version}").green
+        unless explicit_version.nil?
+          puts (" Looking for explicit version #{explicit_version}").green
+        end
         version, snapshot.version = vcs.get_version(distro, explicit_version)
 
         # scrape the data (packages etc)
         if version
           puts (" --- scraping version for " << repo.name << " instance: " << repo.id << " distro: " << distro).blue
 
-            # check out this branch
-            vcs.checkout(version)
+          # check out this branch
+          vcs.checkout(version)
+
           # check for ignore file
           if File.exist?(File.join(vcs.local_path,'.rosindex_ignore'))
             puts (" --- ignoring version for " << repo.name).yellow

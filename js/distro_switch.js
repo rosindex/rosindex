@@ -61,6 +61,7 @@ $(document).ready(function(){
   }
 
   $('.distro').not('.distro-'+distro).hide(0);
+  $('.distro-'+distro).show(0);
   $('#'+distro+'-option').addClass('active');
   $('#'+distro+'-button').trigger("click");
 });

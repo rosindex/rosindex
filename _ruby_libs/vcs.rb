@@ -13,7 +13,7 @@ require 'mercurial-ruby'
 require_relative 'common'
 
 Mercurial.configure do |conf|
-  conf.hg_binary_path = `which hg`
+  conf.hg_binary_path = `which hg`.rstrip
 end
 
 class VCSException < RuntimeError
@@ -22,10 +22,6 @@ class VCSException < RuntimeError
     @msg = msg
     puts ("ERROR: #{@msg}").red
   end
-end
-
-Mercurial.configure do |conf|
-    conf.hg_binary_path = system('which hg')
 end
 
 class VCS
@@ -157,6 +153,7 @@ class GIT < VCS
     # remote head
     if explicit_version == 'REMOTE_HEAD'
       @r.branches.each() do |branch|
+        unless branch.remote then next end
         branch.remote.ls.each do |remote_ref|
           #puts remote_ref.inspect
           if remote_ref[:local?] == false and remote_ref[:name] == 'HEAD'

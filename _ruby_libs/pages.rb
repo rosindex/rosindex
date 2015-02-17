@@ -1,5 +1,7 @@
 # Jekyll page classes
 
+require 'cgi'
+
 def get_available_distros(site, versions_dict)
   # create easy-to-process lists of available distros for the switcher
 
@@ -313,7 +315,10 @@ class ErrorsPage < Jekyll::Page
 
     errors.each do |name, repo_errors|
       repo_errors.each do |error|
-        self.data['errors'] << error.to_hash.merge({'name'=>name})
+        error_hash = error.to_hash.merge({'name'=>name})
+        error_hash['msg'] = CGI.escapeHTML(error_hash['msg'])
+
+        self.data['errors'] << error_hash
       end
     end
 
