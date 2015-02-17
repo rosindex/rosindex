@@ -6,7 +6,7 @@ Assumes distro and package are defined
   <div class="alert alert-warning"><h3><strong>Package Deprecated</strong></h3> {{package.data.deprecated}}</div>
 {% endif %}
 
-<ul class="nav nav-tabs" id="{{distro}}-tabs" style="margin-bottom:20px">
+<ul class="nav nav-tabs nav-justified" id="{{distro}}-tabs" style="margin-bottom:20px">
   <li class="better-tabs active">
     <a href="#{{distro}}-overview" data-toggle="tab">Overview</a>
   </li>
@@ -212,7 +212,7 @@ Assumes distro and package are defined
             {% if n_pkg_deps > 0 %}
               <table class="table table-condensed table-striped">
                 <thead>
-                  <th class="text-center">Deps</span></th>
+                  <th class="text-center">Deps</th>
                   <th class="text-center"><span class="glyphicon glyphicon-th"></span></th>
                   <th style="width: 100%">Name</th>
                 </thead>
@@ -292,12 +292,23 @@ Assumes distro and package are defined
               <table class="table table-condensed table-striped">
                 <thead>
                   <th>Name</th>
+                  <th>Repo</th>
+                  <th class="text-center">Deps</th>
                 </thead>
                 <tbody>
                   {% for d in package.data.dependants %}
                     {% assign dep_name = d[0] %}
                     {% for dep_instance in d[1] %}
-                      <tr><td><a href="/p/{{dep_name}}/{{dep_instance.id}}#{{distro}}">{{dep_name}} ({{dep_instance.id}})</a></td></tr>
+                    <tr>
+                      <td><a href="/p/{{dep_name}}/{{dep_instance.id}}#{{distro}}">{{dep_name}}</a></td>
+                      <td><a href="/r/{{dep_instance.repo.name}}/{{dep_instance.id}}">{{dep_instance.id}}</a></td>
+                      <td class="text-center">
+                        {% assign n_2nd_order_deps = dep_instance.package.data.dependants | size %}
+                        <a href="/p/{{dep_name}}/{{dep_instance.id}}#{{distro}}-deps" {% if n_2nd_order_deps == 0 %}class="inactive"{% endif %}>
+                          <span class="glyphicon glyphicon-arrow-right"></span>
+                        </a>
+                      </td>
+                    </tr>
                     {% endfor %}
                   {%endfor%}
                 </tbody>

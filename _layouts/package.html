@@ -21,12 +21,10 @@ layout: default
       {% for distro in page.all_distros %}
         <div class="distro distro-{{distro}}">
         {% if page.available_distros[distro] or page.available_older_distros[distro] %}
-          <div class="well well-sm">
-            {% assign package = page.package_instances.snapshots[distro] %}
-            {% assign instance = page.package_instances.repos[distro] %}
-            {% assign show_repo = false %}
-            {% include package_header.html %}
-          </div>
+          {% assign package = page.package_instances.snapshots[distro] %}
+          {% assign instance = page.package_instances.repos[distro] %}
+          {% assign show_repo = false %}
+          {% include package_header.html %}
         {% endif %}
       </div>
     {% endfor %}

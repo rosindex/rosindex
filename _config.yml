@@ -65,6 +65,8 @@ exclude:
   - _checkout
   - node_modules
   - Rakefile
+  - Gemfile
+  - Gemfile.lock
   - README.md
 
 rosdistro_path: _rosdistro

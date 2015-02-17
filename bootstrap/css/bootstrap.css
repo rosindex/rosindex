@@ -6651,6 +6651,12 @@ button.close {
 .navbar-btn.btn-xs:active {
   margin-top: 16px;
 }
+.btn-group-vertical .btn + .btn:hover {
+  border-top-width: 1px;
+}
+.btn-group-vertical .btn + .btn:active {
+  border-top-width: 2px;
+}
 .text-primary,
 .text-primary:hover {
   color: #158cba;
@@ -6783,10 +6789,14 @@ label {
 .nav-tabs .open > a,
 .nav-tabs .open > a:hover,
 .nav-tabs .open > a:focus {
-  padding-top: 13px;
-  padding-bottom: 13px;
+  padding-bottom: 16px;
   margin-top: 0;
 }
+
+.nav-tabs.nav-justified > li {
+  vertical-align: bottom;
+}
+
 .nav-tabs .open > a,
 .nav-tabs .open > a:hover,
 .nav-tabs .open > a:focus {
