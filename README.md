@@ -54,7 +54,7 @@ gem install bundler
 #### Clone Source and Install Gems
 
 ```
-git clone git@github.com:rosindex/rosindex.github.io.git --recursive
+git clone git@github.com:rosindex/rosindex --recursive
 cd rosindex.github.io
 bundle install
 ```

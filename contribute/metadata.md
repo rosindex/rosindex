@@ -191,7 +191,7 @@ ROS API units we have) as well.
 
 #### Using the same ClearSilver API used by the ROS wiki
 
-See [rosindex.github.io#85](https://github.com/rosindex/rosindex.github.io/issues/85)
+See [rosindex.github.io#85](https://github.com/rosindex/rosindex/issues/85)
 
 ```xml
 <nodes format="hdf">

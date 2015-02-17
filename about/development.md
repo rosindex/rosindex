@@ -17,13 +17,13 @@ ROS Index is a statically-generated website which is composed of four main compo
 Everything used to build ROS Index can be found on the [rosindex GitHub
 organization](http://github.com/rosindex).
 
-<a href="https://github.com/rosindex/rosindex.github.io/issues/new" target="_blank" class="btn btn-success">Post an Issue</a>
+<a href="https://github.com/rosindex/rosindex/issues/new" target="_blank" class="btn btn-success">Post an Issue</a>
 
 {% toc 2 %}
 
 ## Building ROSIndex
 
-See the [ROS Index README.md](http://github.com/rosindex/rosindex.github.io)
+See the [ROS Index README.md](http://github.com/rosindex/rosindex)
 for details on building ROS Index locally.
 
 ## Design Patterns
