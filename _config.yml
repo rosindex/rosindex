@@ -29,7 +29,7 @@ redcarpet:
 highlighter: pygments
 
 # If true, this begins with an existing db
-use_db_cache: true
+use_db_cache: false
 db_cache_filename: _caches/_deploy_cache.db
 wiki_title_index_filename: _caches/ros_org_wiki_title_index.txt
 
@@ -46,11 +46,14 @@ checkout_threads: 8
 checkout_path: "../_checkout"
 
 # if non-empty, only scrape these packages (useful for debugging / partial db updates)
+repo_name_whitelist: []
+# if non-empty, only scrape these repo ids (useful for debugging / partial db updates)
 repo_id_whitelist: []
 
 # domains which are broken
 domain_blacklist:
   - 'kforge.ros.org'
+  #- 'devel.iri.upc.edu'
 
 exclude:
   - _scripts

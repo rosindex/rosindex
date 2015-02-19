@@ -152,12 +152,27 @@ class GIT < VCS
 
     # remote head
     if explicit_version == 'REMOTE_HEAD'
+      sha = nil
+
       @r.branches.each() do |branch|
-        unless branch.remote then next end
+        if branch.remote.nil? then next end
+        #puts branch.remote.ls.to_a.inspect
         branch.remote.ls.each do |remote_ref|
           #puts remote_ref.inspect
           if remote_ref[:local?] == false and remote_ref[:name] == 'HEAD'
+            sha = remote_ref[:oid]
+            break
+          end
+        end
+      end
+
+      unless sha.nil?
+        @r.branches.each() do |branch|
+          #puts "name: #{branch.name}"
+          #puts "oid: #{branch.target.oid}"
+          if branch.target.oid == sha
             branch_name = branch.name.split('/')[-1]
+            #dputs "Using branch '#{branch_name}' ('#{branch.name}')"
             return branch, branch_name # remote_ref[:oid]
           end
         end
@@ -334,7 +349,7 @@ class GITSVN < GIT
     end
   end
 
-  def fetch
+  def fetch()
     Open3.popen3("git svn rebase", :chdir=>@local_path) { |i,o,e,t|
       i.close
       unless t.value.success?

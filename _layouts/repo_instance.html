@@ -28,8 +28,8 @@ layout: default
   <div class="distro distro-{{distro}}">
     <div class="container-fluid">
       {% if page.available_distros[distro] or page.available_older_distros[distro] %}
+        {% assign repo = page.repo %}
         <div class="panel panel-default">
-          {% assign repo = page.repo %}
           {% assign snapshot = page.repo.snapshots[distro] %}
           <div class="panel-heading"><h3 class="panel-title">Repository Summary</h3></div>
           <div class="panel-body" style="overflow-x: auto">

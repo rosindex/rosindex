@@ -33,7 +33,73 @@ Assumes distro and package are defined
 
 <div class="tab-content">
   <div class="tab-pane active" id="{{distro}}-overview">
+    {% if package.repo.release_manifests[distro] %}
+      <div class="row">
+        <div class="col-xs-12">
+          <div class="alert alert-info">
+            <h4>Third-Party Package</h4>
+            This third-party package's source repository does not contain a package manifest. Instead, its package manifest is stored in its <em>release repository</em>.
+            In order to build this package from source in a Catkin workspace, please <a class="alert-link" target="_blank" href="/p/{{package.name}}/{{package.repo.id}}/{{distro}}/package.xml">download its package manifest</a>.
+          </div>
+        </div>
+      </div>
+    {% endif %}
     <div class="row">
+      <div class="col-xs-12 col-sm-6 col-md-6 col-lg-6">
+        <div class="panel panel-default">
+          <div class="panel-heading"><h4 class="panel-title">Package Summary</h4></div>
+          <div class="panel-body">
+            <table class="table table-condensed">
+              <tr>
+                <td style="width:100px;" class="text-right"><strong>Tags</strong></td>
+                <td>
+                  {% assign n_tags = package.repo.tags.size %}
+                  {% if n_tags > 0 %}
+                    {% for tag in package.repo.tags %}<span class="label label-default">{{ tag }}</span> {% endfor %}
+                  {% else %}
+                    <em>No category tags.</em>
+                  {% endif %}
+                </td>
+              </tr>
+              <tr>
+                <td class="text-right"><strong>Version</strong></td>
+                <td>{{ package.data.version }}</td>
+              </tr>
+              <tr>
+                <td class="text-right"><strong>License</strong></td>
+                <td>{{ package.data.license }}</td>
+              </tr>
+              <tr>
+                <td class="text-right"><strong>Buildtool</strong></td>
+                <td>
+                  {% if package.data.pkg_type == 'catkin' %}
+                    <span class="label label-info">
+                  {% else %}
+                    <span class="label label-default">
+                  {% endif %}
+                    {{package.data.pkg_type | upcase}}</span>
+                </td>
+              </tr>
+              <tr>
+                <td class="text-right"><strong>Use</strong></td>
+                <td>
+                {% if package.data.deprecated and package.data.deprecated != '' %}
+                  <span class="label label-warning">DEPRECATED</span>
+                {%else%}
+                  <span class="label label-success">RECOMMENDED</span>
+                {%endif%}
+                </td>
+              </tr>
+            </table>
+          </div>
+          <div class="panel-heading"><h3 class="panel-title">Repository Summary</h3></div>
+          <div class="panel-body">
+            {% assign repo = package.repo %}
+            {% assign snapshot = package.snapshot %}
+            {% include repo_summary.html %}
+          </div>
+        </div>
+      </div>
       <div class="col-xs-12 col-sm-6 col-md-6 col-lg-6">
         <div class="panel panel-default">
           <div class="panel-heading"><h3 class="panel-title">Package Description</h3></div>
@@ -81,64 +147,9 @@ Assumes distro and package are defined
           </div>
         </div>
       </div>
-      <div class="col-xs-12 col-sm-6 col-md-6 col-lg-6">
-        <div class="panel panel-default">
-          <div class="panel-heading"><h4 class="panel-title">Package Summary</h4></div>
-          <div class="panel-body" style="overflow-x: auto">
-            <table class="table table-condensed">
-              <tr>
-                <td style="width:100px;" class="text-right"><strong>Tags</strong></td>
-                <td>
-                  {% assign n_tags = package.repo.tags.size %}
-                  {% if n_tags > 0 %}
-                    {% for tag in package.repo.tags %}<span class="label label-default">{{ tag }}</span> {% endfor %}
-                  {% else %}
-                    <em>No category tags.</em>
-                  {% endif %}
-                </td>
-              </tr>
-              <tr>
-                <td class="text-right"><strong>Version</strong></td>
-                <td>{{ package.data.version }}</td>
-              </tr>
-              <tr>
-                <td class="text-right"><strong>License</strong></td>
-                <td>{{ package.data.license }}</td>
-              </tr>
-              <tr>
-                <td class="text-right"><strong>Buildtool</strong></td>
-                <td>
-                  {% if package.data.pkg_type == 'catkin' %}
-                    <span class="label label-info">
-                  {% else %}
-                    <span class="label label-default">
-                  {% endif %}
-                    {{package.data.pkg_type | upcase}}</span>
-                </td>
-              </tr>
-              <tr>
-                <td class="text-right"><strong>Use</strong></td>
-                <td>
-                {% if package.data.deprecated and package.data.deprecated != '' %}
-                  <span class="label label-warning">DEPRECATED</span>
-                {%else%}
-                  <span class="label label-success">RECOMMENDED</span>
-                {%endif%}
-                </td>
-              </tr>
-            </table>
-          </div>
-          <div class="panel-heading"><h3 class="panel-title">Repository Summary</h3></div>
-          <div class="panel-body" style="overflow-x: auto">
-            {% assign repo = package.repo %}
-            {% assign snapshot = package.snapshot %}
-            {% include repo_summary.html %}
-          </div>
-        </div>
-      </div>
     </div>
     <div class="row">
-      <div class="col-xs-12 col-md-9">
+      <div class="col-xs-12">
         <div class="panel panel-default">
           <div class="panel-heading"><span class="glyphicon glyphicon-file"></span> README</div>
           <div class="panel-body">
@@ -157,7 +168,7 @@ Assumes distro and package are defined
       </div>
     </div>
     <div class="row">
-      <div class="col-xs-12 col-md-9">
+      <div class="col-xs-12">
         <div class="panel panel-default">
           <div class="panel-heading"><span class="glyphicon glyphicon-list"></span> CHANGELOG</div>
           <div class="panel-body">
@@ -198,12 +209,11 @@ Assumes distro and package are defined
         <em>Not currently indexed.</em>
       </div>
     </div>
-
   </div>
 
   <div class="tab-pane" id="{{distro}}-deps">
     <div class="row">
-      <div class="col-sm-6">
+      <div class="col-sm-5">
         <div class="panel panel-default">
           <div class="panel-heading">
             <h3 class="panel-title">Package Dependencies</h3>
@@ -282,7 +292,7 @@ Assumes distro and package are defined
         </div>
       </div>
 
-      <div class="col-sm-6">
+      <div class="col-sm-7">
         <div class="panel panel-default">
           <div class="panel-heading">
             <h3 class="panel-title">Dependant Packages</h3>
@@ -405,27 +415,7 @@ Assumes distro and package are defined
         {% endif %}
       </div>
     </div>
-
   </div>
 </div>
 
-<script>
-// Javascript to enable link to tab
-$(function() {
-  var url = document.location.toString();
-  if (url.match('#')) {
-      $('.nav-tabs a[href=#'+url.split('#')[1]+']').tab('show') ;
-  }
-
-  // Change hash for page-reload
-  $('.nav-tabs a').on('shown', function (e) {
-      window.location.hash = e.target.hash;
-  });
-
-  $("a[href^=#]").on("click", function(e) {
-     e.preventDefault();
-     history.pushState({}, "", this.href);
-  });
-
-});
-</script>
+<script src="/js/package_body_tabs.js"></script>

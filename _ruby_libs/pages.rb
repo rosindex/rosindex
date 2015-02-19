@@ -302,6 +302,13 @@ class SearchIndexFile < Jekyll::StaticFile
   end
 end
 
+class PackageManifestFile < Jekyll::StaticFile
+  # Override write as the search.json index file has already been created
+  def write(dest)
+    true
+  end
+end
+
 class ErrorsPage < Jekyll::Page
   def initialize(site, errors)
     @site = site

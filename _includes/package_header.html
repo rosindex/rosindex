@@ -6,60 +6,43 @@ Assumes the following are defined:
  - show_repo
 {% endcomment %}
 
-<div class="row">
-  <div class="col-sm-9">
-    <div class="well well-sm">
-        {% if false %}
-          <table class="table">
-            <tr>
-              <td width="100px" class="text-center">
-                <img style="width: 30px" src="/assets/repo.png">
-              </td>
-              <td>
-                <h5>
-                  <a href="/r/{{ package.repo.name }}/{{ package.repo.id }}">{{ package.repo.name }}</a>
-                  <small>repository</small>
-                </h5>
-              </td>
-            </tr>
-          </table>
-        {% endif %}
-        <table class="table">
-          <tr>
-            <td width="100px" class="text-center">
-              <img style="width: 80px" src="/assets/package.png">
-            </td>
-            <td>
-              <h3 style="margin-top: 5px">
-                <a style="text-decoration:none" href="/p/{{package.name}}">{{package.name}}</a> <small>package from <a style="text-decoration:none" href="/r/{{ package.repo.name }}/{{ package.repo.id }}">{{ package.repo.name }}</a> repo</small>
-              </h3>
-                {% for peer in package.snapshot.packages %}
-                  {% assign labeled_package = peer[1] %}
-                  {% if peer[0] != package.name %}
-                    <a class="label label-primary pkg-label" href="/p/{{peer[0]}}/{{package.repo.id}}">{% include peer_label.html %}</a>
-                  {% else %}
-                    <span class="label label-default pkg-label">{% include peer_label.html %}</span>
-                  {% endif %}
-                {% endfor %}
-            </td>
-          </tr>
-        </table>
-        <div class="top-buffer distro distro-{{distro}}">
-          {% include instance_switch.html %}
-        </div>
-    </div>
-  </div>
-  <div class="col-sm-3">
-    <!--<div style="display: block;" class="btn-group btn-group-vertical" role="group" aria-label="...">-->
-    {%comment%}{% assign elem_class = 'btn btn-default` %}{%endcomment%}
-    {% assign elem_class = 'list-group-item' %}
-    <div class="list-group">
-      <a class="{{elem_class}}" target="_blank" href="http://docs.ros.org/{{distro}}/api/{{page.package_name}}/html/" {% unless package.snapshot.documented %}disabled{% endunless %}><span class="glyphicon glyphicon-file"></span> API Docs</a>
-      <a class="{{elem_class}}" target="_blank" href="{{ package.data.browse_uri }}"><span class="glyphicon glyphicon-folder-open" style="margin-right:5px;"></span> Browse Source</a>
-      <a class="{{elem_class}}" target="_blank" href="http://answers.ros.org/questions/scope:all/sort:activity-desc/tags:{{page.package_name}}/page:1/"><span class="glyphicon glyphicon-question-sign"></span> FAQ</a>
-      <a class="{{elem_class}} {% unless package.data.wiki.exists %}inactive{% endunless %}" target="_blank" href="http://wiki.ros.org/{{page.package_name}}?distro={{distro}}"><span class="glyphicon glyphicon-info-sign"></span> Wiki</a>
-      <a class="{{elem_class}} {% unless package.data.wiki.exists %}inactive{% endunless %}" target="_blank" href="http://http404error.github.io/roseco/graph.html?id=ros.json&focus={{page.package_name}}&height=1&depth=2&tred=standard&metagroup=false&colorby=Health&direction=LR" {% unless package.snapshot.documented %}disabled{% endunless %}><span class="glyphicon glyphicon-tree-deciduous"></span> Ecosystem</a>
-      {% comment %}<a type="button" class="{{elem_class}} inactive" target="_blank" ><span class="glyphicon glyphicon-fire"></span> CI</a>{% endcomment %}
-    </div>
+<div class="well well-sm">
+  {% if false %}
+    <table class="table">
+      <tr>
+        <td width="100px" class="text-center">
+          <img style="width: 30px" src="/assets/repo.png">
+        </td>
+        <td>
+          <h5>
+            <a href="/r/{{ package.repo.name }}/{{ package.repo.id }}">{{ package.repo.name }}</a>
+            <small>repository</small>
+          </h5>
+        </td>
+      </tr>
+    </table>
+  {% endif %}
+  <table class="table">
+    <tr>
+      <td width="100px" class="text-center">
+        <img style="width: 80px" src="/assets/package.png">
+      </td>
+      <td>
+        <h3 style="margin-top: 5px">
+          <a style="text-decoration:none" href="/p/{{package.name}}">{{package.name}}</a> <small>package from <a style="text-decoration:none" href="/r/{{ package.repo.name }}/{{ package.repo.id }}">{{ package.repo.name }}</a> repo</small>
+        </h3>
+          {% for peer in package.snapshot.packages %}
+            {% assign labeled_package = peer[1] %}
+            {% if peer[0] != package.name %}
+              <a class="label label-primary pkg-label" href="/p/{{peer[0]}}/{{package.repo.id}}">{% include peer_label.html %}</a>
+            {% else %}
+              <span class="label label-default pkg-label">{% include peer_label.html %}</span>
+            {% endif %}
+          {% endfor %}
+      </td>
+    </tr>
+  </table>
+  <div class="top-buffer distro distro-{{distro}}">
+    {% include instance_switch.html %}
   </div>
 </div>

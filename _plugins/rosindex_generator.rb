@@ -137,6 +137,7 @@ class Indexer < Jekyll::Generator
     repo_instances.instances.each do |id, repo|
 
       begin
+        unless (site.config['repo_name_whitelist'].length == 0 or site.config['repo_name_whitelist'].include?(repo.name)) then next end
         unless site.config['repo_id_whitelist'].size == 0 or site.config['repo_id_whitelist'].include?(repo.id)
           next
         end
@@ -165,9 +166,18 @@ class Indexer < Jekyll::Generator
             unless (not vcs.nil? and vcs.valid?) then next end
 
             # fetch the repo
-            vcs.fetch()
+            begin
+              vcs.fetch()
+            rescue VCSException => e
+              msg = "Could not update repo, using old version: "+e.msg
+              puts ("WARNING: "+msg).yellow
+              repo.errors << msg
+              vcs.close()
+            end
             # too many open files if we don't do this
             vcs.close()
+
+            break
           rescue VCSException => e
             puts ("Failed to communicate with source repo after #{attempt} attempt(s)").yellow
             if attempt == 3
@@ -185,6 +195,178 @@ class Indexer < Jekyll::Generator
     end
   end
 
+  def extract_package(site, distro, repo, snapshot, checkout_path, path, pkg_type, manifest_xml)
+
+    data = snapshot.data
+
+    begin
+      # switch basic info based on build type
+      if pkg_type == 'catkin'
+        # read the package manifest
+        manifest_doc = REXML::Document.new(manifest_xml)
+        package_name = REXML::XPath.first(manifest_doc, "/package/name/text()").to_s.strip
+        version = REXML::XPath.first(manifest_doc, "/package/version/text()").to_s.strip
+
+        # get dependencies
+        deps = REXML::XPath.each(manifest_doc, "/package/build_depend/text() | /package/run_depend/text() | package/depend/text()").map { |a| a.to_s.strip }.uniq
+
+        # determine which deps are packages or system deps
+        pkg_deps = {}
+        system_deps = {}
+
+        deps.each do |dep_name|
+          if @rosdeps_full.key?(dep_name)
+            system_deps[dep_name] = nil
+          else
+            pkg_deps[dep_name] = nil
+          end
+        end
+
+      elsif pkg_type == 'rosbuild'
+        # check for a stack.xml file
+        stack_xml_path = File.join(path,'stack.xml')
+        if File.exist?(stack_xml_path)
+          stack_xml = IO.read(stack_xml_path)
+          stack_doc = REXML::Document.new(stack_xml)
+          package_name = REXML::XPath.first(stack_doc, "/stack/name/text()").to_s.strip
+          if package_name.length == 0
+            package_name = File.basename(File.join(path)).strip
+          end
+          version = REXML::XPath.first(stack_doc, "/stack/version/text()").to_s.strip
+        else
+          package_name = File.basename(File.join(path)).strip
+          version = "UNKNOWN"
+        end
+
+        # read the package manifest
+        manifest_doc = REXML::Document.new(manifest_xml)
+
+        # get dependencies
+        pkg_deps = Hash[*REXML::XPath.each(manifest_doc, "/package/depend/@package").map { |a| a.to_s.strip }.uniq.collect {|d| [d, nil]}.flatten]
+        system_deps = Hash[*REXML::XPath.each(manifest_doc, "/package/rosdep/@name").map { |a| a.to_s.strip }.uniq.collect {|d| [d, nil]}.flatten]
+      else
+        return nil
+      end
+
+      dputs " ---- Found #{pkg_type} package \"#{package_name}\" in path #{path}"
+
+      # extract manifest metadata (same for manifest.xml and package.xml)
+      license = REXML::XPath.first(manifest_doc, "/package/license/text()").to_s
+      description = REXML::XPath.first(manifest_doc, "/package/description/text()").to_s
+      maintainers = REXML::XPath.each(manifest_doc, "/package/maintainer/text()").map { |m| m.to_s.sub('@', ' <AT> ') }
+      authors = REXML::XPath.each(manifest_doc, "/package/author/text()").map { |a| a.to_s.sub('@', ' <AT> ') }
+      urls = REXML::XPath.each(manifest_doc, "/package/url").map { |elem|
+        {
+          'uri' => elem.text.to_s,
+          'type' => (elem.attributes['type'] or 'Website').to_s,
+        }
+      }
+
+      # extract other standard exports
+      deprecated = REXML::XPath.first(manifest_doc, "/package/export/deprecated/text()").to_s
+
+      # extract rosindex exports
+      tags = REXML::XPath.each(manifest_doc, "/package/export/rosindex/tags/tag/text()").map { |t| t.to_s }
+      nodes = REXML::XPath.each(manifest_doc, "/package/export/rosindex/nodes").map { |nodes|
+        case nodes.attributes["format"]
+        when "hdf"
+          get_hdf(nodes.text)
+        else
+          REXML::XPath.each(manifest_doc, "/package/export/rosindex/nodes/node").map { |node|
+            {
+              'name' => REXML::XPath.first(node,'/name/text()').to_s,
+              'description' => REXML::XPath.first(node,'/description/text()').to_s,
+              'ros_api' => get_ros_api(REXML::XPath.first(node,'/description/api'))
+            }
+          }
+        end
+      }
+
+      # compute the relative path from the root of the repo to this directory
+      relpath = Pathname.new(File.join(*path)).relative_path_from(Pathname.new(checkout_path))
+      local_package_path = Pathname.new(path)
+
+      # extract package manifest info
+      raw_uri = File.join(data['raw_uri'], relpath)
+      browse_uri = File.join(data['browse_uri'], relpath)
+
+      # check for readme in same directory as package.xml
+      readme_rendered, readme = get_readme(site, path, raw_uri)
+      changelog_rendered, changelog = get_changelog(site, path, raw_uri)
+
+      # TODO: don't do this for cmake-based packages
+      # look for launchfiles in this package
+      launch_files = Dir[File.join(path,'**','*.launch')]
+      launch_files += Dir[File.join(path,'**','*.xml')].reject do |f|
+        begin
+          REXML::Document.new(IO.read(f)).root.name != 'launch'
+        rescue Exception => e
+          true
+        end
+      end
+      # look for message files in this package
+      msg_files = Dir[File.join(path,'**','*.msg')]
+      # look for service files in this package
+      srv_files = Dir[File.join(path,'**','*.srv')]
+      # look for plugin descriptions in this package
+      plugin_data = REXML::XPath.each(manifest_doc, '//export/*[@plugin]').map {|e| {'name'=>e.name, 'file'=>e.attributes['plugin'].sub('${prefix}','')}}
+
+
+      launch_data = []
+      launch_data = launch_files.map do |f|
+        relative_path = Pathname.new(f).relative_path_from(local_package_path).to_s
+        begin
+          parse_launch_file(f, relative_path)
+        rescue Exception => e
+          @errors[repo.name] << IndexException.new("Failed to parse launchfile #{relative_path}: " + e.to_s)
+        end
+      end
+
+      package_info = {
+        'name' => package_name,
+        'pkg_type' => pkg_type,
+        'distro' => distro,
+        'raw_uri' => raw_uri,
+        'browse_uri' => browse_uri,
+        # required package info
+        'version' => version,
+        'license' => license,
+        'description' => description,
+        'maintainers' => maintainers,
+        # optional package info
+        'authors' => authors,
+        'urls' => urls,
+        # dependencies
+        'pkg_deps' => pkg_deps,
+        'system_deps' => system_deps,
+        'dependants' => {},
+        # exports
+        'deprecated' => deprecated,
+        # rosindex metadata
+        'tags' => tags,
+        'nodes' => nodes,
+        # readme
+        'readme' => readme,
+        'readme_rendered' => readme_rendered,
+        # changelog
+        'changelog' => changelog,
+        'changelog_rendered' => changelog_rendered,
+        # assets
+        'launch_data' => launch_data,
+        'plugin_data' => plugin_data,
+        'msg_files' => msg_files.map {|f| Pathname.new(f).relative_path_from(local_package_path).to_s },
+        'srv_files' => srv_files.map {|f| Pathname.new(f).relative_path_from(local_package_path).to_s },
+        'wiki' => {'exists'=>false}
+      }
+
+    rescue REXML::ParseException => e
+      @errors[repo.name] << IndexException.new("Failed to parse package manifest: " + e.to_s)
+      return nil
+    end
+
+    return package_info
+  end
+
   def find_packages(site, distro, repo, snapshot, local_path)
 
     data = snapshot.data
@@ -198,183 +380,31 @@ class Indexer < Jekyll::Generator
           Find.prune
         end
 
-        begin
-          # check for package.xml in this directory
-          package_xml_path = File.join(path,'package.xml')
-          manifest_xml_path = File.join(path,'manifest.xml')
-          stack_xml_path = File.join(path,'stack.xml')
+        # check for package.xml in this directory
+        package_xml_path = File.join(path,'package.xml')
+        manifest_xml_path = File.join(path,'manifest.xml')
+        stack_xml_path = File.join(path,'stack.xml')
 
-          if File.exist?(package_xml_path)
-            manifest_xml = IO.read(package_xml_path)
-            pkg_type = 'catkin'
-
-            # read the package manifest
-            manifest_doc = REXML::Document.new(manifest_xml)
-            package_name = REXML::XPath.first(manifest_doc, "/package/name/text()").to_s.rstrip.lstrip
-            version = REXML::XPath.first(manifest_doc, "/package/version/text()").to_s
-
-            # get dependencies
-            deps = REXML::XPath.each(manifest_doc, "/package/build_depend/text() | /package/run_depend/text() | package/depend/text()").map { |a| a.to_s }.uniq
-
-            # determine which deps are packages or system deps
-            pkg_deps = {}
-            system_deps = {}
-
-            deps.each do |dep_name|
-              if @rosdeps_full.key?(dep_name)
-                system_deps[dep_name] = nil
-              else
-                pkg_deps[dep_name] = nil
-              end
-            end
-
-          elsif File.exist?(manifest_xml_path)
-            manifest_xml = IO.read(manifest_xml_path)
-            pkg_type = 'rosbuild'
-
-            # check for a stack.xml file
-            if File.exist?(stack_xml_path)
-              stack_xml = IO.read(stack_xml_path)
-              stack_doc = REXML::Document.new(stack_xml)
-              package_name = REXML::XPath.first(stack_doc, "/stack/name/text()").to_s
-              if package_name.length == 0
-                package_name = File.basename(File.join(path))
-              end
-              version = REXML::XPath.first(stack_doc, "/stack/version/text()").to_s
-            else
-              package_name = File.basename(File.join(path))
-              version = "UNKNOWN"
-            end
-
-            # read the package manifest
-            manifest_doc = REXML::Document.new(manifest_xml)
-
-            # get dependencies
-            pkg_deps = Hash[*REXML::XPath.each(manifest_doc, "/package/depend/@package").map { |a| a.to_s }.uniq.collect {|d| [d, nil]}.flatten]
-            system_deps = Hash[*REXML::XPath.each(manifest_doc, "/package/rosdep/@name").map { |a| a.to_s }.uniq.collect {|d| [d, nil]}.flatten]
-          else
-            next
-          end
-
-          dputs " ---- Found #{pkg_type} package \"#{package_name}\" in path #{path}"
-
-          # extract manifest metadata (same for manifest.xml and package.xml)
-          license = REXML::XPath.first(manifest_doc, "/package/license/text()").to_s
-          description = REXML::XPath.first(manifest_doc, "/package/description/text()").to_s
-          maintainers = REXML::XPath.each(manifest_doc, "/package/maintainer/text()").map { |m| m.to_s.sub('@', ' <AT> ') }
-          authors = REXML::XPath.each(manifest_doc, "/package/author/text()").map { |a| a.to_s.sub('@', ' <AT> ') }
-          urls = REXML::XPath.each(manifest_doc, "/package/url").map { |elem|
-            {
-              'uri' => elem.text.to_s,
-              'type' => (elem.attributes['type'] or 'Website').to_s,
-            }
-          }
-
-          # extract other standard exports
-          deprecated = REXML::XPath.first(manifest_doc, "/package/export/deprecated/text()").to_s
-
-          # extract rosindex exports
-          tags = REXML::XPath.each(manifest_doc, "/package/export/rosindex/tags/tag/text()").map { |t| t.to_s }
-          nodes = REXML::XPath.each(manifest_doc, "/package/export/rosindex/nodes").map { |nodes|
-            case nodes.attributes["format"]
-            when "hdf"
-              get_hdf(nodes.text)
-            else
-              REXML::XPath.each(manifest_doc, "/package/export/rosindex/nodes/node").map { |node|
-                {
-                  'name' => REXML::XPath.first(node,'/name/text()').to_s,
-                  'description' => REXML::XPath.first(node,'/description/text()').to_s,
-                  'ros_api' => get_ros_api(REXML::XPath.first(node,'/description/api'))
-                }
-              }
-            end
-          }
-
-          # compute the relative path from the root of the repo to this directory
-          relpath = Pathname.new(File.join(*path)).relative_path_from(Pathname.new(local_path))
-          local_package_path = Pathname.new(path)
-
-          # extract package manifest info
-          raw_uri = File.join(data['raw_uri'], relpath)
-          browse_uri = File.join(data['browse_uri'], relpath)
-
-          # check for readme in same directory as package.xml
-          readme_rendered, readme = get_readme(site, path, raw_uri)
-          changelog_rendered, changelog = get_changelog(site, path, raw_uri)
-
-          # TODO
-          # look for launchfiles in this package
-          launch_files = Dir[File.join(path,'**','*.launch')]
-          launch_files += Dir[File.join(path,'**','*.xml')].reject do |f|
-            begin
-              REXML::Document.new(IO.read(f)).root.name != 'launch'
-            rescue Exception => e
-              true
-            end
-          end
-          # look for message files in this package
-          msg_files = Dir[File.join(path,'**','*.msg')]
-          # look for service files in this package
-          srv_files = Dir[File.join(path,'**','*.srv')]
-          # look for plugin descriptions in this package
-          plugin_data = REXML::XPath.each(manifest_doc, '//export/*[@plugin]').map {|e| {'name'=>e.name, 'file'=>e.attributes['plugin'].sub('${prefix}','')}}
-
-
-          launch_data = []
-          launch_data = launch_files.map do |f|
-            relative_path = Pathname.new(f).relative_path_from(local_package_path).to_s
-            begin
-              parse_launch_file(f, relative_path)
-            rescue Exception => e
-              @errors[repo.name] << IndexException.new("Failed to parse launchfile #{relative_path}: " + e.to_s)
-            end
-          end
-
-          package_info = {
-            'name' => package_name,
-            'pkg_type' => pkg_type,
-            'distro' => distro,
-            'raw_uri' => raw_uri,
-            'browse_uri' => browse_uri,
-            # required package info
-            'version' => version,
-            'license' => license,
-            'description' => description,
-            'maintainers' => maintainers,
-            # optional package info
-            'authors' => authors,
-            'urls' => urls,
-            # dependencies
-            'pkg_deps' => pkg_deps,
-            'system_deps' => system_deps,
-            'dependants' => {},
-            # exports
-            'deprecated' => deprecated,
-            # rosindex metadata
-            'tags' => tags,
-            'nodes' => nodes,
-            # readme
-            'readme' => readme,
-            'readme_rendered' => readme_rendered,
-            # changelog
-            'changelog' => changelog,
-            'changelog_rendered' => changelog_rendered,
-            # assets
-            'launch_data' => launch_data,
-            'plugin_data' => plugin_data,
-            'msg_files' => msg_files.map {|f| Pathname.new(f).relative_path_from(local_package_path).to_s },
-            'srv_files' => srv_files.map {|f| Pathname.new(f).relative_path_from(local_package_path).to_s },
-            'wiki' => {'exists'=>false}
-          }
-
-          dputs " -- adding package " << package_name
-          packages[package_name] = package_info
-        rescue REXML::ParseException => e
-          @errors[repo.name] << IndexException.new("Failed to parse package manifest: " + e.to_s)
+        if File.exist?(package_xml_path)
+          manifest_xml = IO.read(package_xml_path)
+          pkg_type = 'catkin'
+        elsif File.exist?(manifest_xml_path)
+          manifest_xml = IO.read(manifest_xml_path)
+          pkg_type = 'rosbuild'
+        else
+          next
         end
 
-        # stop searching a directory after finding a package
-        Find.prune
+        # Try to extract a package from this path
+        package_info = extract_package(site, distro, repo, snapshot, local_path, path, pkg_type, manifest_xml)
+
+        unless package_info.nil?
+          packages[package_info['name']] = package_info
+          dputs " -- added package " << package_info['name']
+
+          # stop searching a directory after finding a package
+          Find.prune
+        end
       end
     end
 
@@ -405,8 +435,19 @@ class Indexer < Jekyll::Generator
       vcs.local_path,
       data['raw_uri'])
 
+    unless repo.release_manifests[distro].nil?
+      package_info = extract_package(site, distro, repo, snapshot, vcs.local_path, vcs.local_path, 'catkin', repo.release_manifests[distro])
+      packages = {package_info['name'] => package_info}
+    else
+      packages = find_packages(site, distro, repo, snapshot, vcs.local_path)
+    end
+
     # get all packages from the repo
-    packages = find_packages(site, distro, repo, snapshot, vcs.local_path)
+    # TODO: check if the repo has a release manifest for this distro, and in
+    # that case, use that file for package info
+    # TODO: split `find_packages` out into two functions:
+    #   find_packages (get a list of all package paths in this repo)
+    #   scrape_package (extract info from this package) (maybe just move this into the loop below)
 
     # add the discovered packages to the index
     packages.each do |package_name, package_data|
@@ -452,6 +493,8 @@ class Indexer < Jekyll::Generator
     end
     if (vcs.nil? or not vcs.valid?) then return end
 
+    some_version_found = false
+
     # get versions suitable for checkout for each distro
     repo.snapshots.each do |distro, snapshot|
 
@@ -467,7 +510,7 @@ class Indexer < Jekyll::Generator
       begin
         # get the version
         unless explicit_version.nil?
-          puts (" Looking for explicit version #{explicit_version}").green
+          dputs (" Looking for explicit version #{explicit_version}").green
         end
         version, snapshot.version = vcs.get_version(distro, explicit_version)
 
@@ -483,6 +526,7 @@ class Indexer < Jekyll::Generator
             puts (" --- ignoring version for " << repo.name).yellow
             snapshot.version = nil
           else
+            some_version_found = true
             scrape_version(site, repo, distro, snapshot, vcs)
           end
         else
@@ -492,6 +536,12 @@ class Indexer < Jekyll::Generator
         @errors[repo.name] << IndexException.new("Could not find version for distro #{distro}: "+e.msg, repo.id)
         repo.errors << e.msg
       end
+    end
+
+    if not some_version_found
+      msg = "Could not find any valid version."
+      @errors[repo.name] << IndexException.new(msg, repo.id)
+      repo.errors << (repo.id+': '+msg)
     end
 
   end
@@ -688,6 +738,20 @@ class Indexer < Jekyll::Generator
     return rosdeps_sorted
   end
 
+  def write_release_manifests(site, repo, package_name, default)
+    $all_distros.each do |distro|
+      unless repo.release_manifests[distro].nil?
+        manifest_path = File.join('p', package_name, unless default then repo.id else '' end, distro)
+        dest_manifest_path = File.join(site.dest,manifest_path)
+
+        unless File.exists?(dest_manifest_path) or File.directory?(dest_manifest_path) then FileUtils.mkdir_p(dest_manifest_path) end
+
+        IO.write(File.join(dest_manifest_path,'package.xml'), repo.release_manifests[distro])
+        site.static_files << PackageManifestFile.new(site, site.dest, '/'+manifest_path, 'package.xml')
+      end
+    end
+  end
+
   def generate(site)
 
     # create the checkout path if necessary
@@ -772,15 +836,19 @@ class Indexer < Jekyll::Generator
           distro_data = YAML.load_file(rosdistro_filename)
           distro_data['repositories'].each do |repo_name, repo_data|
 
+            unless (site.config['repo_name_whitelist'].length == 0 or site.config['repo_name_whitelist'].include?(repo_name)) then next end
+
             begin
               # limit repos if requested
               if not @repo_names.has_key?(repo_name) and site.config['max_repos'] > 0 and @repo_names.length > site.config['max_repos'] then next end
 
-              puts " - "+repo_name
+              dputs " - "+repo_name
 
               source_uri = nil
               source_version = nil
               source_type = nil
+              release_manifest_xml = nil
+              release_version = nil
 
               # only index if it has a source repo
               if repo_data.has_key?('source')
@@ -805,7 +873,12 @@ class Indexer < Jekyll::Generator
                   begin
                     # clone the release repo
                     release_vcs = GIT.new(release_repo_path, release_uri)
-                    release_vcs.fetch()
+
+                    begin
+                      release_vcs.fetch()
+                    rescue VCSException => e
+
+                    end
 
                     # get the tracks file
                     ['master','bloom'].each do |branch_name|
@@ -818,7 +891,13 @@ class Indexer < Jekyll::Generator
                       begin
                         # get the tracks file
                         tracks_file = YAML.load_file(File.join(release_repo_path,'tracks.yaml'))
-                        break
+                        # get package manifest files (if any)
+                        release_manifest_path = Dir[File.join(release_repo_path,distro,'package.xml')].first
+                        unless release_manifest_path.nil?
+                          release_manifest_xml = IO.read(release_manifest_path)
+                        end
+
+                        unless tracks_file.nil? then break end
                       rescue
                         next
                       end
@@ -826,6 +905,8 @@ class Indexer < Jekyll::Generator
 
                     # too many open files if we don't do this
                     release_vcs.close()
+
+                    break
                   rescue VCSException => e
                     puts ("Failed to communicate with release repo after #{attempt} attempt(s)").yellow
                     if attempt == 3
@@ -842,8 +923,21 @@ class Indexer < Jekyll::Generator
                   if track['ros_distro'] == distro
                     source_uri = track['vcs_uri']
                     source_type = track['vcs_type']
-                    source_version = track['last_version']
-                    break
+                    # prefer devel branch if available
+                    if not track['devel_branch'].nil?
+                      source_version = track['devel_branch'].strip
+                    elsif not track['release_tag'].nil? and not track['last_version'].nil?
+                      source_version = track['release_tag'].to_s.strip
+                      # NOTE: when ruby loads yaml, it turns "foo: :{bar}" into {'foo'=>:"bar"} and "foo: v:{bar}" into {'foo'=>'v:{bar}'}
+                      source_version.gsub!(':{version}',track['last_version'].to_s)
+                      source_version.gsub!('{version}',track['last_version'].to_s)
+                    elsif not track['last_version'].nil?
+                      source_version = track['last_version'].to_s
+                    end
+                    release_version = track['last_version'].to_s.strip
+                    unless source_uri.nil? or source_type.nil? or source_version.nil?
+                      break
+                    end
                   end
                 end
 
@@ -882,6 +976,12 @@ class Indexer < Jekyll::Generator
               # add the specific version from this instance
               repo.snapshots[distro] = RepoSnapshot.new(source_version, distro, repo_data.key?('release'), true)
 
+              # add the release manifest, if found
+              unless release_manifest_xml.nil?
+                release_manifest_xml.gsub!(':{version}',(release_version or '0.0.0'))
+              end
+              repo.release_manifests[distro] = release_manifest_xml
+
               # store this repo in the name index
               @repo_names[repo.name].instances[repo.id] = repo
               @repo_names[repo.name].default = repo
@@ -916,6 +1016,7 @@ class Indexer < Jekyll::Generator
 
                 # limit number of repos indexed if in devel mode
                 if not @repo_names.has_key?(repo_name) and site.config['max_repos'] > 0 and @repo_names.length > site.config['max_repos'] then next end
+                unless (site.config['repo_name_whitelist'].length == 0 or site.config['repo_name_whitelist'].include?(repo_name)) then next end
 
                 puts " - #{repo_name}"
 
@@ -1028,25 +1129,32 @@ class Indexer < Jekyll::Generator
 
     # scrape all the repos
     unless @skip_scrape
-      puts "Scraping known repos..."
+      n_scraped = 0
+      n_total = @all_repos.length
+      puts "Scraping #{n_total} known repos..."
       @all_repos.to_a.sort_by{|repo_id, repo| repo.name}.each do |repo_id, repo|
+        unless (site.config['repo_name_whitelist'].length == 0 or site.config['repo_name_whitelist'].include?(repo.name)) then next end
         if site.config['repo_id_whitelist'].size == 0 or site.config['repo_id_whitelist'].include?(repo.id)
 
-          puts "Scraping " << repo.id << "..."
+          puts "[%05.2f%%] Scraping #{repo.id}..." % (n_scraped/n_total.to_f*100.0)
           begin
             scrape_repo(site, repo)
           rescue IndexException => e
             @errors[repo.name] << e
             repo.errors << e.msg
           end
+          n_scraped = n_scraped + 1
         end
       end
     end
 
-    # backup the current db if it exists
-    if File.exist?(@db_cache_filename) then FileUtils.mv(@db_cache_filename, @db_cache_filename+'.bak') end
-    # save scraped data into the cache db
-    File.open(@db_cache_filename, 'w') {|f| f.write(Marshal.dump(@db)) }
+
+    if site.config['use_db_cache']
+      # backup the current db if it exists
+      if File.exist?(@db_cache_filename) then FileUtils.mv(@db_cache_filename, @db_cache_filename+'.bak') end
+      # save scraped data into the cache db
+      File.open(@db_cache_filename, 'w') {|f| f.write(Marshal.dump(@db)) }
+    end
 
     # compute post-scrape details
     # TODO: check for missing deps or just leave them as nil?
@@ -1093,7 +1201,7 @@ class Indexer < Jekyll::Generator
     @repo_names.each do |repo_name, repo_instances|
 
       # create the repo pages
-      puts " - creating pages for repo "+repo_name+"..."
+      dputs " - creating pages for repo "+repo_name+"..."
 
       # create a list of instances for this repo
       site.pages << RepoInstancesPage.new(site, repo_instances)
@@ -1125,6 +1233,12 @@ class Indexer < Jekyll::Generator
       package_instances.instances.each do |instance_id, instance|
         dputs "Generating page for package " << package_name << " instance " << instance_id << "..."
         site.pages << PackageInstancePage.new(site, package_instances, instance, package_name)
+
+        repo = @all_repos[instance_id]
+        write_release_manifests(site, repo, package_name, false)
+        if @repo_names[repo.name].default.id == repo.id
+          write_release_manifests(site, repo, package_name, true)
+        end
       end
     end
 
