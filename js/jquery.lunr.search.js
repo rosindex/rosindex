@@ -13,7 +13,7 @@
 
       timeout = setTimeout(function () {
         fn.apply(ctx, args);
-      }, 100);
+      }, 300);
     };
   };
 
