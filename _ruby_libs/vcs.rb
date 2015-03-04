@@ -187,7 +187,11 @@ class GIT < VCS
       if branch.name == 'git-svn' then next end
 
       # get the branch shortname
-      branch_name = branch.name.split('/')[-1]
+      if explicit_version and explicit_version.split('/').size > 1
+        branch_name = branch.name.split('/').drop(1).join("/")
+      else
+        branch_name = branch.name.split('/')[-1]
+      end
 
       # detached branches are those checked out by the system but not given names
       if branch.name.include? 'detached' then next end
