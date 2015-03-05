@@ -12,7 +12,7 @@ and uses client-side javascript for quick searching and visualization.
 * [Development](http://rosindex.github.io/about/development)
 * [Contribute](http://rosindex.github.io/contribute)
 
-[![Stories in Ready](https://badge.waffle.io/rosindex/rosindex.svg?label=ready&title=Ready)](http://waffle.io/rosindex/rosindex.github.io)
+[![Stories in Ready](https://badge.waffle.io/rosindex/rosindex.svg?label=ready&title=Ready)](http://waffle.io/rosindex/rosindex)
 
 ## Building
 
