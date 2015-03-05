@@ -53,6 +53,7 @@ repo_id_whitelist: []
 # domains which are broken
 domain_blacklist:
   - 'kforge.ros.org'
+  - 'code.in.tum.de'
   #- 'devel.iri.upc.edu'
 
 exclude:

@@ -154,29 +154,36 @@ class GIT < VCS
     if explicit_version == 'REMOTE_HEAD'
       sha = nil
 
-      @r.branches.each() do |branch|
-        if branch.remote.nil? then next end
-        #puts branch.remote.ls.to_a.inspect
-        branch.remote.ls.each do |remote_ref|
-          #puts remote_ref.inspect
-          if remote_ref[:local?] == false and remote_ref[:name] == 'HEAD'
-            sha = remote_ref[:oid]
-            break
+      begin
+        @r.branches.each() do |branch|
+          if branch.remote.nil? then next end
+          #puts branch.remote.ls.to_a.inspect
+          branch.remote.ls.each do |remote_ref|
+            #puts remote_ref.inspect
+            if remote_ref[:local?] == false and remote_ref[:name] == 'HEAD'
+              sha = remote_ref[:oid]
+              break
+            end
           end
         end
+
+        unless sha.nil?
+          @r.branches.each() do |branch|
+            #puts "name: #{branch.name}"
+            #puts "oid: #{branch.target.oid}"
+            if branch.target.oid == sha
+              branch_name = branch.name.split('/')[-1]
+              #dputs "Using branch '#{branch_name}' ('#{branch.name}')"
+              return branch, branch_name # remote_ref[:oid]
+            end
+          end
+        end
+      rescue
       end
 
-      unless sha.nil?
-        @r.branches.each() do |branch|
-          #puts "name: #{branch.name}"
-          #puts "oid: #{branch.target.oid}"
-          if branch.target.oid == sha
-            branch_name = branch.name.split('/')[-1]
-            #dputs "Using branch '#{branch_name}' ('#{branch.name}')"
-            return branch, branch_name # remote_ref[:oid]
-          end
-        end
-      end
+      #if @r.branches['master']
+        #return @r.branches['master'], 'master'
+      #end
 
       raise VCSException.new('Could not determine REMOTE HEAD for git repository.')
     end
