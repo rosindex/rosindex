@@ -303,7 +303,12 @@ class SearchIndexFile < Jekyll::StaticFile
 end
 
 class PackageManifestFile < Jekyll::StaticFile
-  # Override write as the search.json index file has already been created
+  def write(dest)
+    true
+  end
+end
+
+class ReportFile < Jekyll::StaticFile
   def write(dest)
     true
   end

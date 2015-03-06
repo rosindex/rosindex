@@ -142,7 +142,7 @@ class Indexer < Jekyll::Generator
           next
         end
 
-        puts "Updating repo / instance "+repo.name+" / "+repo.id
+        puts "Updating repo / instance "+repo.name+" / "+repo.id+" from uri: "+repo.uri
 
         # open or initialize this repo
         local_path = File.join(@checkout_path, repo_instances.name, id)
@@ -215,7 +215,7 @@ class Indexer < Jekyll::Generator
         system_deps = {}
 
         deps.each do |dep_name|
-          if @rosdeps_full.key?(dep_name)
+          if @rosdeps.key?(dep_name)
             system_deps[dep_name] = nil
           else
             pkg_deps[dep_name] = nil
@@ -563,64 +563,16 @@ class Indexer < Jekyll::Generator
   end
 
   def load_rosdeps(rosdistro_path, platforms, package_manager_names)
+    # this returns 
     # see here for parsing this thing: http://www.ros.org/reps/rep-0111.html
-    #
-    # #### VERSION A ####
-    #
-    # ROSDEP-KEY:
-    #   PLATFORM: array-of-deps
-    #
-    # #### VERSION B ####
-    #
-    # ROSDEP-KEY:
-    #   PLATFORM:
-    #     VERSION: array-of-deps
-    #
-    # #### VERSION C ####
-    #
-    # ROSDEP-KEY:
-    #   PLATFORM:
-    #     VERSION:
-    #       MANAGER: array-of-deps
-    #
-    # #### VERSION D ####
-    #
-    # ROSDEP-KEY:
-    #   PLATFORM:
-    #     VERSION:
-    #       MANAGER:
-    #         packages: array-of-deps
-    #
-    # #### VERSION E... ugh ####
-    #
-    # ROSDEP-KEY:
-    #   PLATFORM:
-    #     MANAGER:
-    #       packages: array-of-deps
-    #
-    # #### VERSION FFFF... ugh ####
-    #
-    # ROSDEP-KEY:
-    #   PLATFORM:
-    #     VERSION:
-    #       packages: array-of-deps
-    #
-    # #### VERSION GFY... ugh ####
-    #
-    # ROSDEP-KEY:
-    #   MANAGER: array-of-deps
-    #
 
     rosdep_data = Hash.new
 
     manager_set = Set.new(package_manager_names)
 
-    rosdeps = []
-
     Dir.glob(File.join(rosdistro_path,'rosdep','*.yaml')) do |rosdep_filename|
       rosdep_yaml = YAML.load_file(rosdep_filename)
       rosdep_data = rosdep_data.deep_merge(rosdep_yaml)
-      rosdeps << rosdep_yaml
     end
 
     # update the platforms list
@@ -733,7 +685,7 @@ class Indexer < Jekyll::Generator
   def sort_rosdeps(site)
     rosdeps_sorted = {}
 
-    rosdeps_sorted['name'] = @rosdeps_full.sort_by { |name, details| name }
+    rosdeps_sorted['name'] = @rosdeps.sort_by { |name, details| name }
 
     return rosdeps_sorted
   end
@@ -749,6 +701,18 @@ class Indexer < Jekyll::Generator
         IO.write(File.join(dest_manifest_path,'package.xml'), repo.release_manifests[distro])
         site.static_files << PackageManifestFile.new(site, site.dest, '/'+manifest_path, 'package.xml')
       end
+    end
+  end
+
+  def strip_stopwords(text)
+    begin
+      text = text.encode('UTF-16', :undef => :replace, :invalid => :replace, :replace => "??").encode('UTF-8').split.delete_if() do |x|
+        t = x.downcase.gsub(/[^a-z']/, '')
+        t.length < @min_length || @stopwords.include?(t)
+      end.join(' ')
+    rescue ArgumentError
+      puts text.encode('UTF-16', :undef => :replace, :invalid => :replace, :replace => "??").encode('UTF-8')
+      throw
     end
   end
 
@@ -781,6 +745,8 @@ class Indexer < Jekyll::Generator
       @db = RosIndexDB.new
     end
 
+    # rosdeps
+    @rosdeps = @db.rosdeps
     # the global index of repos
     @all_repos = @db.all_repos
     # the list of repo instances by name
@@ -796,16 +762,12 @@ class Indexer < Jekyll::Generator
 
     # load rosdep data
     # TODO: check deps against this when generating pages
-    # TODO: generate page for each rosdep key (start with just the exact YAML dump)
-    @db.rosdeps = load_rosdeps(
+    raw_rosdeps = load_rosdeps(
       site.config['rosdistro_path'],
       site.config['platforms'],
       site.config['package_manager_names'].keys)
-    @rosdeps = @db.rosdeps
 
-    @rosdeps_full = {}
-
-    @rosdeps.each do |dep_name, dep_data|
+    raw_rosdeps.each do |dep_name, dep_data|
       platforms = site.config['platforms']
       manager_set = Set.new(site.config['package_manager_names'])
 
@@ -821,11 +783,13 @@ class Indexer < Jekyll::Generator
         end
       end
 
-      @rosdeps_full[dep_name] = full_dep_data
+      @rosdeps[dep_name] = full_dep_data
     end
 
     # get the repositories from the rosdistro files, rosdoc rosinstall files, and other sources
     unless @skip_discover
+
+      # read in rosdistro sources
       $all_distros.reverse_each do |distro|
 
         puts "processing rosdistro: "+distro
@@ -1103,6 +1067,54 @@ class Indexer < Jekyll::Generator
         end
       end
 
+      # add attic repos
+      attic_filename = site.config['attic_file']
+      # read in the repo data
+      attic_data = YAML.load_file(attic_filename)
+
+      attic_data.each do |repo_name, instances|
+        puts " - Adding repositories for " << repo_name
+
+        # add all the instances
+        instances.each do |id, instance|
+
+          # create a new repo structure for this remote
+          repo = Repo.new(
+            repo_name,
+            instance['type'],
+            instance['uri'],
+            'attic mirror',
+            @checkout_path)
+
+          repo.attic = true
+
+          uri = repo.uri
+
+          dputs " -- Added attic repo for " << repo.name << " instance: " << repo.id << " from uri " << repo.uri.to_s
+
+          # add distro versions for instance
+          $all_distros.each do |distro|
+
+            # get the explicit version identifier for this distro
+            explicit_version = if instance.fetch('distros',{})[distro] then instance['distros'][distro] else nil end
+
+            # add the specific version from this instance
+            repo.snapshots[distro].version = explicit_version
+            repo.snapshots[distro].released = false
+          end
+
+          # store this repo in the unique index
+          # note this will overwrite the mirrored repo
+          @all_repos[repo.id] = repo
+
+          # store this repo in the name index
+          @repo_names[repo.name].instances[repo.id] = repo
+          if instance['default'] or @repo_names[repo.name].default.nil?
+            @repo_names[repo.name].default = repo
+          end
+        end
+      end
+
       puts "Found " << @all_repos.length.to_s << " repositories corresponding to " << @repo_names.length.to_s << " repo identifiers."
     end
 
@@ -1156,6 +1168,27 @@ class Indexer < Jekyll::Generator
       File.open(@db_cache_filename, 'w') {|f| f.write(Marshal.dump(@db)) }
     end
 
+
+    puts "Generating update report...".blue
+
+    # read the old report
+    old_report = YAML.load(IO.read(site.config['report_filename']))
+
+    # write out the report and the diff
+    new_report = @db.get_report
+    report_yaml = new_report.to_yaml
+    report_filename = 'index_report.yaml'
+    File.open(File.join(site.dest, report_filename),'w') {|f| f.write(report_yaml) }
+    site.static_files << ReportFile.new(site, site.dest, "/", report_filename)
+    File.open(site.config['report_filename'],'w') {|f| f.write(report_yaml) }
+
+    report_diff = @db.diff_report(old_report, new_report)
+    report_yaml = report_diff.to_yaml
+    report_filename = 'index_report_diff.yaml'
+    File.open(File.join(site.dest, report_filename),'w') {|f| f.write(report_yaml) }
+    site.static_files << ReportFile.new(site, site.dest, "/", report_filename)
+    File.open(site.config['report_diff_filename'],'w') {|f| f.write(report_yaml) }
+
     # compute post-scrape details
     # TODO: check for missing deps or just leave them as nil?
     @repo_names.each do |repo_name, repo_instances|
@@ -1188,8 +1221,8 @@ class Indexer < Jekyll::Generator
             end
             # add rosdep details
             package_snapshot.data['system_deps'].keys.each do |dep_name|
-              if @rosdeps_full.key?(dep_name)
-                package_snapshot.data['system_deps'][dep_name] = @rosdeps_full[dep_name]
+              if @rosdeps.key?(dep_name)
+                package_snapshot.data['system_deps'][dep_name] = @rosdeps[dep_name]
               end
             end
           end
@@ -1257,12 +1290,12 @@ class Indexer < Jekyll::Generator
     # create rosdep list pages
     puts ("Generating rosdep list pages...").blue
 
-    @rosdeps_full.each do |dep_name, full_dep_data|
-      site.pages << DepPage.new(site, dep_name, @rosdeps[dep_name], full_dep_data)
+    @rosdeps.each do |dep_name, full_dep_data|
+      site.pages << DepPage.new(site, dep_name, raw_rosdeps[dep_name], full_dep_data)
     end
 
     rosdeps_sorted = sort_rosdeps(site)
-    generate_sorted_paginated(site, rosdeps_sorted, 'name', @rosdeps_full.length, site.config['packages_per_page'], DepListPage)
+    generate_sorted_paginated(site, rosdeps_sorted, 'name', @rosdeps.length, site.config['packages_per_page'], DepListPage)
 
 
     # create lunr index data
@@ -1358,15 +1391,4 @@ class Indexer < Jekyll::Generator
     site.pages << ErrorsPage.new(site, @errors)
   end
 
-  def strip_stopwords(text)
-    begin
-      text = text.encode('UTF-16', :undef => :replace, :invalid => :replace, :replace => "??").encode('UTF-8').split.delete_if() do |x|
-        t = x.downcase.gsub(/[^a-z']/, '')
-        t.length < @min_length || @stopwords.include?(t)
-      end.join(' ')
-    rescue ArgumentError
-      puts text.encode('UTF-16', :undef => :replace, :invalid => :replace, :replace => "??").encode('UTF-8')
-      throw
-    end
-  end
 end

@@ -45,8 +45,8 @@ end
 
 class Repo < Liquid::Drop
   # This represents a remote repository
-  attr_accessor :name, :id, :uri, :accessible, :errors, :purpose, :snapshots, :tags, :type, :status, :local_path, :local_name, :release_manifests
-  def initialize(name, type, uri, purpose, checkout_path)
+  attr_accessor :name, :id, :uri, :accessible, :errors, :purpose, :snapshots, :tags, :type, :status, :local_path, :local_name, :release_manifests, :attic
+  def initialize(name, type, uri, purpose, checkout_path, id = nil)
     # non-unique identifier for this repo
     @name = name
 
@@ -54,7 +54,7 @@ class Repo < Liquid::Drop
     @uri = cleanup_uri(uri)
 
     # unique identifier
-    @id = get_id(@uri)
+    @id = if id then id else get_id(@uri) end
 
     # the version control system type
     @type = type
@@ -87,6 +87,9 @@ class Repo < Liquid::Drop
     # release manifests
     # hash distro -> manifest xml data
     @release_manifests = {}
+
+    # whether this repo is in the attic
+    @attic = false
   end
 end
 
@@ -131,7 +134,7 @@ class RosIndexDB
   attr_accessor :rosdeps, :all_repos, :repo_names, :package_names, :errors
   def initialize
     # the rosdep db
-    @rosdeps = []
+    @rosdeps = Hash.new
     # the global index of repos
     @all_repos = Hash.new
     # the list of repo instances by name
@@ -142,6 +145,74 @@ class RosIndexDB
     @errors = Hash.new
 
     self.add_procs
+  end
+
+  def get_report
+    report = {
+      'rosdeps'=>@rosdeps,
+      'repos'=>{},
+      'repo_instances'=>{},
+      'packages'=>{}
+    }
+
+    @repo_names.each do |repo_name, details|
+      report['repos'][repo_name] = {
+        'instances' => details.instances.keys
+      }
+
+      details.instances.each do |instance_id, repo|
+        instance_report = {
+          'uri' => repo.uri,
+          'type' => repo.type,
+          'local_name' => repo.local_name,
+          'versions' => Hash[repo.snapshots.map{|distro, snapshot| [distro, snapshot.version.to_s]}]
+        }
+
+        report['repo_instances'][instance_id] = instance_report
+      end
+    end
+
+    @package_names.each do |package_name, package_instances|
+      report['packages'][package_name] = package_instances.instances.keys
+    end
+
+    return report
+  end
+
+  def diff_report(old_report, new_report)
+    return {
+      'adds' => report_adds(old_report, new_report),
+      'dels' => report_adds(new_report, old_report),
+      'mods' => report_mods(old_report, new_report)
+    }
+  end
+
+  def report_adds(from_report, to_report)
+    adds = {}
+    from_report.each do |category, data|
+      adds[category] = []
+      to_report[category].each do |k,v|
+        if not from_report[category].key?(k)
+          adds[category] << k
+        end
+      end
+    end
+
+    return adds
+  end
+
+  def report_mods(from_report, to_report)
+    mods = {}
+    from_report.each do |category, data|
+      mods[category] = []
+      to_report[category].each do |k,v|
+        if from_report[category].key?(k) and from_report[category][k] != to_report[category][k]
+          mods[category] << k
+        end
+      end
+    end
+
+    return mods
   end
 
   def add_procs
@@ -159,11 +230,11 @@ class RosIndexDB
   end
 
   def marshal_dump
-    [Hash[@all_repos], Hash[@repo_names], Hash[@package_names], Hash[@errors]]
+    [Hash[@rosdeps], Hash[@all_repos], Hash[@repo_names], Hash[@package_names], Hash[@errors]]
   end
 
   def marshal_load array
-    @all_repos, @repo_names, @package_names, @errors = array
+    @rosdeps, @all_repos, @repo_names, @package_names, @errors = array
     self.add_procs
   end
 end

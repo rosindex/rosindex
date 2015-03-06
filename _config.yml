@@ -31,6 +31,9 @@ highlighter: pygments
 # If true, this begins with an existing db
 use_db_cache: false
 db_cache_filename: _caches/_deploy_cache.db
+report_filename: _caches/_deploy_index_report.yaml
+report_diff_filename: _caches/_deploy_index_report_diff.yaml
+debbuild_release_path: _caches/debbuild_releases
 wiki_title_index_filename: _caches/ros_org_wiki_title_index.txt
 
 # If true, this skips finding repos based on the repo sources
@@ -75,6 +78,7 @@ exclude:
 
 rosdistro_path: _rosdistro
 repos_path: _rosforks/repos
+attic_file: _rosforks/attic.yaml
 index_old_doc_paths: false
 
 # ROS distros to look for
