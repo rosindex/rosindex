@@ -24,10 +24,15 @@ end
 # Renders markdown to html (and apply some required tweaks)
 def render_md(site, readme)
   begin
-    mkconverter = site.getConverterImpl(Jekyll::Converters::Markdown)
+    # Get the markdown converter
+    mdconverter = if site.respond_to?(:find_converter_instance)
+                    site.find_converter_instance(Jekyll::Converters::Markdown)
+                  else
+                    site.getConverterImpl(Jekyll::Converters::Markdown)
+                  end
     readme.gsub! "```","\n```"
     readme.gsub! '```shell','```bash'
-    return mkconverter.convert(readme)
+    return mdconverter.convert(readme)
   rescue Exception =>e
     return 'Could not convert readme: <pre>'+e.to_s+'</pre>'
   end

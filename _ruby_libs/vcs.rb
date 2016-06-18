@@ -5,7 +5,7 @@ require 'uri'
 require 'typhoeus'
 require 'open3'
 
-require 'git'
+#require 'git'
 require 'rugged'
 require 'mercurial-ruby'
 

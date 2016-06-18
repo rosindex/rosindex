@@ -2,7 +2,7 @@
 
 desc 'Publishing the website via rsync'
 
-require 'git'
+#require 'git'
 
 task :default => [:devel]
 
@@ -32,7 +32,7 @@ namespace :serve do
 
   task :devel do
     puts "Serving local rosindex..."
-    sh "bundle exec jekyll serve --host 0.0.0.0 -w -d _devel --trace --config=_config.yml,_config_devel.yml --skip-initial-build"
+    sh "bundle exec jekyll serve --host 0.0.0.0 --no-watch -d _devel --trace --config=_config.yml,_config_devel.yml --skip-initial-build"
   end
 
 
