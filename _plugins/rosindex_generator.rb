@@ -1,3 +1,4 @@
+# encoding: UTF-8
 
 # NOTE: This whole file is one big hack. Don't judge.
 
@@ -125,7 +126,7 @@ class Indexer < Jekyll::Generator
     @min_length = lunr_config['min_length']
     @stopwords_file = lunr_config['stopwords']
     if File.exists?(@stopwords_file)
-      @stopwords = IO.readlines(@stopwords_file).map { |l| l.strip }
+      @stopwords = IO.readlines(@stopwords_file, :encoding=>'UTF-8').map { |l| l.strip }
     else
       @stopwords = []
     end
@@ -1178,7 +1179,12 @@ class Indexer < Jekyll::Generator
     new_report = @db.get_report
     report_yaml = new_report.to_yaml
     report_filename = 'index_report.yaml'
-    File.open(File.join(site.dest, report_filename),'w') {|f| f.write(report_yaml) }
+
+    if not File.directory?(site.dest)
+      Dir.mkdir(site.dest)
+    end
+
+    File.open(File.join(site.dest, report_filename),'w+') {|f| f.write(report_yaml) }
     site.static_files << ReportFile.new(site, site.dest, "/", report_filename)
     File.open(site.config['report_filename'],'w') {|f| f.write(report_yaml) }
 

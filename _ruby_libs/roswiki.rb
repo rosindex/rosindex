@@ -1,3 +1,4 @@
+# encoding: UTF-8
 
 TITLE_INDEX_URI="http://wiki.ros.org/?action=titleindex"
 
@@ -13,7 +14,7 @@ def parse_wiki_title_index(title_index_file)
 
   data = {}
 
-  title_index = IO.read(title_index_file)
+  title_index = IO.read(title_index_file, :encoding=>'UTF-8')
   title_index.each_line do |l| 
     tokens = l.rstrip().split('/')
     pkg_name = tokens[0]
