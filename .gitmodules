@@ -13,6 +13,3 @@
 [submodule "_rosforks"]
 	path = _rosforks
 	url = git@github.com:rosindex/rosforks.git
-[submodule "node_modules/lunr-index-build/node_modules/lunr"]
-	path = node_modules/lunr-index-build/node_modules/lunr
-	url = git@github.com:olivernn/lunr.js.git
