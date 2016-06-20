@@ -287,7 +287,7 @@ class StatsPage < Jekyll::Page
     $all_distros.each do |distro|
       activity = []
       all_repos.each do |id, repo|
-        if repo.snapshots[distro].data['last_commit_time'].nil? then next end
+        if repo.snapshots[distro].nil? or repo.snapshots[distro].data['last_commit_time'].nil? then next end
         activity << (now - DateTime.parse(repo.snapshots[distro].data['last_commit_time'])).to_f
       end
       self.data['distro_activity'][distro] = activity

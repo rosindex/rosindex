@@ -47,8 +47,8 @@ skip_scrape: false
 # If true, this skips generating the search index
 skip_search_index: false
 
-checkout_threads: 8
-checkout_path: "../_checkout"
+checkout_threads: 4
+checkout_path: "../checkout"
 
 # if non-empty, only scrape these packages (useful for debugging / partial db updates)
 repo_name_whitelist: []
@@ -89,6 +89,7 @@ index_old_doc_paths: false
 # drop-down list in the distro selector.
 #
 distros:
+  - 'kinetic'
   - 'jade'
   - 'indigo'
   - 'hydro'
@@ -179,6 +180,10 @@ platforms:
       utopic_python3: "Utopic (Python3)"
       vivid: ""
       vivid_python3: "Vivid (Python3)"
+      wily: ""
+      wily_python3: "Wily (Python3)"
+      xenial: ""
+      xenial_python3: "Xenial (Python3)"
 
 # These are the names of available package managers across all the
 # platforms
@@ -196,4 +201,4 @@ packages_per_page: 50
 repos_per_page: 50
 
 # uncomment the following line for testing (limit the number of indexed repos)
-max_repos: 00
+max_repos: 2

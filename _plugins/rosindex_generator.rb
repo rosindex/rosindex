@@ -1306,6 +1306,8 @@ class Indexer < Jekyll::Generator
 
     # create lunr index data
     unless site.config['skip_search_index']
+      puts ("Generating search index...").blue
+
       index = []
 
       @all_repos.each do |instance_id, repo|
@@ -1353,7 +1355,7 @@ class Indexer < Jekyll::Generator
       Dir::mkdir(site.dest) unless File.directory?(site.dest)
       index_filename = 'search.json'
 
-      File.open(File.join(site.dest, index_filename), "w") do |index_file|
+      File.open(File.join(site.dest, index_filename), "w+") do |index_file|
         index_file.write(index_json)
       end
 
@@ -1380,10 +1382,21 @@ class Indexer < Jekyll::Generator
       ].join(' ')
 
       puts ("Precompiling lunr index...").blue
-      spawn(
-        "#{lunr_cmd} #{lunr_index_fields}",
-        :in=>File.join(site.dest,index_filename),
-        :out=>[File.join(site.dest,'index.json'),"w"])
+
+      input_file = File.join(site.dest,index_filename)
+      output_file = File.join(site.dest,'index.json')
+      errput_file = File.join(site.dest,'index_errors')
+      full_cmd = "#{lunr_cmd} #{lunr_index_fields}"
+      puts ("Full lunr cmd: #{full_cmd} < #{input_file} > #{output_file}")
+
+      success = system(full_cmd,
+        :in=>input_file,
+        :out=>[output_file,"w"],
+        :err=>[errput_file,"w"])
+
+      if success != true
+        puts ("Could not generate lunr index!").red
+      end
 
       site.static_files << SearchIndexFile.new(site, site.dest, "/", "index.json")
     end

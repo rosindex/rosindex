@@ -5,7 +5,11 @@ require 'pandoc-ruby'
 
 # Converts RST to Markdown
 def rst_to_md(rst)
-  return PandocRuby.convert(rst, :from => :rst, :to => :markdown)
+  begin
+    return PandocRuby.convert(rst, :from => :rst, :to => :markdown)
+  rescue Exception => e
+    return "Could not convert RST to MD: "+e.to_s
+  end
 end
 
 # Modifies markdown image links so that they link to github user content
@@ -47,19 +51,19 @@ def get_md_rst_txt(site, path, glob, raw_uri)
   file_files.each do |file_path|
     case File.extname(file_path)
     when '.md'
-      file_md = IO.read(file_path)
+      file_md = IO.read(file_path, :encoding=>'utf-8')
     when '.rst'
-      file_rst = IO.read(file_path)
+      file_rst = IO.read(file_path, :encoding=>'utf-8')
       file_md = rst_to_md(file_rst)
     when ''
       if not File.directory?(file_path)
-        file_txt = IO.read(file_path)
+        file_txt = IO.read(file_path, :encoding=>'utf-8')
         file_md = "```\n" + file_txt + "\n```"
       else
         next
       end
     else
-      file_txt = IO.read(file_path)
+      file_txt = IO.read(file_path, :encoding=>'utf-8')
       file_md = "```\n" + file_txt + "\n```"
     end
     break

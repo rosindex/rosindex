@@ -267,7 +267,11 @@ class HG < VCS
   def fetch()
     # fetch the remote
     if self.valid?
-      @r.pull()
+      begin
+        @r.pull()
+      rescue Exception => e
+        raise VCSException.new("Could not pull hg repository at uri: " + @uri +": "+e.to_s)
+      end
     end
   end
 

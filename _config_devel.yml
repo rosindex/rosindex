@@ -18,10 +18,10 @@ skip_update: false
 # If true, this skips scraping the cloned repos
 skip_scrape: false
 # If true, this skips generating the search index
-skip_search_index: true
+skip_search_index: false
 
 checkout_threads: 1
-checkout_path: "../_checkout"
+checkout_path: "../checkout"
 
 # if non-empty, only scrape these packages (useful for debugging / partial db updates)
 scrape_whitelist: []
