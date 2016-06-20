@@ -1389,14 +1389,14 @@ class Indexer < Jekyll::Generator
       full_cmd = "#{lunr_cmd} #{lunr_index_fields}"
       puts ("Full lunr cmd: #{full_cmd} < #{input_file} > #{output_file}")
 
-      success = system(full_cmd,
+      pid = spawn(full_cmd,
         :in=>input_file,
-        :out=>[output_file,"w"],
-        :err=>[errput_file,"w"])
+        :out=>[output_file,"w"])
+      Process.waitpid(pid)
 
-      if success != true
-        puts ("Could not generate lunr index!").red
-      end
+      #if success != true
+        #puts ("Could not generate lunr index!").red
+      #end
 
       site.static_files << SearchIndexFile.new(site, site.dest, "/", "index.json")
     end
