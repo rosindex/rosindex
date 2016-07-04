@@ -202,3 +202,6 @@ repos_per_page: 50
 
 # uncomment the following line for testing (limit the number of indexed repos)
 max_repos: 00
+
+gems:
+  - jekyll-sitemap
