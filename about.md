@@ -34,4 +34,4 @@ want specific bugs fixed, but would rather contribute funds than modify the code
 don't hesitate to donate or pledge bounties on
 [BountySource](https://www.bountysource.com/teams/rosindex/issues).
 
-<a href="https://www.bountysource.com/teams/rosindex/issues" target="_blank" class="btn btn-success">Post a Bounty</a>
+<a href="https://salt.bountysource.com/teams/rosindex" target="_blank" class="btn btn-success">Support ROS Index on Bountysource!</a>
