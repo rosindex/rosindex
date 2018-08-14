@@ -1070,8 +1070,11 @@ class Indexer < Jekyll::Generator
 
       # add attic repos
       attic_filename = site.config['attic_file']
+      attic_data = {}
       # read in the repo data
-      attic_data = YAML.load_file(attic_filename)
+      if File.exists?(attic_filename)
+        attic_data = YAML.load_file(attic_filename)
+      end
 
       attic_data.each do |repo_name, instances|
         puts " - Adding repositories for " << repo_name
@@ -1138,7 +1141,10 @@ class Indexer < Jekyll::Generator
     end
 
     # Load wiki title index
-    @wiki_data = parse_wiki_title_index(site.config['wiki_title_index_filename'])
+    @wiki_data = {}
+    if File.exists?(site.config['wiki_title_index_filename'])
+      @wiki_data = parse_wiki_title_index(site.config['wiki_title_index_filename'])
+    end
 
     # scrape all the repos
     unless @skip_scrape
@@ -1173,7 +1179,11 @@ class Indexer < Jekyll::Generator
     puts "Generating update report...".blue
 
     # read the old report
-    old_report = YAML.load(IO.read(site.config['report_filename']))
+    old_report = {}
+    old_report_filename = site.config['report_filename']
+    if File.exists?(old_report_filename)
+      old_report = YAML.load(IO.read(old_report_filename))
+    end
 
     # write out the report and the diff
     new_report = @db.get_report
@@ -1188,12 +1198,14 @@ class Indexer < Jekyll::Generator
     site.static_files << ReportFile.new(site, site.dest, "/", report_filename)
     File.open(site.config['report_filename'],'w') {|f| f.write(report_yaml) }
 
-    report_diff = @db.diff_report(old_report, new_report)
-    report_yaml = report_diff.to_yaml
-    report_filename = 'index_report_diff.yaml'
-    File.open(File.join(site.dest, report_filename),'w') {|f| f.write(report_yaml) }
-    site.static_files << ReportFile.new(site, site.dest, "/", report_filename)
-    File.open(site.config['report_diff_filename'],'w') {|f| f.write(report_yaml) }
+    if not old_report.empty?
+      report_diff = @db.diff_report(old_report, new_report)
+      report_yaml = report_diff.to_yaml
+      report_filename = 'index_report_diff.yaml'
+      File.open(File.join(site.dest, report_filename),'w') {|f| f.write(report_yaml) }
+      site.static_files << ReportFile.new(site, site.dest, "/", report_filename)
+      File.open(site.config['report_diff_filename'],'w') {|f| f.write(report_yaml) }
+    end
 
     # compute post-scrape details
     # TODO: check for missing deps or just leave them as nil?
